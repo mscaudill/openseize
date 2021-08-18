@@ -2,11 +2,6 @@ import numpy as np
 
 from openseize import headers
 
-class EDFRecord:
-    """ """
-
-    pass
-
 class EDF:
     """
 
