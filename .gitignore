@@ -1,0 +1,24 @@
+# Compiled code
+*.pyc
+*.json
+*.pkl
+*.png
+*.swp
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+#sandbox
+sandbox/
+
+#Deprecated
+__depr__/
+
+# C extensions
+*.so
+
+# ipython nb checkpoints
+*.ipynb_checkpoints
+
