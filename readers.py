@@ -42,13 +42,15 @@ class EDF:
         return signals
 
     @property
-    def rates(self):
-        """Returns the sampling rates of the channels."""
+    def record_map(self):
+        """Returns a list slice objects for each signal in a record."""
 
-        res = self.header.samples_per_record / self.header.record_duration
-        return [res[ch] for ch in self.channels]
+        spr = self.header.samples_per_record.copy()
+        spr.insert(0,0)
+        cum_spr = np.cumsum(spr)
+        return list(slice(a, b) for (a, b) in zip(cum_spr, cum_spr[1:]))
 
-    def transform(self, arr):
+    def transform(self, arr, axis=-1):
         """Linearly transforms an integer array fetched from this EDF.
 
         The physical values p are linearly mapped from the digital values d:
@@ -57,75 +59,80 @@ class EDF:
         """
         #FIXME I may need to operate in-place
 
-        pmaxes = np.array(self.header.physical_max)
-        pmins = np.array(self.header.physical_min)
-        dmaxes = np.array(self.header.digital_max)
-        dmins = np.array(self.header.digital_min)
-        slopes = ((pmaxes - pmins) / (dmaxes - dmins))[self.channels]
-        offsets = (pmins - slopes * dmins)[self.channels]
+        pmaxes = np.array(self.header.physical_max)[self.channels]
+        pmins = np.array(self.header.physical_min)[self.channels]
+        dmaxes = np.array(self.header.digital_max)[self.channels]
+        dmins = np.array(self.header.digital_min)[self.channels]
+        slopes = (pmaxes - pmins) / (dmaxes - dmins)
+        offsets = (pmins - slopes * dmins)
+        #expand for array broadcast
+        slopes = np.expand_dims(slopes, axis=axis)
+        offsets = np.expand_dims(offsets, axis=axis)
         #apply to input arr along axis
         return arr * slopes + offsets
     
     def records(self, start, stop):
-        """Returns tuples of start, stop records for each channel that
-        includes the start, stop samples.
+        """Returns a tuple of start, stop record numbers that include the
+        start, stop sample numbers.
 
         Args:
             start (int):                start of sample range to read
             stop (int):                 stop of sample range to read
         """
 
-        spr = np.array(self.header.samples_per_record)[self.channels]
+        spr = np.array(self.header.samples_per_record)
         starts = start // spr
         stops = np.ceil(stop / spr).astype('int')
         return list(zip(starts, stops))
 
-    def bytevector(self, start_rec, stop_rec):
-        """Returns a tuple with byte offset and num of samples to read that
-        include the start and stop records.
+    def records_to_bytes(self, start, stop):
+        """Converts a range of record numbers to a tuple of byte-offset and
+        number of samples to read.
 
         Args:
-            start_rec (int):            start record number 
-            stop_rec (int):             stop record number
+            start (int):                start of record range to convert
+            stop (int):                 stop of record range to convert
         """
 
-        nrecords = stop_rec - start_rec
-        #get the start of the data section of this EDF
-        data_start = self.header.header_bytes
-        #get the number of bytes in a record (2 bytes per sample)
-        bytes_per_record = sum(self.header.samples_per_record) * 2
-        #return byte offset and samples to read
-        offset = data_start + start_rec * bytes_per_record
-        nsamples = nrecords * sum(self.header.samples_per_record)
+        cnt = stop - start
+        #get start of records sec of this EDF and bytes per record
+        records_start = self.header.header_bytes
+        samples_per_record = sum(self.header.samples_per_record)
+        bytes_per_record = samples_per_record * 2
+        #return offset in bytes & num samples spanning start to stop
+        offset = records_start + start * bytes_per_record
+        nsamples = cnt * samples_per_record
         return offset, nsamples
-
-    def reshaper(self, flattened):
-        """ """
-
-        num_recs = len(flattened) // sum(self.header.samples_per_record)
-        num_chs = len(self.channels)
-        arr = flattened.reshape(num_recs,
-                                sum(self.header.samples_per_record))
-        #slice out the annotations
-        arr = arr[:, self.channels]
-        #FIXME BELOW I am assuming equal samples per channel!
-        #reshape to num_recs x num_chs x samples_per_channel
-        arr = arr.reshape(num_recs, num_chs, -1)
 
     def read(self, start, stop):
         """ """
 
+        chs = self.channels
         #get records and bytevectors for each channel
-        recs = self.records(start, stop)
-        bytevecs = [self.bytevector(*rec) for rec in recs]
+        recs = np.array(self.records(start, stop))[chs]
+        bytevectors = [self.records_to_bytes(*rec) for rec in recs]
         #get the unique bytevectors we need to read
-        uvectors = set(bytevecs) 
+        ubytes = set(bytevectors) 
         #perform the minimum number of reads
         with open(self.path, 'rb') as f:
-            reads = {uvec: np.fromfile(f, dtype='<i2', count=uvec[1], 
-                     offset=uvec[0]) for uvec in uvectors}
-
-        return reads
+            reads = {ubyte: np.fromfile(f, dtype='<i2', count=ubyte[1], 
+                     offset=ubyte[0]) for ubyte in ubytes}
+        #
+        result = np.zeros((len(self.channels), stop-start))
+        for idx, (ch, rec, bvec) in enumerate(zip(chs, recs, bytevectors)):
+            #fetch the preread 1-D array of integers
+            arr = reads[bvec]
+            #reshape into num_records x total samples in record
+            arr = arr.reshape(-1, sum(self.header.samples_per_record))
+            #slice out channel using record_map and flatten
+            arr = arr[:, self.record_map[ch]].flatten()
+            #get start stop relative to record
+            a = start - rec[0] * self.header.samples_per_record[ch]
+            b = a + (stop - start)
+            result[idx] = arr[a:b]
+        #transform the result and return
+        result = self.transform(result)
+        return result
 
 
 if __name__ == '__main__':
