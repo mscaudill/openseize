@@ -3,14 +3,22 @@ import numpy as np
 from openseize import headers
 
 class EDFReader:
+    """A European Data Format reader supporting the reading of both EDF and
+    EDF+ formats.
+
+    The EDF specification has a header section followed by a data records
+    section. Each data record contains all signals stored sequentially. EDF+
+    files include an annotation signal within each data record. To
+    distinguish these signals we refer to data containing signals as
+    channels and annotation signals as annotation. For details on the EDF/+
+    file specification please see:
+
+    https://www.edfplus.info/specs/index.html
+
+    Currently, this reader does not support the reading of annotation
+    signals.
     """
-
-    """
-
-    #signals will be a list of all signals in edf
-    #channels will be a list of all ordinary signals in edf
-    #annotations will be the annotation signal in edf (may be None)
-
+    
     def __init__(self, path):
         """Initialize this EDFReader with a path and construct header."""
 
@@ -55,6 +63,24 @@ class EDFReader:
         cum = np.cumsum(scnts)
         return list(slice(a, b) for (a, b) in zip(cum, cum[1:]))
 
+    @property
+    def num_samples(self, filledvalued=0):
+        """Returns total sample count across records for each channel."""
+        #FIXME This seems a little hackish
+
+        last_record = (self.header.num_records-1, self.header.num_records)
+        # get bytevector for last record
+        vec = self.records_to_bytes(*last_record)
+        print(vec)
+        with open(self.path, 'rb') as f:
+            data = np.fromfile(f, dtype='<i2', count=vec[1], offset=vec[0])
+        data = data.reshape(-1, sum(self.sample_counts))
+        lengths = []
+        for sig in range(self.header.num_signals):
+            d=np.count_nonzero(data[:, self.record_map[sig]].flatten())
+            lengths.append(d)
+        return self.sample_counts * (self.header.num_records-1) + lengths
+
     def transform(self, arr, axis=-1):
         """Linearly transforms a 2-D integer array fetched from this EDF.
 
@@ -62,8 +88,7 @@ class EDFReader:
         p = slope * d + offset, where the slope = 
         (pmax -pmin) / (dmax - dmin) & offset = p - slope * d for any (p,d)
 
-        Returns: an array with shape matching the input shape & dtype of
-                 float64
+        Returns: ndarray with shape matching input shape & float64 dtype
         """
 
         pmaxes = np.array(self.header.physical_max)
@@ -80,8 +105,8 @@ class EDFReader:
         return result
     
     def records(self, start, stop):
-        """Returns a tuple of start, stop record numbers that include the
-        start, stop sample numbers.
+        """Returns tuples (one per signal) of start, stop record numbers
+        that include the start, stop sample numbers
 
         Args:
             start (int):                start of sample range to read
@@ -94,7 +119,7 @@ class EDFReader:
 
     def records_to_bytes(self, start, stop):
         """Converts a range of record numbers to a tuple of byte-offset and
-        number of samples. This tuple is a 'bytevector'.
+        number of samples. This tuple is termed a 'bytevector'.
 
         Args:
             start (int):                start of record range to convert
@@ -115,7 +140,7 @@ class EDFReader:
         return offset, nsamples
 
     def read(self, start, stop):
-        """Returns samples between start & stop for all channels.
+        """Returns samples from start to stop for all channels of this EDF.
 
         Args:
             start (int):            start sample to begin reading
@@ -130,11 +155,11 @@ class EDFReader:
         #get unique bytevectors & perform minimum reads
         uniqvecs = set(bytevectors) 
         with open(self.path, 'rb') as f:
-            reads = {vec: np.fromfile(f, dtype='<i2', count=vec[1], 
-                     offset=vec[0]) for vec in uniqvecs}
-        #reshape reads to num_records x sample_counts
-        reads = {k: arr.reshape(-1, sum(self.sample_counts)) for k, arr in
-                reads.items()}
+            reads = {uvec: np.fromfile(f, dtype='<i2', count=uvec[1], 
+                     offset=uvec[0]) for uvec in uniqvecs}
+        #reshape each read to num_records x summed sample_counts
+        reads = {uvec: arr.reshape(-1, sum(self.sample_counts)) 
+                 for uvec, arr in reads.items()}
         #perform final slicing and transform for each channel
         result = np.zeros((len(self.channels), stop-start))
         for idx, (channel, rec, bytevec) in enumerate(zip(self.channels,
@@ -149,6 +174,7 @@ class EDFReader:
         #transform & return
         result = self.transform(result)
         return result
+
 
 
 if __name__ == '__main__':
