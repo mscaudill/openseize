@@ -1,0 +1,10 @@
+#requirements for the openseize package
+name: openseize
+dependencies:
+    - numpy
+    - scipy
+    - matplotlib
+    - ipython
+    - notebook
+    - pandas
+    - pytest
