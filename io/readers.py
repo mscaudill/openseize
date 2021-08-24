@@ -62,16 +62,13 @@ class EDFReader:
         cum = np.cumsum(scnts)
         return list(slice(a, b) for (a, b) in zip(cum, cum[1:]))
 
-    def lengths(self, appended=0):
+    @property
+    def lengths(self):
         """Returns summed sample count across records for each channel.
 
         The last record of the EDF may not be completely filled with
         recorded signal values. lengths measures the number of recorded
-        values by subtracting off the appending values on the last record.
-        
-        Args:
-            appended (int):         value appended after last recorded
-                                    sample in the last record of this EDF.
+        values by subtracting off the appended 0s on the last record.
         """
 
         #get & read the last record
@@ -82,7 +79,7 @@ class EDFReader:
         #subtract the appends (usually 0s) from each channels len
         for ch in self.channels:
             ch_data = arr[:, self.record_map[ch]].flatten()
-            last_sample[ch] -= len(np.where(ch_data == appended)[0])
+            last_sample[ch] -= len(np.where(ch_data == 0)[0])
         return np.array([last_sample[ch] for ch in self.channels])
 
     def transform(self, arr, axis=-1):
@@ -151,6 +148,9 @@ class EDFReader:
         Returns: array of shape chs x samples with float64 dtype
         """
 
+        if start > max(self.lengths):
+            msg = 'start idx {} exceeds number of samples {}'
+            raise IndexError(msg.format(start, self.lengths))
         #locate record ranges for chs & find unique ones to read
         recs = self.find_records(start, stop)
         urecs = set(recs)
