@@ -1,6 +1,6 @@
 import numpy as np
 
-from openseize import headers
+from openseize.io import headers
 
 class EDFReader:
     """A European Data Format reader supporting the reading of both EDF and
