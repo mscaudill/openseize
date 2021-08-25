@@ -50,7 +50,7 @@ class EDFHeader(Header):
 
     def bytemap(self):
         """Specifies the number of bytes to sequentially read for each field
-        in an EDF header.
+        in an EDF header and dataype conversions to apply.
 
         The EDF file specification defining this bytemap can be found @
         https://www.edfplus.info/specs/edf.html
