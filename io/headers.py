@@ -37,6 +37,9 @@ class Header(dict):
         """Returns the entire header of a file as a dict."""
 
         header = dict()
+        #if no path return empty dict
+        if not self.path:
+            return header
         with open(self.path, 'rb') as fp:
             #loop over the bytemap, read and store the decoded values
             for name, (nbytes, dtype) in self.bytemap().items():
@@ -44,18 +47,39 @@ class Header(dict):
                 header[name] = res[0] if len(res) == 1 else res
         return header
 
+    @classmethod
+    def from_dict(cls, dic):
+        """Creates a Header instance from a dict."""
+
+        instance = cls(path=None)
+        instance.update(dic)
+        #verify supplied dict has correct fields
+        if set(dic) == set(instance.bytemap(nsignals=0)):
+            return instance
+        else:
+            msg='Missing keys required to create a header of type {}.'
+            raise ValueError(msg.format(cls.__name__))
+
 
 class EDFHeader(Header):
     """A dict representation of an EDF Header."""
 
-    def bytemap(self):
+    def bytemap(self, nsignals=None):
         """Specifies the number of bytes to sequentially read for each field
         in an EDF header and dataype conversions to apply.
+
+        Args:
+            nsignals (int):         number of signals to instantiate this
+                                    bytemap. If None (Default) read directly
+                                    from the edf file. nsignals includes
+                                    ordinary signals (aka channels) &
+                                    annotation signals.
 
         The EDF file specification defining this bytemap can be found @
         https://www.edfplus.info/specs/edf.html
         """
 
+        nsignals = self.count_signals() if nsignals is None else nsignals
         return {'version': ([8], str), 
                 'patient': ([80], str), 
                 'recording': ([80], str),
@@ -66,19 +90,18 @@ class EDFHeader(Header):
                 'num_records': ([8], int),
                 'record_duration': ([8], float),
                 'num_signals': ([4], int),
-                'names': ([16] * self.num_signals, str),
-                'transducers': ([80] * self.num_signals, str),
-                'physical_dim': ([8] * self.num_signals, str),
-                'physical_min': ([8] * self.num_signals, float),
-                'physical_max': ([8] * self.num_signals, float),
-                'digital_min': ([8] * self.num_signals, float),
-                'digital_max': ([8] * self.num_signals, float),
-                'prefiltering': ([80] * self.num_signals, str),
-                'samples_per_record': ([8] * self.num_signals, int),
-                'reserved_1': ([32] * self.num_signals, str)}
+                'names': ([16] * nsignals, str),
+                'transducers': ([80] * nsignals, str),
+                'physical_dim': ([8] * nsignals, str),
+                'physical_min': ([8] * nsignals, float),
+                'physical_max': ([8] * nsignals, float),
+                'digital_min': ([8] * nsignals, float),
+                'digital_max': ([8] * nsignals, float),
+                'prefiltering': ([80] * nsignals, str),
+                'samples_per_record': ([8] * nsignals, int),
+                'reserved_1': ([32] * nsignals, str)}
 
-    @property
-    def num_signals(self):
+    def count_signals(self):
         """Returns the number of signals in this EDF."""
 
         with open(self.path, 'rb') as fp:
@@ -91,4 +114,10 @@ if __name__ == '__main__':
 
     path = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
 
+    #Test construction from path
     header = EDFHeader(path)
+    #Test alternate constructor
+    header2 = EDFHeader.from_dict(header)
+    #Test alternate constructor validation
+    header2.pop('transducers')
+    header3 = EDFHeader.from_dict(header2)
