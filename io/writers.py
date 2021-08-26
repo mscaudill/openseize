@@ -1,17 +1,32 @@
 import numpy as np
 
+from openseize.io import headers
 
 class EDFWriter:
-    """ """
+    """A context manager for writing a EDF header & data records."""
 
-    def __init__(self, path):
-        """ """
+    def __init__(self, path, header):
+        """Intialize this writer with a path."""
+        
+        self.header = headers.EDFHeader.from_dict(header)
+        self.fobj = open(path)
+ 
+    def __enter__(self):
+        """Return instance to the context target."""
 
-        self.path = path
+        return self
 
-    def bytemap(self, dic):
-        """ """
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Close file obj. & propogate any exceptions by returning None."""
 
+        self.fobj.close()
+  
+    @property
+    def bytemap(self):
+        """Returns a dict describing the number of bytes to write for each
+        header value or header list value."""
+
+        nsigs = self.header.num_signals
         return {'version': ([8]), 
                 'patient': ([80]), 
                 'recording': ([80]),
@@ -22,32 +37,68 @@ class EDFWriter:
                 'num_records': ([8]),
                 'record_duration': ([8]),
                 'num_signals': ([4]),
-                'names': ([16] * dic['num_signals']),
-                'transducers': ([80] * dic['num_signals']),
-                'physical_dim': ([8] * dic['num_signals']),
-                'physical_min': ([8] * dic['num_signals']),
-                'physical_max': ([8] * dic['num_signals']),
-                'digital_min': ([8] * dic['num_signals']),
-                'digital_max': ([8] * dic['num_signals']),
-                'prefiltering': ([80] * dic['num_signals']),
-                'samples_per_record': ([8] * dic['num_signals']),
-                'reserved_1': ([32] * dic['num_signals'])}
+                'names': ([16] * nsigs),
+                'transducers': ([80] * nsigs),
+                'physical_dim': ([8] * nsigs),
+                'physical_min': ([8] * nsigs),
+                'physical_max': ([8] * nsigs),
+                'digital_min': ([8] * nsigs),
+                'digital_max': ([8] * nsigs),
+                'prefiltering': ([80] * nsigs),
+                'samples_per_record': ([8] * nsigs),
+                'reserved_1': ([32] * nsigs)}
 
-    def write_header(self, dic):
+    def write_header(self):
+        """Writes header values to the header of the file obj."""
+        
+        #convert all values in header to list for consistency
+        d = {k: v if isinstance(v, list) else [v] 
+             for k, v in self.header.items()}
+        bmap = self.bytemap
+        #encode each value in values and justify with empty chr
+        self.fobj.seek(0)
+        for values, bytelist in ((d[name], bmap[name]) for name in bmap):
+            bvalues = [bytes(str(value), encoding='ascii').ljust(nbytes) 
+                      for value, nbytes in zip(values, bytelist)]
+            #join the byte strings and write
+            bstring = b''.join(bvalues)
+            self.fobj.write(bstring)
+
+    def _untransform(self, arr, axis=-1):
         """ """
 
-        with open(self.path, 'wb') as fp:
-            for name, bytelist in self.bytemap(dic).items():
-                if len(bytelist) == 1:
-                    bvalue = bytes(str(dic[name]), encoding='ascii')
-                    bvalue = bvalue.ljust(bytelist[0])
-                    fp.write(bvalue)
-                else:
-                    for idx, n in enumerate(bytelist):
-                        bvalue = bytes(str(dic[name][idx]), 
-                                       encoding='ascii')
-                        bvalue = bvalue.ljust(n)
-                        fp.write(bvalue)
+        channels = list(range(self.header.num_signals))
+        if 'EDF Annotations' in header.names:
+            channels.pop(self.header.names.index('EDF Annotations'))
+        pmaxes = np.array(self.header.physical_max)
+        pmins = np.array(self.header.physical_min)
+        dmaxes = np.array(self.header.digital_max)
+        dmins = np.array(self.header.digital_min)
+        slopes = (pmaxes - pmins) / (dmaxes - dmins)
+        offsets = (pmins - slopes * dmins)
+        #expand to 2-D for broadcasting
+        slopes = np.expand_dims(slopes[channels], axis=axis)
+        offsets = np.expand_dims(offsets[channels], axis=axis)
+        #undo offset and gain and convert back to ints
+        result = arr[channels] - offsets
+        result = (result / slopes).astype(int)
+        return result
+
+    def write_record(self, arr, axis=-1):
+        """axis will be sample axis """
+        #FIXME should I have a record number here? Probably not
+        if arr.ndim > 2:
+            raise ValueError('array must be a 1 or 2-D array')
+        x = arr.T if axis == 0 else arr
+        x = self._untransform(x, axis=axis)
+        #need to reshape
+        x = x.flatten()
+        #write little endian 2-byte integers
+        #x.tofile(self.fobj, '<i2')
+        print(x)
+
+
+    
 
 
 if __name__ == '__main__':
@@ -57,5 +108,10 @@ if __name__ == '__main__':
     path = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
     header = headers.EDFHeader(path)
     
-    writer = EDFWriter('sandbox/test_write2.edf')
-    writer.write_header(header)
+    writepath = 'sandbox/test_write1.edf'
+    #writer = EDFWriter('sandbox/test_write2.edf')
+    #writer.write_header(header)
+
+    arr = np.ones((5, 100)) * np.array([[0.0045, 0.009, 100, 0, 1]]).T
+    with EDFWriter(writepath, header) as f:
+        res = f.write_record(arr)
