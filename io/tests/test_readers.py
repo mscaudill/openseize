@@ -2,7 +2,7 @@ import pytest
 
 import numpy as np
 
-from openseize.readers import EDFReader
+from openseize.io.readers import EDFReader
 from scripting.spectrum.io.readers.readers import EDF as OldReader
 
 PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
@@ -16,7 +16,8 @@ def test_equality():
     starts = np.random.randint(0, 200e6, fetches)
     stops = starts + np.random.randint(0, 50e4)
     for start, stop in zip(starts, stops):
-        arr = READER.read(start, stop).T
+        with EDFReader(PATH) as reader:
+            arr = reader.read(start, stop).T
         other = OLDREADER.read(start, stop)
         assert np.allclose(arr, other)
 
@@ -29,7 +30,8 @@ def test_EOF():
 
     start = 1356700000
     stop = start + 50000
-    arr = READER.read(start, stop)
+    with EDFReader(PATH) as reader:
+        arr = reader.read(start, stop)
     other = OLDREADER.read(start, stop)
     assert np.allclose(arr.T, other)
 
@@ -40,7 +42,8 @@ def test_EOF2():
     #stop exceeds number of samples in the test file
     start = 1356700000
     stop = start + 100000
-    arr = READER.read(start, stop)
+    with EDFReader(PATH) as reader:
+        arr = READER.read(start, stop)
     other = OLDREADER.read(start=1356700000, stop=1356750000)
     assert np.allclose(arr.T, other)
 
@@ -51,6 +54,7 @@ def test_EOF3():
     start = 1356900000
     stop = start + 100000
     with pytest.raises(IndexError):
-        arr = READER.read(start, stop)
+        with EDFReader(PATH) as reader:
+            arr = reader.read(start, stop)
 
 
