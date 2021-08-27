@@ -1,7 +1,16 @@
-class Header(dict):
-    """An extended dict for reading and storing header data.
+import numpy as np
+import pprint
+from inspect import getmembers
 
-    This is a partial Header implementation thus it cannot be instantiated.
+class Header(dict):
+    """An extended dict for reading a binary file's header data.
+
+    Extensions:
+    1. dot '.' notation access to the underlying dict data
+    2. possible computed attrs as properties (see EDFHeader)
+    3. echo repr showing underlying data and computed properties
+
+    This is a partial Header implementation (i.e. cannot be instantiated).
     Concrete headers are expected to define a 'bytemap' method to complete 
     the implementation.
     """
@@ -17,7 +26,11 @@ class Header(dict):
     def __getattr__(self, name):
         """Provides '.' notation access to this Header's values."""
 
-        return self[name]
+        try:
+            return self[name]
+        except:
+            #explicitly raise error, needed for getmembers
+            raise AttributeError
 
     def bytemap(self):
         """Returns a dict specifying the number of bytes to sequentially 
@@ -25,16 +38,21 @@ class Header(dict):
 
         e.g. {'version': ([8], str), 'maxes': ([16]*4, float), ...}
         Specifies that version is stored in the first 8 bytes and should be
-        type converted to a UTF-8 string. Bytemap then specifies that maxes
-        are stored starting at byte 8 (last position) as 4 16 byte values
-        and that each value should be converted to a float and stored to
-        a list. 
+        type converted to a string. Maxes are stored starting at byte 8 
+        (i.e. last position) as 4 16 byte values. Each value should be 
+        converted to a float and stored to a list. All bytemaps of concrete
+        headers should follow these conventions. 
         """
        
         raise NotImplementedError
 
-    def read(self):
-        """Returns the entire header of a file as a dict."""
+    def read(self, encoding='ascii'):
+        """Returns the entire header of a file as a dict.
+
+        Args:
+            encoding (str):         the file encoding used (Default is
+                                    'ascii' encoding)
+        """
 
         header = dict()
         #if no path return empty dict
@@ -43,7 +61,8 @@ class Header(dict):
         with open(self.path, 'rb') as fp:
             #loop over the bytemap, read and store the decoded values
             for name, (nbytes, dtype) in self.bytemap().items():
-                res = [dtype(fp.read(n).strip().decode()) for n in nbytes]
+                res = [dtype(fp.read(n).strip().decode(encoding=encoding))
+                       for n in nbytes]
                 header[name] = res[0] if len(res) == 1 else res
         return header
 
@@ -60,6 +79,19 @@ class Header(dict):
             msg='Missing keys required to create a header of type {}.'
             raise ValueError(msg.format(cls.__name__))
 
+    def _isprop(self, attr):
+        """Returns True if attr is a property."""
+
+        return isinstance(attr, property)
+
+    def __str__(self):
+        """Overrides dict's print string to show accessible properties."""
+
+        #get header properties and return  pprinter fmt str
+        props = [k for k, v in getmembers(self.__class__, self._isprop)]
+        pp = pprint.PrettyPrinter(sort_dicts=False, compact=True)
+        props = {'Accessible Properties': props}
+        return pp.pformat(self) + '\n\n' + pp.pformat(props)
 
 class EDFHeader(Header):
     """A dict representation of an EDF Header."""
@@ -108,6 +140,70 @@ class EDFHeader(Header):
             fp.seek(252)
             return int(fp.read(4).strip().decode())
 
+    @property
+    def annotated(self):
+        """Returns True if this is EDF contains annotations."""
+
+        return True if 'EDF Annotations' in self.names else False
+        
+    @property
+    def annotation(self):
+        """Returns annotations signal index if present & None otherwise."""
+        
+        result = None
+        if self.annotated:
+            result = self.names.index('EDF Annotations') 
+        return result
+
+    @property
+    def channels(self):
+        """Returns the 'ordinary signal' indices."""
+
+        signals = list(range(self.num_signals))
+        if self.annotated:
+            signals.pop(self.annotation)
+        return signals
+    
+    @property
+    def record_map(self):
+        """Returns a list of slice objects for each signal in a record."""
+
+        scnts = np.insert(self.samples_per_record,0,0)
+        cum = np.cumsum(scnts)
+        return list(slice(a, b) for (a, b) in zip(cum, cum[1:]))
+
+    @property
+    def slopes(self):
+        """Returns the slope (gain) of each signal in this EDF.
+
+        The physical values p are linearly mapped from the digital values d:
+        p = slope * d + offset, where the slope = 
+        (pmax -pmin) / (dmax - dmin) & offset = p - slope * d for any (p,d)
+
+        see also offsets property.
+        Returns: an 1-D array of slope values one per signal in EDF.
+        """
+
+        pmaxes = np.array(self.physical_max)
+        pmins = np.array(self.physical_min)
+        dmaxes = np.array(self.digital_max)
+        dmins = np.array(self.digital_min)
+        return (pmaxes - pmins) / (dmaxes - dmins)
+
+    @property
+    def offsets(self):
+        """Returns the offset of each signal in this EDF.
+
+        see slopes property
+        Returns: an 1-D array of offset values one per signal in EDF.
+        """
+
+        pmins = np.array(self.physical_min)
+        dmins = np.array(self.digital_min)
+        return (pmins - self.slopes * dmins)
+
+
+
         
 
 if __name__ == '__main__':
@@ -117,7 +213,7 @@ if __name__ == '__main__':
     #Test construction from path
     header = EDFHeader(path)
     #Test alternate constructor
-    header2 = EDFHeader.from_dict(header)
+    #header2 = EDFHeader.from_dict(header)
     #Test alternate constructor validation
-    header2.pop('transducers')
-    header3 = EDFHeader.from_dict(header2)
+    #header2.pop('transducers')
+    #header3 = EDFHeader.from_dict(header2)
