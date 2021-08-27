@@ -9,7 +9,7 @@ class EDFWriter:
         """Intialize this writer with a path."""
         
         self.header = headers.EDFHeader.from_dict(header)
-        self.fobj = open(path)
+        self.fobj = open(path, 'wb')
  
     def __enter__(self):
         """Return instance to the context target."""
@@ -21,64 +21,38 @@ class EDFWriter:
 
         self.fobj.close()
   
-    @property
-    def bytemap(self):
-        """Returns a dict describing the number of bytes to write for each
-        header value or header list value."""
-
-        nsigs = self.header.num_signals
-        return {'version': ([8]), 
-                'patient': ([80]), 
-                'recording': ([80]),
-                'start_date': ([8]),
-                'start_time': ([8]),
-                'header_bytes': ([8]),
-                'reserved_0': ([44]),
-                'num_records': ([8]),
-                'record_duration': ([8]),
-                'num_signals': ([4]),
-                'names': ([16] * nsigs),
-                'transducers': ([80] * nsigs),
-                'physical_dim': ([8] * nsigs),
-                'physical_min': ([8] * nsigs),
-                'physical_max': ([8] * nsigs),
-                'digital_min': ([8] * nsigs),
-                'digital_max': ([8] * nsigs),
-                'prefiltering': ([80] * nsigs),
-                'samples_per_record': ([8] * nsigs),
-                'reserved_1': ([32] * nsigs)}
-
     def write_header(self):
         """Writes header values to the header of the file obj."""
         
         #convert all values in header to list for consistency
         d = {k: v if isinstance(v, list) else [v] 
              for k, v in self.header.items()}
-        bmap = self.bytemap
+        bmap = self.header.bytemap(self.header.num_signals)
         #encode each value in values and justify with empty chr
         self.fobj.seek(0)
-        for values, bytelist in ((d[name], bmap[name]) for name in bmap):
+        for values, bytelist in ((d[name], bmap[name][0]) for name in bmap):
             bvalues = [bytes(str(value), encoding='ascii').ljust(nbytes) 
                       for value, nbytes in zip(values, bytelist)]
             #join the byte strings and write
             bstring = b''.join(bvalues)
             self.fobj.write(bstring)
 
-    def _untransform(self, arr, axis=-1):
-        """ """
+    def _detransform(self, arr, axis=-1):
+        """Linearly rransforms an arr of float values to integers.
 
-        channels = list(range(self.header.num_signals))
-        if 'EDF Annotations' in header.names:
-            channels.pop(self.header.names.index('EDF Annotations'))
-        pmaxes = np.array(self.header.physical_max)
-        pmins = np.array(self.header.physical_min)
-        dmaxes = np.array(self.header.digital_max)
-        dmins = np.array(self.header.digital_min)
-        slopes = (pmaxes - pmins) / (dmaxes - dmins)
-        offsets = (pmins - slopes * dmins)
+        The strored digital values (d) are linearly mapped from the physical
+        values (p) via: d = (p - offset) / slope
+        where the slope = (pmax -pmin) / (dmax - dmin) 
+        & offset = p - slope * d for any (p,d)
+
+        This undoes the transformation applied in the EDFReader.
+        """
+
+        slopes = self.header.slopes[self.header.channels]
+        offsets = self.header.offsets[self.header.channels]
         #expand to 2-D for broadcasting
-        slopes = np.expand_dims(slopes[channels], axis=axis)
-        offsets = np.expand_dims(offsets[channels], axis=axis)
+        slopes = np.expand_dims(slopes, axis=axis)
+        offsets = np.expand_dims(offsets, axis=axis)
         #undo offset and gain and convert back to ints
         result = arr[channels] - offsets
         result = (result / slopes).astype(int)
@@ -86,16 +60,20 @@ class EDFWriter:
 
     def write_record(self, arr, axis=-1):
         """axis will be sample axis """
-        #FIXME should I have a record number here? Probably not
+       
+        #FIXME
+        # What is the incoming arrary? should it include only chs to write
+        # or should it be sliced like below?
+        # Are we handling possibly different sample rates correctly?
+
         if arr.ndim > 2:
             raise ValueError('array must be a 1 or 2-D array')
         x = arr.T if axis == 0 else arr
-        x = self._untransform(x, axis=axis)
-        #need to reshape
-        x = x.flatten()
-        #write little endian 2-byte integers
-        #x.tofile(self.fobj, '<i2')
-        print(x)
+        x = self._detransform(x, axis=axis)
+        for ch in self.header.channels:
+            samples = x[ch][:self.header.samples_per_record[ch]]
+            #write little endian 2-byte integers
+            samples.tofile(self.fobj, '<i2')
 
 
     
@@ -114,4 +92,5 @@ if __name__ == '__main__':
 
     arr = np.ones((5, 100)) * np.array([[0.0045, 0.009, 100, 0, 1]]).T
     with EDFWriter(writepath, header) as f:
-        res = f.write_record(arr)
+        f.write_header()
+        #res = f.write_record(arr)
