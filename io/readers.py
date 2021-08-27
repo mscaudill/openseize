@@ -3,8 +3,8 @@ import numpy as np
 from openseize.io import headers
 
 class EDFReader:
-    """A European Data Format reader supporting the reading of both EDF and
-    EDF+ formats.
+    """A context manager for the reading of European Data Format (EDF/EDF+)
+    files.
 
     The EDF specification has a header section followed by data records
     Each data record contains all signals stored sequentially. EDF+
@@ -20,47 +20,21 @@ class EDFReader:
     """
 
     def __init__(self, path):
-        """Initialize this EDFReader with a path and construct header."""
+        """Initialize with a path, & construct header & file object."""
 
         self.path = path
         self.header = headers.EDFHeader(path)
+        self.fobj = open(self.path, 'rb')
 
-    def __getattr__(self, name):
-        """On attribute fetch failure attempt lookup on header."""
+    def __enter__(self):
+        """Return instance to the context target."""
 
-        return self.header[name]
+        return self
 
-    @property
-    def annotated(self):
-        """Returns True if this is EDF contains annotations."""
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Close file obj. & propogate any exceptions by returning None."""
 
-        return True if 'EDF Annotations' in self.names else False
-        
-    @property
-    def annotation(self):
-        """Returns annotations signal index if present & None otherwise."""
-        
-        result = None
-        if self.annotated:
-            result = self.names.index('EDF Annotations') 
-        return result
-
-    @property
-    def channels(self):
-        """Returns the 'ordinary signal' indices."""
-
-        signals = list(range(self.num_signals))
-        if self.annotated:
-            signals.pop(self.annotation)
-        return signals
-    
-    @property
-    def record_map(self):
-        """Returns a list of slice objects for each signal in a record."""
-
-        scnts = np.insert(self.samples_per_record,0,0)
-        cum = np.cumsum(scnts)
-        return list(slice(a, b) for (a, b) in zip(cum, cum[1:]))
+        self.fobj.close()
 
     @property
     def lengths(self):
@@ -71,16 +45,17 @@ class EDFReader:
         values by subtracting off the appended 0s on the last record.
         """
 
+        nrecs = self.header.num_records
         #get & read the last record
-        last_rec = (self.num_records-1, self.num_records)
-        last_sample = np.array(self.samples_per_record) * self.num_records
+        last_rec = (nrecs - 1, nrecs)
+        last_sample = np.array(self.header.samples_per_record) * nrecs
         arr = self.records(*last_rec)
-        arr = arr.reshape(1, sum(self.samples_per_record))
-        #subtract the appends (usually 0s) from each channels len
-        for ch in self.channels:
-            ch_data = arr[:, self.record_map[ch]].flatten()
+        arr = arr.reshape(1, sum(self.header.samples_per_record))
+        #subtract the appends (0s) from each channels len
+        for ch in self.header.channels:
+            ch_data = arr[:, self.header.record_map[ch]].flatten()
             last_sample[ch] -= len(np.where(ch_data == 0)[0])
-        return np.array([last_sample[ch] for ch in self.channels])
+        return np.array([last_sample[ch] for ch in self.header.channels])
 
     def transform(self, arr, axis=-1):
         """Linearly transforms a 2-D integer array fetched from this EDF.
@@ -92,15 +67,11 @@ class EDFReader:
         Returns: ndarray with shape matching input shape & float64 dtype
         """
 
-        pmaxes = np.array(self.physical_max)
-        pmins = np.array(self.physical_min)
-        dmaxes = np.array(self.digital_max)
-        dmins = np.array(self.digital_min)
-        slopes = (pmaxes - pmins) / (dmaxes - dmins)
-        offsets = (pmins - slopes * dmins)
+        slopes = self.header.slopes[self.header.channels]
+        offsets = self.header.offsets[self.header.channels]
         #expand to 2-D for broadcasting
-        slopes = np.expand_dims(slopes[self.channels], axis=axis)
-        offsets = np.expand_dims(offsets[self.channels], axis=axis)
+        slopes = np.expand_dims(slopes[self.header.channels], axis=axis)
+        offsets = np.expand_dims(offsets[self.header.channels], axis=axis)
         result = arr * slopes
         result += offsets
         return result
@@ -114,7 +85,7 @@ class EDFReader:
             stop (int):                 stop of sample range to read
         """
 
-        spr = np.array(self.samples_per_record)[self.channels]
+        spr = np.array(self.header.samples_per_record)[self.header.channels]
         starts = start // spr
         stops = np.ceil(stop / spr).astype('int')
         #ensure stops do not exceed filled records
@@ -128,15 +99,16 @@ class EDFReader:
         Returns: a 1D array of length (b-a) * sum(samples_per_record)
         """
 
+        #move to file start
+        self.fobj.seek(0)
         cnt = b - a
         #each sample is represented as a 2-byte integer
-        bytes_per_record = sum(self.samples_per_record) * 2
+        bytes_per_record = sum(self.header.samples_per_record) * 2
         #return offset in bytes & num samples spanning a to b
-        offset = self.header_bytes + a * bytes_per_record
-        nsamples = cnt * sum(self.samples_per_record)
-        with open(self.path, 'rb') as f:
-            arr = np.fromfile(f, dtype='<i2', count=nsamples, offset=offset)
-        return arr
+        offset = self.header.header_bytes + a * bytes_per_record
+        nsamples = cnt * sum(self.header.samples_per_record)
+        return np.fromfile(self.fobj, dtype='<i2', count=nsamples, 
+                           offset=offset)
 
     def read(self, start, stop):
         """Returns samples from start to stop for all channels of this EDF.
@@ -157,16 +129,16 @@ class EDFReader:
         #read each unique record range
         reads = {urec: self.records(*urec) for urec in urecs}
         #reshape each read to num_records x summed samples per rec
-        reads = {urec: arr.reshape(-1, sum(self.samples_per_record)) 
+        reads = {urec: arr.reshape(-1, sum(self.header.samples_per_record)) 
                  for urec, arr in reads.items()}
         #perform final slicing and transform for each channel
         result = []
-        for idx, (channel, rec) in enumerate(zip(self.channels, recs)):
+        for idx, (ch, rec) in enumerate(zip(self.header.channels, recs)):
             #get preread array and slice out channel
             arr = reads[rec]
-            arr = arr[:, self.record_map[channel]].flatten()
+            arr = arr[:, self.header.record_map[ch]].flatten()
             #adjust start & stop relative to first read record & store
-            a = start - rec[0] * self.samples_per_record[channel]
+            a = start - rec[0] * self.header.samples_per_record[ch]
             b = a + (stop - start)
             result.append(arr[a:b])
         result = np.stack(result, axis=0)
@@ -180,7 +152,8 @@ class EDFReader:
 if __name__ == '__main__':
 
     path = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
-    reader = EDFReader(path)
+    with EDFReader(path) as reader:
+        res = reader.read(100, 10000)
 
 
 
