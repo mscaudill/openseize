@@ -1,5 +1,6 @@
 import numpy as np
 import pprint
+import copy
 from inspect import getmembers
 
 class Header(dict):
@@ -92,6 +93,7 @@ class Header(dict):
         pp = pprint.PrettyPrinter(sort_dicts=False, compact=True)
         props = {'Accessible Properties': props}
         return pp.pformat(self) + '\n\n' + pp.pformat(props)
+
 
 class EDFHeader(Header):
     """A dict representation of an EDF Header."""
@@ -201,6 +203,30 @@ class EDFHeader(Header):
         pmins = np.array(self.physical_min)
         dmins = np.array(self.digital_min)
         return (pmins - self.slopes * dmins)
+    
+    def filter(self, by, values):
+        """Returns a new EDF header instance filtered on the by attr that
+        contains values.
+
+        E.g. if by=names and values=['EEG1', 'EEG4'] the returned header
+        will contain information for channel names mathching values. 
+
+        Returns: new header instance
+        """
+        
+        header = copy.deepcopy(self)
+        #handle non-list values
+        if not isinstance(values, list):
+            return header if header[by] == values else dict()
+        else:
+            indices = [i for i, v in enumerate(getattr(header, by))
+                       if v in values]
+            for key, vals in header.items():
+                if isinstance(vals, list):
+                    header[key] = [vals[idx] for idx in indices]
+            #match num_signals to filter len and return header
+            header['num_signals'] = len(values)
+            return header
 
 
 
