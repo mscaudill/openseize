@@ -5,10 +5,9 @@ from openseize.io import headers
 class EDFWriter:
     """A context manager for writing a EDF header & data records."""
 
-    def __init__(self, path, header):
+    def __init__(self, path):
         """Intialize this writer with a path."""
         
-        self.header = headers.EDFHeader.from_dict(header)
         self.fobj = open(path, 'wb')
  
     def __enter__(self):
@@ -21,9 +20,10 @@ class EDFWriter:
 
         self.fobj.close()
   
-    def write_header(self):
+    def _write_header(self, header):
         """Writes header values to the header of the file obj."""
         
+        self.header = headers.EDFHeader.from_dict(header)
         #convert all values in header to list for consistency
         d = {k: v if isinstance(v, list) else [v] 
              for k, v in self.header.items()}
@@ -40,40 +40,86 @@ class EDFWriter:
     def _detransform(self, arr, axis=-1):
         """Linearly rransforms an arr of float values to integers.
 
-        The strored digital values (d) are linearly mapped from the physical
-        values (p) via: d = (p - offset) / slope
-        where the slope = (pmax -pmin) / (dmax - dmin) 
-        & offset = p - slope * d for any (p,d)
-
-        This undoes the transformation applied in the EDFReader.
+        see: transform method of the EDFReader.
         """
 
-        slopes = self.header.slopes[self.header.channels]
-        offsets = self.header.offsets[self.header.channels]
+        slopes = self.header.slopes
+        offsets = self.header.offsets
         #expand to 2-D for broadcasting
         slopes = np.expand_dims(slopes, axis=axis)
         offsets = np.expand_dims(offsets, axis=axis)
         #undo offset and gain and convert back to ints
-        result = arr[channels] - offsets
-        result = (result / slopes).astype(int)
+        result = arr - offsets
+        result = (result / slopes).astype('<i2')
         return result
 
-    def write_record(self, arr, axis=-1):
-        """axis will be sample axis """
-       
-        #FIXME
-        # What is the incoming arrary? should it include only chs to write
-        # or should it be sliced like below?
-        # Are we handling possibly different sample rates correctly?
+    def _write_annotation(self):
+        """Writes a single records annotations."""
 
-        if arr.ndim > 2:
-            raise ValueError('array must be a 1 or 2-D array')
+        allocated = self.header.samples_per_record[self.header.annotation]
+        annotation = np.zeros(allocated)
+        #annotation byte order is unchanged (i.e. big-endian)
+        #annotation.tofile(self.fobj, sep="", 'i2')
+    
+    def _write_record(self, arr, axis=-1):
+        """Writes a single record of data to this writers file.
+
+        Args:
+            arr (ndarray):          a 1 or 2-D array of samples to write
+            axis (int):             sample axis of the array
+
+        The arr must contain data for channels specified in the header
+        and must contain enough samples to write.
+        e.g if samples_per_record = [50k, 50k, 10k] the size of arr must be
+        3 channels x 50k samples for each channel. The channel with 10k 
+        samples will be sliced to the correct num of samples before writing.
+        """
+       
         x = arr.T if axis == 0 else arr
         x = self._detransform(x, axis=axis)
         for ch in self.header.channels:
-            samples = x[ch][:self.header.samples_per_record[ch]]
+            samples = x[ch, :self.header.samples_per_record[ch]]
+            #print('Integer samples: {}'.format(samples[:10]))
             #write little endian 2-byte integers
-            samples.tofile(self.fobj, '<i2')
+            #for some reason these methods dont agree!!
+            #samples.tofile(self.fobj, sep="", format='<i2')
+            byte_str = samples.tobytes()
+            self.fobj.write(byte_str)
+            #write the annotations 
+            #if self.header.annotated:
+            #    self._write_annotation()
+
+    def write(self, header, data, channels, axis=-1):
+        """
+
+        """
+
+        if all(isinstance(ch, str) for ch in channels):
+            channels = [self.header.names.index[ch] for ch in channels]
+        fheader = header.filter(by='channels', values=channels)
+        self._write_header(fheader)
+        samples = max(fheader.samples_per_record)
+        starts = [samples * x for x in range(fheader.num_records)]
+        slc = [slice(None)] * 2
+        #FIXME I don't appear to go to end of data
+        #FIXME by writing multiple records at a time
+        self.fobj.seek(self.header.header_bytes)
+        for idx, (start, stop) in enumerate(zip(starts, starts[1:])):
+            #if idx > 0:
+            #    break
+            print('Record # {}'.format(idx), end='\r', flush=True)
+            slc[axis] = slice(start, stop)
+            #print(slc, end='\r', flush=True)
+            arr = data[tuple(slc)]
+            arr = arr.T if axis==0 else arr
+            arr = arr[channels]
+            #print('Input arr values: {}'.format(arr[:,:10]))
+            self._write_record(arr, axis=-1)
+        return arr, fheader
+
+
+
+    
 
 
     
@@ -82,15 +128,12 @@ class EDFWriter:
 if __name__ == '__main__':
 
     from openseize.io import headers
+    from scripting.spectrum.io.eeg import EEG
 
     path = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
+    writepath = 'sandbox/test_write2.edf'
     header = headers.EDFHeader(path)
-    
-    writepath = 'sandbox/test_write1.edf'
-    #writer = EDFWriter('sandbox/test_write2.edf')
-    #writer.write_header(header)
+    data = EEG(path)
 
-    arr = np.ones((5, 100)) * np.array([[0.0045, 0.009, 100, 0, 1]]).T
-    with EDFWriter(writepath, header) as f:
-        f.write_header()
-        #res = f.write_record(arr)
+    with EDFWriter(writepath) as f:
+        arr, header = f.write(header, data, channels=[0,1,2,3], axis=0)
