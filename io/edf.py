@@ -77,28 +77,6 @@ class Reader(FileManager):
         super().__init__(path, mode='rb')
         self.header = EDFHeader(path)
 
-    @property
-    def _lengths(self):
-        """Returns summed sample count across records for each channel.
-
-        The last record of the EDF may not be completely filled with
-        recorded signal values. lengths measures the number of recorded
-        values by subtracting off the appended 0s on the last record.
-        """
-
-        #FIXME verify the -1
-        nrecs = self.header.num_records-2
-        #get & read the last record
-        last_rec = (nrecs - 1, nrecs)
-        last_sample = np.array(self.header.samples_per_record) * nrecs
-        arr = self._records(*last_rec)
-        arr = arr.reshape(1, sum(self.header.samples_per_record))
-        #subtract the appends (0s) from each channels len
-        for ch in self.header.channels:
-            ch_data = arr[:, self.header.record_map[ch]].flatten()
-            last_sample[ch] -= len(np.where(ch_data == 0)[0])
-        return np.array([last_sample[ch] for ch in self.header.channels])
-
     def _decipher(self, arr, axis=-1):
         """Deciphers an array of integers read from an EDF into an array of
         voltage float values.
@@ -131,15 +109,16 @@ class Reader(FileManager):
         spr = np.array(self.header.samples_per_record)[self.header.channels]
         starts = start // spr
         stops = np.ceil(stop / spr).astype('int')
-        #ensure stops do not exceed filled records
-        max_records = self._lengths // spr
-        stops = [min(a, b) for a, b in zip(stops, max_records)]
         return list(zip(starts, stops))
 
     def _records(self, a, b):
         """Reads all samples from the ath to bth record.
 
+
         Returns: a 1D array of length (b-a) * sum(samples_per_record)
+        
+        Note: Returns samples upto the end of the file if b exceeds the
+        number of records as np.fromfile gracefully handles this for us
         """
 
         #move to file start
@@ -161,11 +140,11 @@ class Reader(FileManager):
             stop (int):             stop sample to end reading (exclusive)
 
         Returns: array of shape chs x samples with float64 dtype
+        
+        Note: Returns an empty array if start exceeds samples in file 
+        as np.fromfile gracefully handles this for us
         """
 
-        if start > max(self._lengths):
-            msg = 'start idx {} exceeds number of samples {}'
-            raise IndexError(msg.format(start, self._lengths))
         #locate record ranges for chs & find unique ones to read
         recs = self._find_records(start, stop)
         urecs = set(recs)
@@ -242,7 +221,7 @@ class Writer(FileManager):
         #return rounded 2-byte little endian integers
         return np.rint(result).astype('<i2')
 
-    def _write_record(self, arr, channels, axis=-1):
+    def _write_record(self, arr, axis=-1):
         """Writes a single record of data to this writers file.
 
         Args:
@@ -250,7 +229,7 @@ class Writer(FileManager):
             axis (int):             sample axis of the array
         """
        
-        x = arr.T[channels] if axis == 0 else arr[channels]
+        x = arr.T if axis == 0 else arr
         #encipher float array
         x = self._encipher(x)
         #slice each channel to handle different samples_per_rec
@@ -283,20 +262,45 @@ class Writer(FileManager):
             slices = [ls[-1::-1] for ls in slices]
         return (data[tuple(slc)] for slc in slices)
 
-    def write(self, header, data, channels, axis=-1):
+    def _validate(self, header, data):
+        """Validates that number of header chanels matches number of data
+        channels and samples to be written are evenly divisible by the
+        number of records."""
+ 
+        if len(header.channels) not in data.shape:
+            msg = ('Number of channels in header does not match '
+                    'the number of channels in the data')
+            raise ValueError(msg)
+        samples = data.shape[0] * data.shape[1]
+        if samples % header.num_records != 0:
+            msg=('Number of data samples must be divisible by '
+                 'the number of records; {} % {} != 0')
+            raise ValueError(msg.format(values, num_records))
+
+    def write(self, header, data, axis=-1):
+        """Writes the header and data to write path.
+
+        Args:
+            header (dict):              dict containing required items
+                                        of an EDF header (see io.headers)
+            data (ndarray, sequence):   a 2-D array-like obj returning
+                                        samples for each channel along axis
+                                        data is required to have a shape
+                                        attr with sample shape along axis
+            axis (int):                 sample axis of the data, must be one
+                                        of (-1,0,1) as data is 2-D
         """
 
-        """
-
-        #build, filter and store the header
+        #validate data has needed chs & can be split into num records
+        self._validate(header, data)
+        #build & write header
         header = EDFHeader.from_dict(header)
-        header = header.filter(by='channels', values=channels)
         self._write_header(header)
         #Move to data records section
         self.fobj.seek(header.header_bytes)
         for idx, record in enumerate(self._records(data, axis=axis)):
             self._progress(idx)
-            self._write_record(record, channels, axis=axis)
+            self._write_record(record, axis=axis)
         
 
 if __name__ == '__main__':
@@ -316,7 +320,7 @@ if __name__ == '__main__':
     """
 
     with open_edf(path2, 'wb') as outfile:
-        outfile.write(header, data, channels=[0,2], axis=0)
+        outfile.write(header, data, axis=0)
 
     #fm = FileManager(path, 'rb')
 
