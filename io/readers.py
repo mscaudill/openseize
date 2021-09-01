@@ -45,7 +45,8 @@ class EDFReader:
         values by subtracting off the appended 0s on the last record.
         """
 
-        nrecs = self.header.num_records
+        #FIXME verify the -1
+        nrecs = self.header.num_records-2
         #get & read the last record
         last_rec = (nrecs - 1, nrecs)
         last_sample = np.array(self.header.samples_per_record) * nrecs

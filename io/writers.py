@@ -50,8 +50,9 @@ class EDFWriter:
         offsets = np.expand_dims(offsets, axis=axis)
         #undo offset and gain and convert back to ints
         result = arr - offsets
-        result = (result / slopes).astype('<i2')
-        return result
+        result = result / slopes
+        #return rounded 2-byte little endian integers
+        return np.rint(result).astype('<i2')
 
     def _write_annotation(self):
         """Writes a single records annotations."""
@@ -115,7 +116,7 @@ class EDFWriter:
             arr = arr[channels]
             #print('Input arr values: {}'.format(arr[:,:10]))
             self._write_record(arr, axis=-1)
-        return arr, fheader
+        return fheader
 
 
 
@@ -131,9 +132,9 @@ if __name__ == '__main__':
     from scripting.spectrum.io.eeg import EEG
 
     path = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
-    writepath = 'sandbox/test_write2.edf'
+    writepath = '/home/matt/python/nri/data/openseize/test_write.edf'
     header = headers.EDFHeader(path)
     data = EEG(path)
 
     with EDFWriter(writepath) as f:
-        arr, header = f.write(header, data, channels=[0,1,2,3], axis=0)
+        header = f.write(header, data, channels=[0,1,2,3], axis=0)
