@@ -165,7 +165,19 @@ class EDFHeader(Header):
         if self.annotated:
             signals.pop(self.annotation)
         return signals
-    
+
+    @property
+    def samples(self):
+        """Returns summed sample count across records for each channel.
+
+        The last record of the EDF may not be completely filled with
+        recorded signal values depending on the software that created it.
+        """
+
+        nrecs = self.num_records
+        samples = np.array(self.samples_per_record) * nrecs
+        return [samples[ch] for ch in self.channels]
+
     @property
     def record_map(self):
         """Returns a list of slice objects for each signal in a record."""
@@ -176,7 +188,7 @@ class EDFHeader(Header):
 
     @property
     def slopes(self):
-        """Returns the slope (gain) of each signal in this EDF.
+        """Returns the slope (gain) of each channel in this Header.
 
         The physical values p are linearly mapped from the digital values d:
         p = slope * d + offset, where the slope = 
@@ -186,22 +198,22 @@ class EDFHeader(Header):
         Returns: an 1-D array of slope values one per signal in EDF.
         """
 
-        pmaxes = np.array(self.physical_max)
-        pmins = np.array(self.physical_min)
-        dmaxes = np.array(self.digital_max)
-        dmins = np.array(self.digital_min)
+        pmaxes = np.array(self.physical_max)[self.channels]
+        pmins = np.array(self.physical_min)[self.channels]
+        dmaxes = np.array(self.digital_max)[self.channels]
+        dmins = np.array(self.digital_min)[self.channels]
         return (pmaxes - pmins) / (dmaxes - dmins)
 
     @property
     def offsets(self):
-        """Returns the offset of each signal in this EDF.
+        """Returns the offset of each channel in this Header.
 
         see slopes property
         Returns: an 1-D array of offset values one per signal in EDF.
         """
 
-        pmins = np.array(self.physical_min)
-        dmins = np.array(self.digital_min)
+        pmins = np.array(self.physical_min)[self.channels]
+        dmins = np.array(self.digital_min)[self.channels]
         return (pmins - self.slopes * dmins)
     
     def filter(self, by, values):
