@@ -1,7 +1,6 @@
 import numpy as np
 
 from openseize.io.headers import EDFHeader
-
 from openseize.mixins import ViewInstance
 
 def open_edf(path, mode):
@@ -79,6 +78,12 @@ class Reader(FileManager):
         super().__init__(path, mode='rb')
         self.header = EDFHeader(path)
 
+    @property
+    def shape(self):
+        """Returns the number of channels x number of samples."""
+
+        return len(self.header.channels), max(self.header.num_samples)
+
     def _decipher(self, arr, channels, axis=-1):
         """Deciphers an array of integers read from an EDF into an array of
         voltage float values.
@@ -126,12 +131,13 @@ class Reader(FileManager):
 
         Returns: a 2D array of shape (b-a) x sum(samples_per_record)
         
-        Note: Returns samples upto the end of the file if b exceeds the
-        number of records as np.fromfile gracefully handles this for us
+        Note: Returns samples upto end of file if b exceeds num. of records
         """
 
         #move to file start
         self._fobj.seek(0)
+        #ensure last record is not off file and cnt records
+        b = min(b, self.header.num_records)
         cnt = b - a
         #each sample is represented as a 2-byte integer
         bytes_per_record = sum(self.header.samples_per_record) * 2
@@ -144,13 +150,39 @@ class Reader(FileManager):
         arr = records.reshape(cnt, sum(self.header.samples_per_record))
         return arr
 
-    def _read_array(self, start, stop, channels):
+    def _padstack(self, arrs, padvalue):
+        """Pads 1-D arrays so that all lengths match and stacks them.
+
+        Args:
+            padvalue (float):          value to pad 
+
+        The channels in the edf may have different sample rates. If
+        a channel runs out of values to return, we pad that channel with
+        padvalue to ensure the reader can return a 2-D array.
+
+        Returns: a channels x samples array
+        """
+
+        req = max(len(arr) for arr in arrs)
+        amts = [req - len(arr) for arr in arrs]
+        if all(amt == 0 for amt in amts):
+            return np.stack(arrs, axis=0)
+        else:
+            #convert to float for unlimited value pad
+            x = [np.pad(arr.astype(float), (0, amt), constant_values=value)]
+            return np.stack(x, axis=0)
+
+    def _read_array(self, start, stop, channels, padvalue):
         """Returns samples from start to stop for channels of this EDF.
 
         Args:
             start (int):            start sample to begin reading
             stop (int):             stop sample to end reading (exclusive)
             channels (list):        channels to return samples for
+            padvalue (float):       value to pad to channels that run out of
+                                    samples to return (see _padstack).
+                                    Ignored if all channels have the same
+                                    sample rates.
 
         Returns: array of shape chs x samples with float64 dtype
         
@@ -173,26 +205,31 @@ class Reader(FileManager):
             a = start - pts[0] * self.header.samples_per_record[ch]
             b = a + (stop - start)
             result.append(arr[a:b])
-        res =  np.stack(result, axis=0)
+        res = self._padstack(result, padvalue)
         #decipher and yield
         return self._decipher(res, channels)
 
-    def _read_gen(self, start, channels, chunksize):
+    def _read_gen(self, start, channels, chunksize, padvalue):
         """A generator yielding arrays of data from an EDF file.
 
         Args:
             start (int):            start sample of returned data
             channels (list):        list of channels to return data for
             chunksize (int):        number of samples to return per iter
+            padvalue (float):       value to pad to channels that run out of
+                                    samples to return (see _padstack).
+                                    Ignored if all channels have the same
+                                    sample rates.
           
         Yields: arrays of shape chs x samples with float64 dtype
         """
 
         starts = range(start, max(self.header.samples), chunksize)
         for start, stop in zip(starts, starts[1:]):
-            yield self._read_idx(start, stop, channels)
+            yield self._read_array(start, stop, channels, padvalue)
 
-    def read(self, start, stop=None, channels=None, chunksize=30e6):
+    def read(self, start, stop=None, channels=None, chunksize=30e6,
+             padvalue=np.NaN):
         """Reads samples from an edf file for the specified channels.
 
         Depending on supplied arguments this function will return an array
@@ -211,6 +248,9 @@ class Reader(FileManager):
                                     generator per iteration (Default is
                                     30e6 samples). This value is ignored if
                                     stop sample is provided.
+            padvalue (float):       value to pad to channels that run out of
+                                    samples to return. Ignored if all 
+                                    channels have the same sample rates.
 
         Returns/Yields:
             if stop is None, read yields arrays of chs x chunksize samples
@@ -218,14 +258,17 @@ class Reader(FileManager):
             array(s) yielded or returned are of dtype float64.
         """
 
+        if start > max(self.header.samples):
+            msg = 'start index {} is out of bounds for EDF with {} samples'
+            raise EOFError(msg.format(start, max(self.header.samples)))
         #use all channels if None and dispatch to read method
         channels = self.header.channels if not channels else channels
         if not stop:
             #return generator
-            return self._read_gen(start, channels, int(chunksize))
+            return self._read_gen(start, channels, int(chunksize), padvalue)
         else:
             #return an array
-            return self._read_array(start, stop, channels)
+            return self._read_array(start, stop, channels, padvalue)
 
 
 class Writer(FileManager):
@@ -241,26 +284,23 @@ class Writer(FileManager):
         super().__init__(path, mode='wb')
 
     def _write_header(self, header):
-        """Writes header values to the header of the file obj.
+        """Write header dict to header section of this Writer's fileobj.
 
         Args:
             header (dict):          a dict to use as this files header
         """
        
-        #add a header and convert all values to list
+        #build EDFheader & convert all values to list
         self.header = EDFHeader.from_dict(header)
-        d = {k: v if isinstance(v, list) else [v] 
-             for k, v in self.header.items()}
+        lsheader = {k: v if isinstance(v, list) else [v]
+                   for k, v in self.header.items()}
         #build an edf bytemap dict and move to file start byte
         bmap = self.header.bytemap(self.header.num_signals)
         self._fobj.seek(0)
-        #encode each value list in header and write
-        for values, bytelist in ((d[name], bmap[name][0]) for name in bmap):
-            bvalues = [bytes(str(value), encoding='ascii').ljust(nbytes) 
-                      for value, nbytes in zip(values, bytelist)]
-            #join the byte strings and write
-            bstring = b''.join(bvalues)
-            self._fobj.write(bstring)
+        #encode each header list el & write within bytecnt bytes
+        for ls, (cnts, _) in ((lsheader[k], bmap[k]) for k in bmap):
+            b = [bytes(str(x), 'ascii').ljust(n) for x, n in zip(ls, cnts)]
+            self._fobj.write(b''.join(b))
 
     def _encipher(self, arr, axis=-1):
         """Transform arr of float values to an array of 2-byte 
@@ -280,22 +320,82 @@ class Writer(FileManager):
         #return rounded 2-byte little endian integers
         return np.rint(result).astype('<i2')
 
-    def _write_record(self, arr, axis=-1):
+    def _write_record(self, arr):
         """Writes a single record of data to this writers file.
 
         Args:
             arr (ndarray):          a 1 or 2-D array of samples to write
-            axis (int):             sample axis of the array
         """
        
-        x = arr.T if axis == 0 else arr
         #encipher float array
-        x = self._encipher(x)
+        x = self._encipher(arr)
         #slice each channel to handle different samples_per_rec
         for ch in self.header.channels:
             samples = x[ch, :self.header.samples_per_record[ch]]
             byte_str = samples.tobytes()
             self._fobj.write(byte_str)
+
+    
+    def _ranges(self):
+        """Returns ranges to split data into records for writing."""
+
+        #compute the starts and stops of each range
+        cnt = max(self.header.samples_per_record)
+        starts = [cnt * rec for rec in range(self.header.num_records+1)]
+        ranges = [range(a, b) for a, b in zip(starts, starts[1:])]
+        return ranges
+    
+    def _records(self, data, channels, axis):
+        """A generator of data record values to write.
+
+        Args:
+            data (Reader or ndarray):   a Reader instance, an in-memory
+                                        2-D array or np.memmap
+            channels (list):            list of channel indices of data to
+                                        write to path
+            axis (int):                 sample axis of data
+
+        Returns: generator yielding arrays of records for writing.
+        """
+
+        if hasattr(data, 'read'):
+            return (data.read(r.start, r.stop, channels) 
+                    for r in self._ranges())
+        elif isinstance(data, np.ndarray):
+            return self._records_from_array(data, channels, axis)
+        else:
+            msg = 'Records can not be built from {} dtype.'
+            raise TypeError(msg.format(type(data).__name__))
+
+    def _records_from_array(self, arr, channels, axis):
+        """A generator yielding records from an array for writing.
+
+        Args:
+            arr (ndarray):          an 2-D array instance
+            channels (list):        list of channel indices of data to
+                                    write to path
+            axis (int):             sample axis of arr
+        
+        Returns: generator yielding arrays of records for writing.
+        """
+
+        for r in self._ranges():
+            #take range indices along sample axis
+            indices = np.expand_dims(np.array(r), axis=axis)
+            result = np.take_along_axis(data, indices, axis=axis)
+            #transpose to chs x rec_samples for callers 
+            result = result.T if axis==0 else result
+            yield result[channels]
+
+    def _validate(self, header, data):
+        """Validates that the number of samples to be written is divisible
+        by the number of records in the header."""
+
+        samples = data.shape[0] * data.shape[1]
+        if samples % header.num_records != 0:
+            msg=('Number of data samples must be divisible by '
+                 'the number of records; {} % {} != 0')
+            raise ValueError(msg.format(values, num_records))
 
     def _progress(self, idx):
         """Relays write progress during file writing."""
@@ -304,39 +404,7 @@ class Writer(FileManager):
         perc = idx / self.header.num_records * 100
         print(msg.format(perc), end='\r', flush=True) 
 
-    def _records(self, data, axis=-1):
-        """Returns a generator of data record values to write.
-
-        Args:
-            data (array like):      an object supporting numpy's slicing
-                                    protocol
-            axis (int):             sample axis of data
-        """
-
-        cnt = max(self.header.samples_per_record)
-        starts = [cnt * rec for rec in range(self.header.num_records+1)]
-        endpts = zip(starts, starts[1:])
-        slices = [[slice(None), slice(*pt)] for pt in endpts]
-        if axis == 0:
-            slices = [ls[-1::-1] for ls in slices]
-        return (data[tuple(slc)] for slc in slices)
-
-    def _validate(self, header, data):
-        """Validates that number of header chanels matches number of data
-        channels and samples to be written are evenly divisible by the
-        number of records."""
- 
-        if len(header.channels) not in data.shape:
-            msg = ('Number of channels in header does not match '
-                    'the number of channels in the data')
-            raise ValueError(msg)
-        samples = data.shape[0] * data.shape[1]
-        if samples % header.num_records != 0:
-            msg=('Number of data samples must be divisible by '
-                 'the number of records; {} % {} != 0')
-            raise ValueError(msg.format(values, num_records))
-
-    def write(self, header, data, axis=-1):
+    def write(self, header, data, channels, axis=-1):
         """Writes the header and data to write path.
 
         Args:
@@ -350,16 +418,18 @@ class Writer(FileManager):
                                         of (-1,0,1) as data is 2-D
         """
 
-        #validate data has needed chs & can be split into num records
-        self._validate(header, data)
         #build & write header
         header = EDFHeader.from_dict(header)
+        #filter the header to include only channels
+        header = header.filter('channels', channels)
+        #before write validate
+        self._validate(header, data)
         self._write_header(header)
-        #Move to data records section
+        #Move to data records section, fetch and write records
         self._fobj.seek(header.header_bytes)
-        for idx, record in enumerate(self._records(data, axis=axis)):
+        for idx, record in enumerate(self._records(data, channels, axis)):
             self._progress(idx)
-            self._write_record(record, axis=axis)
+            self._write_record(record)
         
 
 if __name__ == '__main__':
@@ -378,13 +448,12 @@ if __name__ == '__main__':
         res = infile.read(0,1000)
     """
 
-    """
     with open_edf(path2, 'wb') as outfile:
-        outfile.write(header, data, axis=0)
+        outfile.write(header, reader, channels=[0,1], axis=-1)
+
+
     """
-
-    #fm = FileManager(path, 'rb')
-
     gen = reader.read(start=0, channels=[0,1,2,3], chunksize=int(30e6))
     arr = reader.read(start=0, stop=1, channels=[0,3])
+    """
 
