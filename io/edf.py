@@ -82,7 +82,7 @@ class Reader(FileManager):
     def shape(self):
         """Returns the number of channels x number of samples."""
 
-        return len(self.header.channels), max(self.header.num_samples)
+        return len(self.header.channels), max(self.header.samples)
 
     def _decipher(self, arr, channels, axis=-1):
         """Deciphers an array of integers read from an EDF into an array of
@@ -335,7 +335,6 @@ class Writer(FileManager):
             byte_str = samples.tobytes()
             self._fobj.write(byte_str)
 
-    
     def _ranges(self):
         """Returns ranges to split data into records for writing."""
 
