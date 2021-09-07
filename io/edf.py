@@ -126,14 +126,18 @@ class Reader(FileManager):
         return list(zip(starts, stops))
 
     def _records(self, a, b):
-        """Reads all samples from the ath to bth record.
-
+        """Reads samples between the ath to bth record.
 
         Returns: a 2D array of shape (b-a) x sum(samples_per_record)
         
-        Note: Returns samples upto end of file if b exceeds num. of records
+        Note 1:   Returns samples upto end of file if b > num. of records
+        Note 2:   If the start record is off the file we return an empty 
+                  array of shape (1,0)
         """
 
+        #if the start record is off the file return an empty array
+        if a >= self.header.num_records:
+            return np.empty((1,0))
         #move to file start
         self._fobj.seek(0)
         #ensure last record is not off file and cnt records
@@ -144,10 +148,9 @@ class Reader(FileManager):
         #get offset in bytes & num samples spanning a to b
         offset = self.header.header_bytes + a * bytes_per_record
         nsamples = cnt * sum(self.header.samples_per_record)
-        records = np.fromfile(self._fobj, dtype='<i2', count=nsamples, 
-                           offset=offset)
-        #reshape the record to num_records x sum samples_per_rec
-        arr = records.reshape(cnt, sum(self.header.samples_per_record))
+        recs = np.fromfile(self._fobj, '<i2', nsamples, offset=offset)
+        #reshape the records to num_records x sum samples_per_rec
+        arr = recs.reshape(cnt, sum(self.header.samples_per_record))
         return arr
 
     def _padstack(self, arrs, padvalue):
@@ -169,7 +172,8 @@ class Reader(FileManager):
             return np.stack(arrs, axis=0)
         else:
             #convert to float for unlimited value pad
-            x = [np.pad(arr.astype(float), (0, amt), constant_values=value)]
+            x = [np.pad(arr.astype(float), (0, amt), 
+                 constant_values=padvalue) for arr, amt in zip(arrs, amts)]
             return np.stack(x, axis=0)
 
     def _read_array(self, start, stop, channels, padvalue):
@@ -206,7 +210,7 @@ class Reader(FileManager):
             b = a + (stop - start)
             result.append(arr[a:b])
         res = self._padstack(result, padvalue)
-        #decipher and yield
+        #decipher and return
         return self._decipher(res, channels)
 
     def _read_gen(self, start, channels, chunksize, padvalue):
@@ -294,7 +298,7 @@ class Writer(FileManager):
         self.header = EDFHeader.from_dict(header)
         lsheader = {k: v if isinstance(v, list) else [v]
                    for k, v in self.header.items()}
-        #build an edf bytemap dict and move to file start byte
+        #build bytemap dict and move to file start byte
         bmap = self.header.bytemap(self.header.num_signals)
         self._fobj.seek(0)
         #encode each header list el & write within bytecnt bytes
@@ -302,96 +306,52 @@ class Writer(FileManager):
             b = [bytes(str(x), 'ascii').ljust(n) for x, n in zip(ls, cnts)]
             self._fobj.write(b''.join(b))
 
-    def _encipher(self, arr, axis=-1):
-        """Transform arr of float values to an array of 2-byte 
-        little-endian integers.
+    def _records(self, data, channels):
+        """A generator yielding list of samples one per channel for a single
+        record extracted from data.
+
+        Args:
+            data (ndarray, reader):     an ndarray, memmap or reader
+                                        instance with shape channels x 
+                                        samples 
+            channels (list):            list of channels to write
+
+        Yields: list of arrays of samples one per channel that constitute
+                a record
+        """
+
+        for n in range(self.header.num_records):
+            result = []
+            #compute the start and stop sample for each channel
+            starts = n * np.array(self.header.samples_per_record)
+            stops = (n+1) * np.array(self.header.samples_per_record)
+            for channel, start, stop in zip(channels, starts, stops):
+                #fetch from array or reader and yield
+                if isinstance(data, np.ndarray):
+                    result.append(data[channel][start:stop])
+                else:
+                    result.append(data.read(start, stop, [channel]))
+            yield result
+
+    def _encipher(self, arrs):
+        """Transform each 1-D array in arrays from floats to an array
+        of 2-byte little-endian integers.
 
         see: _decipher method of the EDFReader.
         """
 
         slopes = self.header.slopes
         offsets = self.header.offsets
-        #expand to 2-D for broadcasting
-        slopes = np.expand_dims(slopes, axis=axis)
-        offsets = np.expand_dims(offsets, axis=axis)
-        #undo offset and gain and convert back to ints
-        result = arr - offsets
-        result = result / slopes
-        #return rounded 2-byte little endian integers
-        return np.rint(result).astype('<i2')
-
-    def _write_record(self, arr):
-        """Writes a single record of data to this writers file.
-
-        Args:
-            arr (ndarray):          a 1 or 2-D array of samples to write
-        """
-       
-        #encipher float array
-        x = self._encipher(arr)
-        #slice each channel to handle different samples_per_rec
-        for ch in self.header.channels:
-            samples = x[ch, :self.header.samples_per_record[ch]]
-            byte_str = samples.tobytes()
-            self._fobj.write(byte_str)
-
-    def _ranges(self):
-        """Returns ranges to split data into records for writing."""
-
-        #compute the starts and stops of each range
-        cnt = max(self.header.samples_per_record)
-        starts = [cnt * rec for rec in range(self.header.num_records+1)]
-        ranges = [range(a, b) for a, b in zip(starts, starts[1:])]
-        return ranges
-    
-    def _records(self, data, channels, axis):
-        """A generator of data record values to write.
-
-        Args:
-            data (Reader or ndarray):   a Reader instance, an in-memory
-                                        2-D array or np.memmap
-            channels (list):            list of channel indices of data to
-                                        write to path
-            axis (int):                 sample axis of data
-
-        Returns: generator yielding arrays of records for writing.
-        """
-
-        if hasattr(data, 'read'):
-            return (data.read(r.start, r.stop, channels) 
-                    for r in self._ranges())
-        elif isinstance(data, np.ndarray):
-            return self._records_from_array(data, channels, axis)
-        else:
-            msg = 'Records can not be built from {} dtype.'
-            raise TypeError(msg.format(type(data).__name__))
-
-    def _records_from_array(self, arr, channels, axis):
-        """A generator yielding records from an array for writing.
-
-        Args:
-            arr (ndarray):          an 2-D array instance
-            channels (list):        list of channel indices of data to
-                                    write to path
-            axis (int):             sample axis of arr
-        
-        Returns: generator yielding arrays of records for writing.
-        """
-
-        for r in self._ranges():
-            #take range indices along sample axis
-            indices = np.expand_dims(np.array(r), axis=axis)
-            result = np.take_along_axis(data, indices, axis=axis)
-            #transpose to chs x rec_samples for callers 
-            result = result.T if axis==0 else result
-            yield result[channels]
+        for ch, x in enumerate(arrs):
+            arrs[ch] = np.rint((x - offsets[ch]) / slopes[ch])
+            arrs[ch] = arrs[ch].astype('<i2')
+        return arrs
 
     def _validate(self, header, data):
         """Validates that the number of samples to be written is divisible
         by the number of records in the header."""
 
-        samples = data.shape[0] * data.shape[1]
-        if samples % header.num_records != 0:
+        if data.shape[1] % header.num_records != 0:
             msg=('Number of data samples must be divisible by '
                  'the number of records; {} % {} != 0')
             raise ValueError(msg.format(values, num_records))
@@ -403,18 +363,17 @@ class Writer(FileManager):
         perc = idx / self.header.num_records * 100
         print(msg.format(perc), end='\r', flush=True) 
 
-    def write(self, header, data, channels, axis=-1):
+    def write(self, header, data, channels, verbose=True):
         """Writes the header and data to write path.
 
         Args:
             header (dict):              dict containing required items
                                         of an EDF header (see io.headers)
-            data (ndarray, sequence):   a 2-D array-like obj returning
-                                        samples for each channel along axis
-                                        data is required to have a shape
-                                        attr with sample shape along axis
-            axis (int):                 sample axis of the data, must be one
-                                        of (-1,0,1) as data is 2-D
+            data (ndarray, reader):     an ndarray, memmap or reader
+                                        instance with shape channels x 
+                                        samples 
+            channels (list):            list of channels to write
+            verbose (bool):             display write percentage complete
         """
 
         #build & write header
@@ -426,9 +385,16 @@ class Writer(FileManager):
         self._write_header(header)
         #Move to data records section, fetch and write records
         self._fobj.seek(header.header_bytes)
-        for idx, record in enumerate(self._records(data, channels, axis)):
-            self._progress(idx)
-            self._write_record(record)
+        for idx, record in enumerate(self._records(data, channels)):
+            samples = self._encipher(record)
+            samples = np.concatenate(samples)
+            #convert to bytes and write to file obj
+            byte_str = samples.tobytes()
+            self._fobj.write(byte_str)
+            if verbose:
+                self._progress(idx)
+
+
         
 
 if __name__ == '__main__':
@@ -440,7 +406,7 @@ if __name__ == '__main__':
     
     reader = Reader(path)
     header = reader.header
-    data = EEG(path)
+    #data = EEG(path)
 
     """
     with open_edf(path, 'rb') as infile:
@@ -448,7 +414,7 @@ if __name__ == '__main__':
     """
 
     with open_edf(path2, 'wb') as outfile:
-        outfile.write(header, reader, channels=[0,1], axis=-1)
+        outfile.write(header, reader, channels=[1,3])
 
 
     """
