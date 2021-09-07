@@ -237,7 +237,7 @@ class EDFHeader(Header):
                 if isinstance(vals, list):
                     header[key] = [vals[idx] for idx in indices]
             #match num_signals to filter len and return header
-            header['num_signals'] = len(values)
+            header['num_signals'] = len(indices)
             return header
 
 
