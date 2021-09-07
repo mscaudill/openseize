@@ -11,6 +11,12 @@ interpreter."""
 PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
 WRITEPATH = '/home/matt/python/nri/data/openseize/test_write.edf'
 
+def write(channels=[0,1,2,3]):
+    """Writes a fresh edf from a known edf."""
+
+    with edf.open_edf(WRITEPATH, 'wb') as outfile:
+        with edf.open_edf(PATH, 'rb') as supply:
+            outfile.write(supply.header, supply, channels=channels)
 
 def test_read_array(fetches=10000):
     """Test if array fetching with the new reader matches arrays returned
@@ -93,6 +99,7 @@ def test_read_shape():
     """Test that the readers reported shape is the expected shape."""
 
     reader = edf.Reader(PATH)
+    oreader = OReader(PATH)
     assert reader.shape == (oreader.num_channels, max(oreader.num_samples))
     reader.close()
 
@@ -180,7 +187,59 @@ def test_channelwrite_readgen(channels=[1,3]):
     supplied.close()
     written.close()
 
-"""STILL NEED TO TEST WITH FAKE DATA OF DIFFERENT SAMPLE RATES."""
+
+"""
+
+"""
+
+def data(nrecords, samples_per_record, padval, seed):
+    """Returns a random 2-D array of data to simulate an edf data 
+    with different sample rates.
+
+    Args:
+        nrecords (int):             num of records to write
+        samples_per_record (list):  seqeunce that defines number of samples
+                                    for each channel within each edf record
+        padval (float):             padding value used to make rectangular
+                                    array. This will pad channels with less
+                                    than max(samples_per_record)
+        seed (int):                 random seed for reproducibility
+
+    Returns: ndarray of shape len(samples_per_record) x (nrecords
+             * max(samples_per_record)
+    """
+
+    np.random.seed(seed)
+    spr = samples_per_record
+    shape = len(spr),  max(spr) * nrecords
+    #build random samples for each channel in spr
+    arrs = [1000*np.random.random(s * nrecords) for s in spr]
+    #pad all arrays to the max array length and stack
+    for i, x in enumerate(arrs):
+        arrs[i] = np.pad(x, (0, shape[1] - len(x)), constant_values=padval)
+    return np.stack(arrs, axis=0)
+
+def uneven_write(nrecs=100, spr=[50000, 50000, 10000, 20000]):
+    """Writes simulated data with uneven spr to an edf file for testing."""
+
+    arr = data(nrecs, spr, padval=-5000, seed=0)
+    #use a prebuilt header and alter it to match our data
+    header = edf.Reader(PATH).header
+    header = header.filter('channels', [0,1,2,3])
+    header['num_records'] = nrecs
+    header['samples_per_record'] = spr
+    #write the header and data to a new path
+    wpath = '/home/matt/python/nri/data/openseize/test_uneven.edf'
+    with edf.open_edf(wpath, 'wb') as outfile:
+        outfile.write(header, arr, channels=[0,1,2,3])
+
+def test_boundaries():
+    """ """
+
+    pass
 
 
-    
+if __name__ == '__main__':
+
+    #write()
+    uneven_write()
