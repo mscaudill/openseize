@@ -10,6 +10,7 @@ interpreter."""
 
 PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
 WRITEPATH = '/home/matt/python/nri/data/openseize/test_write.edf'
+UPATH = '/home/matt/python/nri/data/openseize/test_uneven.edf'
 
 def write(channels=[0,1,2,3]):
     """Writes a fresh edf from a known edf."""
@@ -188,9 +189,7 @@ def test_channelwrite_readgen(channels=[1,3]):
     written.close()
 
 
-"""
-
-"""
+"""Tests of 'uneven' data with different sample rates for each channel."""
 
 def data(nrecords, samples_per_record, padval, seed):
     """Returns a random 2-D array of data to simulate an edf data 
@@ -222,24 +221,84 @@ def data(nrecords, samples_per_record, padval, seed):
 def uneven_write(nrecs=100, spr=[50000, 50000, 10000, 20000]):
     """Writes simulated data with uneven spr to an edf file for testing."""
 
-    arr = data(nrecs, spr, padval=-5000, seed=0)
+    arr = data(nrecs, spr, padval=0, seed=0)
     #use a prebuilt header and alter it to match our data
     header = edf.Reader(PATH).header
     header = header.filter('channels', [0,1,2,3])
     header['num_records'] = nrecs
     header['samples_per_record'] = spr
     #write the header and data to a new path
-    wpath = '/home/matt/python/nri/data/openseize/test_uneven.edf'
-    with edf.open_edf(wpath, 'wb') as outfile:
+    with edf.open_edf(UPATH, 'wb') as outfile:
         outfile.write(header, arr, channels=[0,1,2,3])
 
-def test_boundaries():
-    """ """
+def test_uneven_randomread(fetches=1000):
+    """Compares all channels for a random fetch in fetches."""
 
-    pass
+    arr = data(100, [50000, 50000, 10000, 20000], padval=0, seed=0)
+    reader = edf.Reader(UPATH)
+    #build fetch number of starts and stop indices
+    starts = np.random.randint(0, 5e6, fetches)
+    stops = starts + np.random.randint(0, 5e4)
+    #compare reads between read array and simulated arr
+    # NOTE there is a loss of precision as edf uses 2-byte ints so tolerance
+    # for comparison is set to within 1 unit
+    # for this test the data was padded with 0s so supply the same to reader
+    for start, stop in zip(starts, stops):
+        x = reader.read(start, stop, padvalue=0)
+        assert np.allclose(x, arr[:, start:stop], atol=1)
+    reader.close()
+
+def test_uneven_gen(chunksize=1000):
+    """Test if the read generator yields the same chunks of data as the
+    supplying array used to build the edf."""
+
+    arr = data(100, [50000, 50000, 10000, 20000], padval=0, seed=0)
+    reader = edf.Reader(UPATH)
+    starts = np.arange(0, arr.shape[1], chunksize)
+    stops = starts[1:]
+    #for this test the data was padded with 0s so supply the same to reader
+    for idx, chunk in enumerate(reader.read(0, chunksize=chunksize,
+                                padvalue=0)):
+        assert(np.allclose(chunk, arr[:, starts[idx]:stops[idx]], atol=1))
+    reader.close()
+
+def test_uneven_chrandomread(fetches=1000, channels=[0,3]):
+    """Test if reading a subset of the channels matches a subset of the
+    channels from the supplying array used to make the edf."""
+
+    arr = data(100, [50000, 50000, 10000, 20000], padval=0, seed=0)
+    reader = edf.Reader(UPATH)
+    #build fetch number of starts and stop indices
+    starts = np.random.randint(0, 5e5, fetches)
+    stops = starts + np.random.randint(0, 5e4)
+    #compare reads between read array and simulated arr
+    # NOTE there is a loss of precision as edf uses 2-byte ints so tolerance
+    # for comparison is set to within 1 unit
+    for start, stop in zip(starts, stops):
+        x = reader.read(start, stop, channels=channels, padvalue=0)
+        assert np.allclose(x, arr[channels, start:stop], atol=1)
+    reader.close()
+
+def test_uneven_chgen(chunksize=1000, channels=[1,2]):
+    """Test if the read gen for a specific set of channels returns the same
+    data as the arr for the same channels."""
+
+    arr = data(100, [50000, 50000, 10000, 20000], padval=0, seed=0)
+    reader = edf.Reader(UPATH)
+    starts = np.arange(0, arr.shape[1], chunksize)
+    stops = starts[1:]
+    #for this test the data was padded with 0s so supply the same to reader
+    for idx, chunk in enumerate(reader.read(0, chunksize=chunksize,
+                                channels=channels, padvalue=0)):
+        assert(np.allclose(chunk, arr[channels, starts[idx]:stops[idx]], atol=1))
+    reader.close()
 
 
+   
+
+
+"""
 if __name__ == '__main__':
 
-    #write()
     uneven_write()
+"""
