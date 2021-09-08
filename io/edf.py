@@ -342,10 +342,12 @@ class Writer(FileManager):
 
         slopes = self.header.slopes
         offsets = self.header.offsets
+        results = []
         for ch, x in enumerate(arrs):
-            arrs[ch] = np.rint((x - offsets[ch]) / slopes[ch])
-            arrs[ch] = arrs[ch].astype('<i2')
-        return arrs
+            arr = np.rint((x - offsets[ch]) / slopes[ch])
+            arr = arr.astype('<i2')
+            results.append(arr)
+        return results
 
     def _validate(self, header, data):
         """Validates that the number of samples to be written is divisible
