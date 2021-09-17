@@ -139,6 +139,7 @@ class EDFHeader(Header):
         """Returns the number of signals in this EDF."""
 
         with open(self.path, 'rb') as fp:
+            #for edf, num_signals is always at 252 nd byte
             fp.seek(252)
             return int(fp.read(4).strip().decode())
 
@@ -236,8 +237,12 @@ class EDFHeader(Header):
             for key, vals in header.items():
                 if isinstance(vals, list):
                     header[key] = [vals[idx] for idx in indices]
-            #match num_signals to filter len and return header
+            #match num_signals to filter len
             header['num_signals'] = len(indices)
+            #compute and update header_bytes
+            nbytes = sum(sum(ls) for key, (ls, dtype) in 
+                         self.bytemap(len(indices)).items())
+            header['header_bytes'] = nbytes
             return header
 
 
