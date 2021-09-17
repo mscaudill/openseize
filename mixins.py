@@ -89,7 +89,7 @@ class ViewContainer:
         #create a constrained repr instance
         r = reprlib.aRepr
         r.maxdict = 2
-        return '{}: {})'.format(cls_name, r.repr(attrs))
+        return '{}: {}'.format(cls_name, r.repr(attrs))
 
     def __str__(self):
         """Returns this instances print representation."""
