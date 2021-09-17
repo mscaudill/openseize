@@ -1,14 +1,21 @@
 import inspect
 import pprint
+import reprlib
 
 class ViewInstance:
     """Mixin endowing inheritors with echo and print str representations."""
 
+    __slots__ = ()
+
     def _fetch_attributes(self):
         """Returns a dict of all non-protected attrs."""
 
-        return {attr: val for attr, val in self.__dict__.items()
-                if not attr.startswith('_')}
+        if '__dict__' in dir(self):
+            return {attr: val for attr, val in self.__dict__.items()
+                    if not attr.startswith('_')}
+        else:
+            #slotted instance
+            return {attr: getattr(self, attr) for attr in self.__slots__}
             
     def _fetch_methods(self):
         """Returns non-protected instance and class methods."""
@@ -58,6 +65,43 @@ class ViewInstance:
         return '\n'.join([msg_start, msg_body, msg_end])
 
 
+class ViewContainer:
+    """Mixin endowing data containers with str and echo representations."""
 
+    __slots__ = ()
+
+    def _fetch_attributes(self):
+        """Returns a dict of all non-protected attrs."""
+
+        if '__dict__' in dir(self):
+            return {attr: val for attr, val in self.__dict__.items()
+                    if not attr.startswith('_')}
+        else:
+            #slotted instance
+            return {attr: getattr(self, attr) for attr in self.__slots__}
+
+    def __repr__(self):
+        """Returns this containers echo representation."""
+
+        cls_name = type(self).__name__
+        #get containers attributes
+        attrs = self._fetch_attributes()
+        #create a constrained repr instance
+        r = reprlib.aRepr
+        r.maxdict = 2
+        return '{}: {})'.format(cls_name, r.repr(attrs))
+
+    def __str__(self):
+        """Returns this instances print representation."""
+
+        cls_name = type(self).__name__
+        #get containers attributes
+        attrs = self._fetch_attributes()
+        #build a pretty printed msg
+        msg_start = cls_name + ' Object:'
+        pp = pprint.PrettyPrinter(sort_dicts=False, compact=True)
+        msg_body = pp.pformat(attrs) 
+        msg_end = '\nType help({}) for full documentation'.format(cls_name)
+        return '\n'.join([msg_start, msg_body, msg_end])
 
 
