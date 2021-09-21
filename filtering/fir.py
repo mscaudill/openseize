@@ -34,10 +34,20 @@ class FIRViewer:
         color = kwargs.pop('facecolor', 'gray')
         alpha = kwargs.pop('alpha', 0.3)
         #get left edges, bottom, and height
-        l_edges = self.cutoff - 0.5 * self.width
+        #l_edges = self.cutoff
         bottom, top = ax.get_ylim()
         height = top - bottom
-        #build and add rectangles
+        #build and add rectangles FIXME
+        if self.btype == 'highpass':
+            l_edges = self.cutoff - self.width
+        elif self.btype == 'bandpass':
+            l_edges = self.cutoff + [-self.width, 0]
+        elif self.btype == 'lowpass':
+            l_edges = self.cutoff
+        elif self.btype == 'bandstop':
+            l_edges = self.cutoff + [0, -self.width]
+
+
         rects = [Rectangle((le, bottom), self.width, height, 
                  facecolor=color, alpha=alpha) for le in l_edges]
         [ax.add_patch(rect) for rect in rects]
@@ -88,8 +98,11 @@ class FIR_I(ViewInstance, FIRViewer):
         window (str):                   scipy signal window, must be one of
                                         (hanning, blackman, rectangular, 
                                         hamming)
-        pass_zero (bool):               gain at 0 frequency (Default True
-                                        (i.e. low pass)
+        btype (str):                    type of filter must be one of
+                                        {lowpass, highpass, bandpass, 
+                                        bandstop}. Default is lowpass
+        gpass (float):
+        gstop (float):
         coeffs (arr):                   filter coeffs of the designed filter
                                         "h(n)"
 
@@ -102,64 +115,65 @@ class FIR_I(ViewInstance, FIRViewer):
            A Practical Approach. Prentice Hall
     """
 
-    def __init__(self, cutoff, width, fs, window='hamming', pass_zero=True):
+    def __init__(self, cutoff, width, fs, btype='lowpass', window='hamming',
+                 gpass=0.05, gstop=40):
         """Initialize this FIR filter. """
+
+        #0.05 dB ~ 0.5% amplitude variation
+        # 40 dB ~ 99 % amplitude reduction
 
         self.fs = fs
         self.nyq = fs/2
         self.cutoff = np.atleast_1d(cutoff)
         self.norm_cutoff = self.cutoff / self.nyq
         self.width = width
-        self.wparam = self._win_params(window)
         self.window = window
-        self.pass_zero = pass_zero
+        self.btype, pass_zero = self._validate_btype(btype)
+        self.gpass = gpass
+        self.gstop = gstop
         #compute taps needed and call scipy firwin
         self.ntaps = self._tap_count()
         self.coeffs = firwin(self.ntaps, self.norm_cutoff, window=self.window,
                              pass_zero=pass_zero)
 
-    def _win_params(self, name):
-        """Returns the window shape constant that relates the number of taps
-        to the transition width for a named window.
+    def _validate_btype(self, btype):
+        """Validates that the filter type is a valid filter type."""
 
-        ntaps ~ c / width, where c is the windows shape param.
-        """
-
-        wparams = {'rectangular': 0.9, 'hanning': 3.1, 'hamming': 3.3, 
-                   'blackman': 5.5}
-        if name.lower() not in wparams:
-            msg = 'window argument must be one of {}'
-            raise ValueError(msg.format(list(wparams.keys())))
-        return wparams[name.lower()] 
+        types = ['lowpass', 'highpass', 'bandpass', 'bandstop']
+        if btype not in types:
+            msg = ('filter of type {} is not a valid filter type. '
+                    'Valid filter types are {}')
+            raise ValueError(msg.format(btype, types))
+        pass_zero = True if btype in ['lowpass', 'bandstop'] else False
+        return btype, pass_zero
 
     def _tap_count(self):
-        """Returns number of taps need to meet freqeuncy transition width.
-        
-        The normalized transition width ~ wparam / num_taps. 
-        (see Reference 1. Chapter 9)
-        """
+        """ """
 
-        #each cutoff will be same width
         w = self.width * len(self.cutoff)
         #normalize transition width 
-        normed_fwidth = w / (self.fs)
-        #compute taps and ensure odd (Type I)
-        ntaps = int(self.wparam / (normed_fwidth))
+        normed_fwidth = w / (2 * (self.fs))
+        #convert gains from decibels to ratios
+        gpass = 10 ** (-self.gpass / 20)
+        gstop = 10 ** (-self.gstop / 20)
+        ntaps = int(2/3 * np.log10(1/(10 * gpass * gstop)) / normed_fwidth)
+        #FIXME understand
+        ntaps *= len(self.cutoff)
         ntaps = ntaps + 1 if ntaps % 2 == 0 else ntaps
         return ntaps
 
-    def apply(self, arr, mode='same'):
+    def apply(self, arr, phase_shift=True):
         """Apply this FIR to an ndarray of data.
 
         Args:
             arr (ndarray):      array with samples along last axis
-            mode (str):         mode for scipy convolve. If 'full' the
-                                filtered signal will be delayed and if
-                                'same' filtered signal is not delayed.
+            phase_shift (bool): whether to compensate for the filter's
+                                phase shift (Default is True)
         
         Returns: ndarry of filtered signal values
         """
 
+        mode = 'same' if phase_shift else 'full'
         return convolve(arr, self.coeffs[np.newaxis,:], mode=mode)
 
         
@@ -178,7 +192,7 @@ if __name__ == '__main__':
     arr = np.stack((x,y, 1.5*x, y))
 
         
-    fir = FIR_I([80, 120], width=10, fs=5000, pass_zero=False)
+    fir = FIR_I([50, 70], width=5, fs=5000, btype='bandstop', gpass=0.05, gstop=40)
     fir.view()
 
     results = fir.apply(arr)
