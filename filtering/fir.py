@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import signaltools, firwin, freqz, convolve
+from scipy.signal import signaltools, firwin, freqz, convolve, kaiserord
+from scipy.signal.windows import kaiser
 from matplotlib.patches import Rectangle
 
 from openseize.mixins import ViewInstance
+from openseize.filtering.viewer import FilterViewer
 
 class FIRViewer:
     """Mixin for plotting the impulse response, frequency response and delay
@@ -26,31 +28,25 @@ class FIRViewer:
         #make a legend showing trans. width
         msg = 'Transition Bandwidth = {} Hz'
         label = kwargs.pop('label', msg.format(self.width))
+
+        #TODO
         #compute and plot freq response "H(f)", f is in Hz
-        f, h = freqz(self.coeffs, fs=self.fs)
-        amplitude_ratio = 20 * np.log10(np.abs(h)) 
+        f, h = freqz(self.coeffs, fs=self.fs, worN=2000)
+        amplitude_ratio = 20 * np.log10(np.maximum(np.abs(h), 1e-5))
+        gain = abs(h)
         ax.plot(f, amplitude_ratio, label=label, **kwargs)
         #plot transition band(s)
-        color = kwargs.pop('facecolor', 'gray')
-        alpha = kwargs.pop('alpha', 0.3)
+        color = kwargs.pop('facecolor', 'pink')
+        alpha = kwargs.pop('alpha', 0.25)
         #get left edges, bottom, and height
-        #l_edges = self.cutoff
         bottom, top = ax.get_ylim()
         height = top - bottom
-        #build and add rectangles FIXME
-        if self.btype == 'highpass':
-            l_edges = self.cutoff - self.width
-        elif self.btype == 'bandpass':
-            l_edges = self.cutoff + [-self.width, 0]
-        elif self.btype == 'lowpass':
-            l_edges = self.cutoff
-        elif self.btype == 'bandstop':
-            l_edges = self.cutoff + [0, -self.width]
-
+        l_edges = self.cutoff - 0.5 * self.width
 
         rects = [Rectangle((le, bottom), self.width, height, 
                  facecolor=color, alpha=alpha) for le in l_edges]
         [ax.add_patch(rect) for rect in rects]
+        [ax.axvline(x=cut, color='r', alpha=0.3) for cut in self.cutoff]
         ax.legend()
     
     def _delay(self, ax, **kwargs):
@@ -84,9 +80,9 @@ class FIRViewer:
         plt.show()
 
 
-class FIR_I(ViewInstance, FIRViewer):
-    """A type I Finitie Impulse Response filter constructed using the window
-    method.
+class FIR_I(ViewInstance, FilterViewer):
+    """A type I Finitie Impulse Response filter constructed using the Kaiser
+    window method.
 
     Attrs:
         fs (int):                       sampling frequency in Hz
@@ -95,72 +91,75 @@ class FIR_I(ViewInstance, FIRViewer):
                                         drops to <= -6dB
         width (int):                    width of transition bewteen pass and
                                         stop bands
-        window (str):                   scipy signal window, must be one of
-                                        (hanning, blackman, rectangular, 
-                                        hamming)
         btype (str):                    type of filter must be one of
                                         {lowpass, highpass, bandpass, 
                                         bandstop}. Default is lowpass
-        gpass (float):
-        gstop (float):
+        pass_ripple (float):            the maximum deviation in the pass
+                                        band as a percentage(Default= 0.5%)
+        stop_attenuation (float):       minimum attenuation to achieve at
+                                        end of transition width in dB 
+                                        (Default=40 dB ~ 99% amplitude
+                                        reduction)
+        -- Computed --
+        ntaps (int):                    number filter taps to achieve pass,
+                                        stop and transition width criteria
+        beta (float):                   kaiser window shape parameter (see
+                                        scipy kasier window)
         coeffs (arr):                   filter coeffs of the designed filter
                                         "h(n)"
 
     Scipy's firwin requires the number of taps to determine the transition 
     width between pass and stop bands. FIR_I uses the transition width and 
-    calculates the needed taps to achieve the requested roll-off.
+    the attenuation criteria to determine the number of taps automatically.
 
-    Reference:
+    References:
         1. Ifeachor E.C. and Jervis, B.W. (2002). Digital Signal Processing:
            A Practical Approach. Prentice Hall
+        2. Ballenger (2000). Digital Processing of signals: Theory and 
+           Practice 3rd ed. Wiley
+        3. Oppenheim, Schafer, "Discrete-Time Signal Processing", pp.475-476.
     """
 
-    def __init__(self, cutoff, width, fs, btype='lowpass', window='hamming',
-                 gpass=0.05, gstop=40):
-        """Initialize this FIR filter. """
-
-        #0.05 dB ~ 0.5% amplitude variation
-        # 40 dB ~ 99 % amplitude reduction
+    def __init__(self, cutoff, width, fs, btype='lowpass', pass_ripple=0.5, 
+                 stop_attenuation=40):
+        """Initialize this FIR filter."""
 
         self.fs = fs
         self.nyq = fs/2
         self.cutoff = np.atleast_1d(cutoff)
         self.norm_cutoff = self.cutoff / self.nyq
         self.width = width
-        self.window = window
-        self.btype, pass_zero = self._validate_btype(btype)
-        self.gpass = gpass
-        self.gstop = gstop
+        self.btype = btype
+        self.window = 'kaiser'
+        self.pass_ripple = pass_ripple / 100
+        self.stop_attenuation = stop_attenuation
         #compute taps needed and call scipy firwin
-        self.ntaps = self._tap_count()
-        self.coeffs = firwin(self.ntaps, self.norm_cutoff, window=self.window,
-                             pass_zero=pass_zero)
+        self.ntaps, self.beta = self._tap_count()
+        self.coeffs = firwin(self.ntaps, self.norm_cutoff, 
+                             window=('kaiser', self.beta), 
+                             pass_zero=self.btype, scale=False)
 
-    def _validate_btype(self, btype):
-        """Validates that the filter type is a valid filter type."""
+    @property
+    def ftype(self):
+        """Returns the filter type."""
 
-        types = ['lowpass', 'highpass', 'bandpass', 'bandstop']
-        if btype not in types:
-            msg = ('filter of type {} is not a valid filter type. '
-                    'Valid filter types are {}')
-            raise ValueError(msg.format(btype, types))
-        pass_zero = True if btype in ['lowpass', 'bandstop'] else False
-        return btype, pass_zero
+        return 'fir'
 
     def _tap_count(self):
-        """ """
+        """Returns the minimum number of taps needed for this FIR's
+        attenuation and transition width criteria with a Kaiser window.
 
-        w = self.width * len(self.cutoff)
-        #normalize transition width 
-        normed_fwidth = w / (2 * (self.fs))
-        #convert gains from decibels to ratios
-        gpass = 10 ** (-self.gpass / 20)
-        gstop = 10 ** (-self.gstop / 20)
-        ntaps = int(2/3 * np.log10(1/(10 * gpass * gstop)) / normed_fwidth)
-        #FIXME understand
-        ntaps *= len(self.cutoff)
+        Oppenheim, Schafer, "Discrete-Time Signal Processing", pp.475-476.
+        """
+
+        #find most restrictive dB criteria
+        pass_db = -20 * np.log10(self.pass_ripple)
+        design_param = max(pass_db, self.stop_attenuation)
+        #compute taps and shape parameter
+        ntaps, beta = kaiserord(design_param, self.width/(self.nyq))
+        #Symmetric FIR type I requires odd tap num
         ntaps = ntaps + 1 if ntaps % 2 == 0 else ntaps
-        return ntaps
+        return ntaps, beta
 
     def apply(self, arr, phase_shift=True):
         """Apply this FIR to an ndarray of data.
@@ -192,12 +191,15 @@ if __name__ == '__main__':
     arr = np.stack((x,y, 1.5*x, y))
 
         
-    fir = FIR_I([50, 70], width=5, fs=5000, btype='bandstop', gpass=0.05, gstop=40)
+    fir = FIR_I([100, 200], width=30, fs=1000, btype='bandpass', 
+                pass_ripple=.5, stop_attenuation=54)
     fir.view()
 
+    """
     results = fir.apply(arr)
 
     fig, axarr = plt.subplots(4,1)
     [axarr[idx].plot(row) for idx,row in enumerate(arr)]
     [axarr[idx].plot(row, color='r') for idx, row in enumerate(results)]
     plt.show()
+    """
