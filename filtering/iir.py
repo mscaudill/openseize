@@ -1,71 +1,87 @@
+import abc
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.signal as sps
 from matplotlib.patches import Rectangle
 
 from openseize.mixins import ViewInstance
+from openseize.filtering.viewer import FilterViewer
 
-class IIRViewer:
-    """Mixin for plotting the impulse, frequency and delay response of an
-    IIR filter."""
+class IIR(abc.ABC, ViewInstance, FilterViewer):
+    """Abstract Infinite Impulse Response Filter defining required and common
+    methods used by all IIR subclasses.
 
-    def _impulse_response(self, ax, **kwargs):
-        """ """
+    Attrs:
+        fs (int):                       sampling frequency in Hz
+        nyq (int):                      nyquist frequency
+        cutoff (float or 1-D array):    freqs at which Gain of the filter
+                                        drops to <= -6dB
+        width (int):                    width of transition bewteen pass and
+                                        stop bands
+        btype (str):                    type of filter must be one of
+                                        {lowpass, highpass, bandpass, 
+                                        bandstop}. Default is lowpass
+        pass_ripple (float):            the maximum deviation in the pass
+                                        band (Default=0.005 => 0.5% ripple)
+        stop_db (float):                minimum attenuation to achieve at
+                                        end of transition width in dB 
+                                        (Default=40 dB ~ 99% amplitude
+                                        reduction)
+        fmt (str):                      format for coeffs of filter (Default
+                                        is second order sections 'sos')
+        -- Computed --
+        order (int):                    number filter coeffs to achieve pass,
+                                        stop and transition width criteria
+        coeffs (arr):                   filter coeffs of the designed filter
+                                        "h(n)"
+        others:                         Each FIR may add additional computed
+                                        attrs
+    """
+
+    def __init__(self, cutoff, width, fs, btype='lowpass', pass_ripple=0.005,
+                 stop_db=40, fmt='sos'):
+        """Initializes & builds this IIR filter."""
+
+        self.fs = fs
+        self.nyq = fs/2
+        self.cutoff = np.atleast_1d(cutoff)
+        self.norm_cutoff = self.cutoff / self.nyq
+        self.width = width
+        self.btype = btype
+        self.pass_ripple = pass_ripple
+        self.stop_db = stop_db
+        self.fmt = fmt
+
+    @abc.abstractmethod
+    def _build(self, fmt):
+        """Builds and returns the coefficients of this IIR filter."""
+
+    @abc.abstractmethod
+    def _order(self):
+        """Determines the lowest order filter to meet the pass &
+        stop band attenuation criteria."""
+
+    def apply(self, arr, axis=-1, phase_shift=True, **kwargs):
+        """Apply this IIR to an ndarray of data along axis.
+
+        Args:
+            arr (ndarray):          array with sample along axis
+            axis (int):             axis to filter along
+            phase_shift (bool):     boolean to compensate for IIR phase
+                                    shift (Default=True)
+            kwargs:                 passed to sosfilt
+        """
+
+        #FIXME Handle large data with a generator using add-overlap meth
+        #FIXME Handle when fmt is not sos
+        if phase_shift:
+            return sps.sosfiltfilt(self.sos, arr, axis=axis, **kwargs)
+        else:
+            return sps.sosfilt(self.sos, arr, axis=axis, **kwargs)
 
 
-
-    def _frequency_response(self, ax, **kwargs):
-        """ """
-
-        #make a legend showing trans. width
-        msg = 'Transition Bandwidth = {} Hz'
-        label = kwargs.pop('label', msg.format(self.width))
-        
-        #FIXME I'm the only line thats different
-        #test if self has coeffs or sos attr
-        f, h = sps.sosfreqz(self.sos, fs=self.fs)
-        
-        amplitude_ratio = 20 * np.log10(np.maximum(np.abs(h), 1e-5)) 
-        ax.plot(f, amplitude_ratio, label=label, **kwargs)
-        #plot transition band(s)
-        color = kwargs.pop('facecolor', 'gray')
-        alpha = kwargs.pop('alpha', 0.3)
-        #get left edges, bottom, and height
-        l_edges = self.cutoff - 0.5 * self.width
-        bottom, top = ax.get_ylim()
-        height = top - bottom
-        #build and add rectangles
-        rects = [Rectangle((le, bottom), self.width, height, 
-                 facecolor=color, alpha=alpha) for le in l_edges]
-        [ax.add_patch(rect) for rect in rects]
-        ax.legend()
-
-    def view(self, figsize=(8,6), **plt_kwargs):
-        """Displays impulse and frequency response and delay of filter."""
-
-        #create and set up three axes for plotting and config.
-        fig, axarr = plt.subplots(3, 1, figsize=figsize)
-        axarr[0].set_xlabel('Time (s)')
-        axarr[0].set_ylabel('Amplitude')
-        axarr[1].set_ylabel('Magnitude (dB)')
-        axarr[2].set_xlabel('Frequency (Hz)')
-        axarr[2].set_ylabel('Delay (s)')
-        axarr[2].get_shared_x_axes().join(axarr[2], axarr[1])
-        #obtain plot args for each axis dicts
-        pargs = [dict(), dict(), dict()]
-        for idx, dic in enumerate(plt_kwargs):
-            pargs[idx].update(dic)
-        #call each subplot
-        #self._impulse_response(axarr[0], **pargs[0])
-        self._frequency_response(axarr[1], **pargs[1])
-        #self._delay(axarr[2], **pargs[2])
-        plt.tight_layout()
-        plt.show()
-
-
-
-class IIR(ViewInstance, IIRViewer):
-    """A digital infinite impulse response filter represented in second-
+class DIIR(IIR):
+    """A Digital Infinite Impulse Response filter represented in second-
     order sections (sos) format.
 
     IIR can create and apply filters of type; Butterworth, ChebyshevI,
@@ -103,22 +119,27 @@ class IIR(ViewInstance, IIRViewer):
     """
 
     def __init__(self, cutoff, width, fs, btype='lowpass', ftype='butter',
-                 gpass=0.90, gstop=6.0, **kwargs):
-        """Intialize filter by determing pass & stop bands & determine the
-        required order to meet the pass and stop attenuation criteria. """
+                 pass_ripple=0.005, stop_db=40, fmt='sos'):
+        """Build a standard scipy IIR filter."""
 
-        #use cutoff and widths to get pass and stop bands
-        self.btype, self.wp, self.ws = self._bands(cutoff, width, btype)
-        self.cutoff = np.atleast_1d(cutoff)
-        self.width = width
-        self.fs = fs
+        super().__init__(cutoff, width, fs, btype=btype,
+                         pass_ripple=pass_ripple, stop_db=stop_db)
         self.ftype = ftype
-        self.gpass = gpass
-        self.gstop = gstop
-        self.sos = sps.iirfilter(self.order, self.cutoff, btype=btype, 
-                            ftype=ftype, output='sos', fs=fs, **kwargs)
+        #add the pass and stop bands
+        self._wp, self._ws = self._bands()
+        self._gpass = -20 * np.log10(1-pass_ripple)
+        self._gstop = stop_db
+        #call build
+        self._build()
 
-    def _bands(self, cutoff, width, btype):
+    def _build(self):
+        """Build this digital filter using the second order section fmt."""
+
+        self.order = self._order()
+        self.sos = sps.iirfilter(self.order, self.cutoff, btype=self.btype, 
+                            ftype=self.ftype, output=self.fmt, fs=self.fs)
+
+    def _bands(self):
         """Returns the pass and stop bands for a filter of btype and
         transition width.
 
@@ -135,19 +156,18 @@ class IIR(ViewInstance, IIRViewer):
                  filter gain reaches gstop
         """
 
-        widths = {'lowpass': width, 'highpass': -width, 
-                  'bandpass': np.array([-width, width]), 
-                  'bandstop': np.array([width, -width])}
-        cutoff = np.atleast_1d(cutoff)
+        w = self.width
+        widths = {'lowpass': w/2, 'highpass': -w/2, 
+                  'bandpass': np.array([-w, w])/2, 
+                  'bandstop': np.array([w, -w])/2}
         try:
-            return btype, cutoff, cutoff + widths[btype]
+            return self.cutoff, self.cutoff + widths[self.btype]
         except KeyError:
             msg = ('band of type {} is not a valid band type. '
                     'Valid band types are {}')
             raise ValueError(msg.format(btype, widths.keys()))
 
-    @property
-    def order(self):
+    def _order(self):
         """Determines the lowest order filter of ftype to meet the pass &
         stop band attenuation criteria."""
 
@@ -155,35 +175,20 @@ class IIR(ViewInstance, IIRViewer):
                    'cheby2': sps.cheb2ord, 'ellip': sps.ellipord}
         try:
             #fetch and call order func from scipy signal module
-            return forders[self.ftype](self.wp, self.ws, self.gpass,
-                                         self.gstop, fs=self.fs)[0]
+            return forders[self.ftype](self._wp, self._ws, self._gpass,
+                                         self._gstop, fs=self.fs)[0]
         except KeyError:
             msg = ('filter of type {} is not a valid filter type. '
                     'Valid filter types are {}')
             raise ValueError(msg.format(self.ftype, forders.keys()))
 
-    def apply(self, arr, axis=-1, phase_shift=True, **kwargs):
-        """Apply this IIR to an ndarray of data along axis.
-
-        Args:
-            arr (ndarray):          array with sample along axis
-            axis (int):             axis to filter along
-            phase_shift (bool):     boolean to compensate for IIR phase
-                                    shift (Default=True)
-            kwargs:                 passed to sosfilt
-        """
-
-        if phase_shift:
-            return sps.sosfiltfilt(self.sos, arr, axis=axis, **kwargs)
-        else:
-            return sps.sosfilt(self.sos, arr, axis=axis, **kwargs)
-
+    
 
 
 if __name__ == '__main__':
 
-    f = IIR(100, width=10, fs=5000, btype='lowpass', ftype='butter',
-            gpass=0.99, gstop=40)
+    f = DIIR([100, 200], width=30, fs=1000, btype='bandpass', ftype='butter',
+            pass_ripple=0.005, stop_db=40)
 
     """
     time = 10
