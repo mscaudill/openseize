@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import signaltools, firwin, freqz, convolve, kaiserord
 from scipy.signal.windows import kaiser
+from scipy import fft, ifft
 from matplotlib.patches import Rectangle
 
 from openseize.mixins import ViewInstance
@@ -93,20 +94,37 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
             ntaps = ntaps + 1 if ntaps % 2 == 1 else ntaps
         return ntaps
 
-    def apply(self, arr, phase_shift=True):
+    def apply(self, seq, outtype='array'):
         """Apply this FIR to an ndarray of data.
 
         Args:
             arr (ndarray):      array with samples along last axis
+                                or a generator!! with chunksize
+
+            #FIXME
             phase_shift (bool): whether to compensate for the filter's
                                 phase shift (Default is True)
         
         Returns: ndarry of filtered signal values
         """
 
-        #FIXME USE ADD OVERLAP RETURNING GENERATOR FOR LARGE DATA
-        mode = 'same' if phase_shift else 'full'
-        return convolve(arr, self.coeffs[np.newaxis,:], mode=mode)
+        #
+        if outtype.lower() not in ('array', 'gen', 'generator'):
+            raise ValueError('unrecoginzed output type {}').format(outtype)
+        if outtype == 'array':
+            result = convolve(arr, self.coeffs[np.newaxis,:], mode='same')
+        else:
+            #perform overlap add returning a generator of filtered values
+            #estimate of the optimal number of pts in fft
+            n = 8 * 2 ** np.ceil(np.log2(len(self.coeffs)))
+            # step size, reader will become iterable so an iterator can be
+            # created with the chunksize set to step
+            step = n - len(self.coeffs) + 1
+            seq.chunksize = step
+            for arr in seq:
+                #perform ffts iffts and update
+            
+
 
 
 class Kaiser(FIR):
