@@ -27,8 +27,9 @@ class IIR(abc.ABC, ViewInstance, FilterViewer):
                                         end of transition width in dB 
                                         (Default=40 dB ~ 99% amplitude
                                         reduction)
-        fmt (str):                      format for coeffs of filter (Default
-                                        is second order sections 'sos')
+        fmt (str):                      representation format for coeffs 
+                                        of filter (Default is second-order 
+                                        sections 'sos')
         -- Computed --
         order (int):                    number filter coeffs to achieve pass,
                                         stop and transition width criteria
@@ -75,9 +76,9 @@ class IIR(abc.ABC, ViewInstance, FilterViewer):
         #FIXME Handle large data with a generator using add-overlap meth
         #FIXME Handle when fmt is not sos
         if phase_shift:
-            return sps.sosfiltfilt(self.sos, arr, axis=axis, **kwargs)
+            return sps.sosfiltfilt(self.coeffs, arr, axis=axis, **kwargs)
         else:
-            return sps.sosfilt(self.sos, arr, axis=axis, **kwargs)
+            return sps.sosfilt(self.coeffs, arr, axis=axis, **kwargs)
 
 
 class DIIR(IIR):
@@ -123,21 +124,18 @@ class DIIR(IIR):
         """Build a standard scipy IIR filter."""
 
         super().__init__(cutoff, width, fs, btype=btype,
-                         pass_ripple=pass_ripple, stop_db=stop_db)
+                         pass_ripple=pass_ripple, stop_db=stop_db, fmt=fmt)
+        #store the scipy filter type
         self.ftype = ftype
         #add the pass and stop bands
         self._wp, self._ws = self._bands()
+        #compute the max ripple and min attenuation in dB
         self._gpass = -20 * np.log10(1-pass_ripple)
         self._gstop = stop_db
-        #call build
-        self._build()
-
-    def _build(self):
-        """Build this digital filter using the second order section fmt."""
-
+        #compute the order needed to meet width, pass & stop criteria
         self.order = self._order()
-        self.sos = sps.iirfilter(self.order, self.cutoff, btype=self.btype, 
-                            ftype=self.ftype, output=self.fmt, fs=self.fs)
+        #call build
+        self.coeffs = self._build()
 
     def _bands(self):
         """Returns the pass and stop bands for a filter of btype and
@@ -182,14 +180,20 @@ class DIIR(IIR):
                     'Valid filter types are {}')
             raise ValueError(msg.format(self.ftype, forders.keys()))
 
-    
+    def _build(self):
+        """Build this digital filter using the second order section fmt."""
+
+        return sps.iirfilter(self.order, self.cutoff, btype=self.btype, 
+                            ftype=self.ftype, output=self.fmt, fs=self.fs)
+
 
 
 if __name__ == '__main__':
 
-    f = DIIR([100, 200], width=30, fs=1000, btype='bandpass', ftype='butter',
-            pass_ripple=0.005, stop_db=40)
+    iir = DIIR([100, 200], width=30, fs=1000, btype='bandpass', ftype='butter',
+            pass_ripple=0.005, stop_db=40, fmt='sos')
 
+    #iir.view()
     """
     time = 10
     fs = 5000

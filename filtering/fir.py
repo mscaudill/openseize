@@ -52,9 +52,9 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
 
     @abc.abstractmethod
     def _build(self):
-        """Builds and returns the coefficients of this FIR filter."""
+        """Returns this FIR filters coefficients in a 'coeffs' attr."""
 
-    def _tap_count(self, phasetype=1):
+    def _count_taps(self, phasetype=1):
         """Returns the Bellanger estimate of the number of taps.
 
         Scipy does not automatically provide the number of taps needed to
@@ -144,27 +144,19 @@ class Kaiser(FIR):
     References:
         1. Ifeachor E.C. and Jervis, B.W. (2002). Digital Signal Processing:
            A Practical Approach. Prentice Hall
-        2. Oppenheim, Schafer, "Discrete-Time Signal Processing", pp.475-476.
+        2. Oppenheim, Schafer, "Discrete-Time Signal Processing".
     """
 
-    def __init__(self, cutoff, width, fs, btype='lowpass', pass_ripple=0.005, 
-                 stop_db=40):
-        """Initialize and build this FIR filter using the sos fmt."""
+    def __init__(self, cutoff, width, fs, btype='lowpass', 
+                 pass_ripple=0.005, stop_db=40):
+        """Initialize and build this FIR filter."""
 
         super().__init__(cutoff, width, fs, btype=btype, 
                          pass_ripple=pass_ripple, stop_db=stop_db)
-        self._build()
+        self.ntaps, self.beta = self._count_taps()
+        self.coeffs = self._build()
 
-    def _build(self):
-        """Build the Kaiser windowed filter."""
-
-        #compute taps needed and call scipy firwin
-        self.ntaps, self.beta = self._tap_count()
-        self.coeffs = firwin(self.ntaps, self.norm_cutoff, 
-                             window=('kaiser', self.beta), 
-                             pass_zero=self.btype, scale=False)
-
-    def _tap_count(self):
+    def _count_taps(self):
         """Returns the minimum number of taps needed for this FIR's
         attenuation and transition width criteria with a Kaiser window.
 
@@ -179,6 +171,14 @@ class Kaiser(FIR):
         #Symmetric FIR type I requires odd tap num
         ntaps = ntaps + 1 if ntaps % 2 == 0 else ntaps
         return ntaps, beta
+
+    def _build(self):
+        """Build & return the Kaiser windowed filter."""
+
+        #call scipy firwin returning coeffs
+        return firwin(self.ntaps, self.norm_cutoff, window=('kaiser', 
+                       self.beta), pass_zero=self.btype, scale=False)
+
 
     
         
@@ -198,7 +198,7 @@ if __name__ == '__main__':
 
         
     fir = Kaiser([100, 200], width=30, fs=1000, btype='bandpass', 
-                pass_ripple=.005, stop_db=54)
+                pass_ripple=.005, stop_db=40)
     fir.view()
 
     """
