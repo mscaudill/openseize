@@ -94,7 +94,41 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
             ntaps = ntaps + 1 if ntaps % 2 == 1 else ntaps
         return ntaps
 
-    def apply(self, seq, outtype='array'):
+    def overlap_add(self, signal, nchs, axis=-1):
+        """ """
+
+        #get original chunksize of signal
+        #compute optimal nfft
+        nfft = int(8 * 2 ** np.ceil(np.log2(len(self.coeffs))))
+        #compute the step upto filter edge effect
+        step = nfft - len(self.coeffs) - 1 #is -1 needed?
+        #print('step =', step)
+        #compute the FFT of the filter
+        H = fft.fft(self.coeffs, nfft)
+        overlap = np.zeros((nchs, nfft - step))
+        #print('overlap.shape = {}'.format(overlap.shape[1]))
+        #change the signals chunksize to yield optimal size arrays
+        #signal.chunksize = nfft
+        if isinstance(signal, np.ndarray):
+            starts = range(0, signal.shape[1]+step, step)
+            #print('starts = ', starts)
+            stops = starts [1:]
+            signal = [signal[:, start:stop] for start, stop in zip(starts,
+                      stops)]
+        for arr in signal:
+            #filter arr
+            o = np.zeros((nchs, nfft - step))
+            x = np.concatenate((arr, o), axis=-1)
+            #print('x.shape = ', x.shape)
+            y = fft.ifft(fft.fft(x, nfft, axis=axis) * H).real
+            y, over = np.split(y, [step], axis=-1)
+            #print('overlap.shape = ', overlap.shape)
+            y[:, 0:overlap.shape[axis]] += overlap
+            overlap = over
+            #print('y.shape = ', y.shape)
+            yield y
+
+    def apply(self, signal, outtype, nchs):
         """Apply this FIR to an ndarray of data.
 
         Args:
@@ -108,22 +142,27 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
         Returns: ndarry of filtered signal values
         """
 
-        #
-        if outtype.lower() not in ('array', 'gen', 'generator'):
-            raise ValueError('unrecoginzed output type {}').format(outtype)
-        if outtype == 'array':
-            result = convolve(arr, self.coeffs[np.newaxis,:], mode='same')
+        # possible inputs/outputs
+        # 1. array
+        # 2. a generator
+        # Need to validate these type strings
+
+        if isinstance(signal, np.ndarray):
+            #we may have a memmap or in-memory array
+            if outtype == 'array':
+                result = convolve(arr, self.coeffs[np.newaxis,:], 
+                                  mode='same')
+            if outtype == 'generator':
+                #call oa algorithm
+                result = self.overlap_add(signal, nchs)
         else:
-            #perform overlap add returning a generator of filtered values
-            #estimate of the optimal number of pts in fft
-            n = 8 * 2 ** np.ceil(np.log2(len(self.coeffs)))
-            # step size, reader will become iterable so an iterator can be
-            # created with the chunksize set to step
-            step = n - len(self.coeffs) + 1
-            seq.chunksize = step
-            for arr in seq:
-                #perform ffts iffts and update
+            result = self.overlap_add(signal, nchs)
+        return result
             
+
+
+
+
 
 
 
@@ -201,11 +240,13 @@ class Kaiser(FIR):
     
         
 if __name__ == '__main__':
+    
+    import time
 
-    time = 10
+    time_s = 10
     fs = 5000
-    nsamples = int(time * fs)
-    t = np.linspace(0, time, nsamples)
+    nsamples = int(time_s * fs)
+    t = np.linspace(0, time_s, nsamples)
 
     # make a small 10 Hz riding on top of a larger 100 Hz sinusoidal signal
     x = 0.5 * np.sin(2 * np.pi * 10 * t) + np.sin(2 * np.pi * 100 * t) + \
@@ -215,15 +256,26 @@ if __name__ == '__main__':
     arr = np.stack((x,y, 1.5*x, y))
 
         
-    fir = Kaiser([100, 200], width=30, fs=1000, btype='bandpass', 
+    fir = Kaiser(50, width=20, fs=5000, btype='lowpass', 
                 pass_ripple=.005, stop_db=40)
-    fir.view()
+   
+    """
+    t0 = time.perf_counter()
+    g = fir.apply(arr, outtype='array', nchs=arr.shape[0])
+    print('filtered in {}s'.format(time.perf_counter() - t0))
+    """
+    
+    
+    t0 = time.perf_counter()
+    g = fir.apply(arr, outtype='generator', nchs=arr.shape[0])
+    filtered = np.concatenate([arr for arr in g], axis=1)
+    print('filtered in {}s'.format(time.perf_counter() - t0))
+
 
     """
-    results = fir.apply(arr)
-
+    plt.ion()
     fig, axarr = plt.subplots(4,1)
     [axarr[idx].plot(row) for idx,row in enumerate(arr)]
-    [axarr[idx].plot(row, color='r') for idx, row in enumerate(results)]
+    [axarr[idx].plot(row, color='r') for idx, row in enumerate(filtered)]
     plt.show()
     """
