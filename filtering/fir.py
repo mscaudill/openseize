@@ -3,11 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import signaltools, firwin, freqz, convolve, kaiserord
 from scipy.signal.windows import kaiser
-from scipy import fft, ifft
+#from scipy import fft, ifft
 from matplotlib.patches import Rectangle
 
 from openseize.mixins import ViewInstance
 from openseize.filtering.viewer import FilterViewer
+from openseize.numtools import _oa_arr
 
 class FIR(abc.ABC, ViewInstance, FilterViewer):
     """Abstract Finite Impulse Response Filter defining required and common
@@ -94,41 +95,7 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
             ntaps = ntaps + 1 if ntaps % 2 == 1 else ntaps
         return ntaps
 
-    def overlap_add(self, signal, nchs, axis=-1):
-        """ """
-
-        #get original chunksize of signal
-        #compute optimal nfft
-        nfft = int(8 * 2 ** np.ceil(np.log2(len(self.coeffs))))
-        #compute the step upto filter edge effect
-        step = nfft - len(self.coeffs) - 1 #is -1 needed?
-        #print('step =', step)
-        #compute the FFT of the filter
-        H = fft.fft(self.coeffs, nfft)
-        overlap = np.zeros((nchs, nfft - step))
-        #print('overlap.shape = {}'.format(overlap.shape[1]))
-        #change the signals chunksize to yield optimal size arrays
-        #signal.chunksize = nfft
-        if isinstance(signal, np.ndarray):
-            starts = range(0, signal.shape[1]+step, step)
-            #print('starts = ', starts)
-            stops = starts [1:]
-            signal = [signal[:, start:stop] for start, stop in zip(starts,
-                      stops)]
-        for arr in signal:
-            #filter arr
-            o = np.zeros((nchs, nfft - step))
-            x = np.concatenate((arr, o), axis=-1)
-            #print('x.shape = ', x.shape)
-            y = fft.ifft(fft.fft(x, nfft, axis=axis) * H).real
-            y, over = np.split(y, [step], axis=-1)
-            #print('overlap.shape = ', overlap.shape)
-            y[:, 0:overlap.shape[axis]] += overlap
-            overlap = over
-            #print('y.shape = ', y.shape)
-            yield y
-
-    def apply(self, signal, outtype, nchs):
+    def apply(self, signal, outtype, nchs, mode):
         """Apply this FIR to an ndarray of data.
 
         Args:
@@ -151,10 +118,10 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
             #we may have a memmap or in-memory array
             if outtype == 'array':
                 result = convolve(arr, self.coeffs[np.newaxis,:], 
-                                  mode='same')
+                                  mode=mode)
             if outtype == 'generator':
                 #call oa algorithm
-                result = self.overlap_add(signal, nchs)
+                result = _oa_arr(signal, self.coeffs, axis=-1, mode=mode)
         else:
             result = self.overlap_add(signal, nchs)
         return result
@@ -252,30 +219,29 @@ if __name__ == '__main__':
     x = 0.5 * np.sin(2 * np.pi * 10 * t) + np.sin(2 * np.pi * 100 * t) + \
             0.25*np.random.random(nsamples)
     y = 2 * np.sin(2 * np.pi * 10 * t) + 0.5 *np.random.random(nsamples) 
+    z = 2 * np.cos(2 * np.pi * 7.5 * t) + 0.5 *np.random.random(nsamples) 
 
-    arr = np.stack((x,y, 1.5*x, y))
+    arr = np.stack((x,y, z, 1.5*x, y))
 
         
     fir = Kaiser(50, width=20, fs=5000, btype='lowpass', 
                 pass_ripple=.005, stop_db=40)
    
-    """
     t0 = time.perf_counter()
-    g = fir.apply(arr, outtype='array', nchs=arr.shape[0])
+    a = fir.apply(arr, outtype='array', nchs=arr.shape[0], mode='valid')
     print('filtered in {}s'.format(time.perf_counter() - t0))
-    """
-    
-    
-    t0 = time.perf_counter()
-    g = fir.apply(arr, outtype='generator', nchs=arr.shape[0])
-    filtered = np.concatenate([arr for arr in g], axis=1)
-    print('filtered in {}s'.format(time.perf_counter() - t0))
-
-
-    """
     plt.ion()
-    fig, axarr = plt.subplots(4,1)
+    fig, axarr = plt.subplots(5,1)
     [axarr[idx].plot(row) for idx,row in enumerate(arr)]
-    [axarr[idx].plot(row, color='r') for idx, row in enumerate(filtered)]
+    [axarr[idx].plot(row, color='r') for idx, row in enumerate(a)]
     plt.show()
-    """
+    
+    t0 = time.perf_counter()
+    g = fir.apply(arr, outtype='generator', nchs=arr.shape[0], mode='valid')
+    b = np.concatenate([arr for arr in g], axis=1)
+    print('filtered in {}s'.format(time.perf_counter() - t0))
+    plt.ion()
+    fig, axarr = plt.subplots(5,1)
+    [axarr[idx].plot(row, color='g') for idx,row in enumerate(arr)]
+    [axarr[idx].plot(row, color='tab:orange') for idx, row in enumerate(b)]
+    plt.show()
