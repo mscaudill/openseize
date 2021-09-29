@@ -1,27 +1,34 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Generator, Sequence
 import itertools
 import numpy as np
 
 from openseize.mixins import ViewInstance
 
-class Producer(Iterable):
+def producer(data, chunksize, axis=-1, **kwargs):
     """ """
 
-    def __init__(self, data, chunksize):
+    if isinstance(data, Generator):
+        return _FromGenerator(data, chunksize, axis, **kwargs)
+    elif isinstance(data, np.ndarray):
+        return _FromArray(data, chunksize, axis, **kwargs)
+    elif isinstance(data, Sequence):
+        data = np.array(data)
+        return _FromArray(data, chunksize, axis, **kwargs)
+    else:
+        msg = 'unproducible type: {}'
+        raise TypeError(msg.format(type(data)))
+
+class _FromArray(ViewInstance):
+    """ """
+
+    def __init__(self, data, chunksize, axis, **kwargs):
         """ """
 
         self.data = data
         self.chunksize = chunksize
-
-
-class ArrayProducer(Producer):
-    """ """
-
-    def __init__(self, data, chunksize, axis=-1):
-        """ """
-
-        super().__init__(data, chunksize)
         self.axis = axis
+        self.__dict__.update(kwargs)
+        self.__class__.__name__ = 'Producer'
 
     @property
     def segments(self):
@@ -40,17 +47,20 @@ class ArrayProducer(Producer):
             yield self.data[tuple(slices)]
 
 
-class GenProducer(Producer):
+class _FromGenerator(ViewInstance):
     """ """
-
-    def __init__(self, data, chunksize, axis=-1):
+ 
+    def __init__(self, data, chunksize, axis, **kwargs):
         """ """
 
-        super().__init__(data, chunksize)
+        self.data = data
+        self.chunksize = chunksize
         self.axis = axis
-        
+        self.__dict__.update(kwargs)
+        self.__class__.__name__ = 'Producer'
+   
     @property
-    def genchunksize(self):
+    def _datachunksize(self):
         """ """
         
         #make 2 indpt generators
@@ -60,10 +70,10 @@ class GenProducer(Producer):
     def __iter__(self):
         """ """
        
-        gsize = self.genchunksize
+        gsize = self._datachunksize
         segments = zip(itertools.count(0, self.chunksize), 
                        itertools.count(self.chunksize, self.chunksize))
-        for idx, (start, stop) in enumerate(segments):
+        for start, stop in segments:
             #compute generator segments containing segment pts
             gsegments = (start // gsize, stop // gsize + 1)
             self.data, tmp = itertools.tee(self.data, 2)
@@ -79,20 +89,21 @@ class GenProducer(Producer):
 
 
 
-
 if __name__ == '__main__':
    
 
-    """
+    """ 
     x = np.random.random((4,100))
-    a = ArrayProducer(x, chunksize=23, axis=-1)
+    ls = x.tolist()
+    a = producer(ls, chunksize=23, axis=-1)
     y = np.concatenate([arr for arr in a], axis=1)
     print(np.allclose(x,y))
     """
 
-    x = np.random.random((4,1100))
-    gen = (arr for arr in np.split(x, 11, axis=-1))
-    gprod = GenProducer(gen, 32)
+
+    x = np.random.random((4,1110))
+    gen = (arr for arr in np.split(x, 10, axis=-1))
+    gprod = producer(gen, chunksize=30, axis=-1)
     y = np.concatenate([arr for arr in gprod], axis=1)
     print(np.allclose(x,y))
 
