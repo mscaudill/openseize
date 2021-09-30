@@ -3,12 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import signaltools, firwin, freqz, convolve, kaiserord
 from scipy.signal.windows import kaiser
-#from scipy import fft, ifft
 from matplotlib.patches import Rectangle
 
 from openseize.mixins import ViewInstance
 from openseize.filtering.viewer import FilterViewer
-from openseize.numtools import _oa_arr
+from openseize.tools.numtools import _oa_array
 
 class FIR(abc.ABC, ViewInstance, FilterViewer):
     """Abstract Finite Impulse Response Filter defining required and common
@@ -95,7 +94,7 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
             ntaps = ntaps + 1 if ntaps % 2 == 1 else ntaps
         return ntaps
 
-    def apply(self, signal, outtype, nchs, mode):
+    def apply(self, signal, axis, outtype, mode):
         """Apply this FIR to an ndarray of data.
 
         Args:
@@ -117,13 +116,16 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
         if isinstance(signal, np.ndarray):
             #we may have a memmap or in-memory array
             if outtype == 'array':
-                result = convolve(arr, self.coeffs[np.newaxis,:], 
-                                  mode=mode)
+                #if using, use axis arg to set newaxis correctly
+                axes = list(range(signal.ndim))
+                axes.pop(axis)
+                x = np.expand_dims(self.coeffs, axes)
+                result = convolve(signal, x, mode=mode)
             if outtype == 'generator':
                 #call oa algorithm
-                result = _oa_arr(signal, self.coeffs, axis=-1, mode=mode)
+                result = _oa_array(signal, self.coeffs, axis=axis, mode=mode)
         else:
-            result = self.overlap_add(signal, nchs)
+            result = self.overlap_add(signal)
         return result
             
 
@@ -222,22 +224,24 @@ if __name__ == '__main__':
     z = 2 * np.cos(2 * np.pi * 7.5 * t) + 0.5 *np.random.random(nsamples) 
 
     arr = np.stack((x,y, z, 1.5*x, y))
-
+    #make ndarray
+    arr2 = np.stack((arr, arr, arr))
         
     fir = Kaiser(50, width=20, fs=5000, btype='lowpass', 
                 pass_ripple=.005, stop_db=40)
-   
+  
+    
     t0 = time.perf_counter()
-    a = fir.apply(arr, outtype='array', nchs=arr.shape[0], mode='valid')
+    a = fir.apply(arr, outtype='array', axis=-1, mode='full')
     print('filtered in {}s'.format(time.perf_counter() - t0))
     plt.ion()
     fig, axarr = plt.subplots(5,1)
     [axarr[idx].plot(row) for idx,row in enumerate(arr)]
     [axarr[idx].plot(row, color='r') for idx, row in enumerate(a)]
     plt.show()
-    
+   
     t0 = time.perf_counter()
-    g = fir.apply(arr, outtype='generator', nchs=arr.shape[0], mode='valid')
+    g = fir.apply(arr, outtype='generator', axis=-1, mode='full')
     b = np.concatenate([arr for arr in g], axis=1)
     print('filtered in {}s'.format(time.perf_counter() - t0))
     plt.ion()
@@ -245,3 +249,13 @@ if __name__ == '__main__':
     [axarr[idx].plot(row, color='g') for idx,row in enumerate(arr)]
     [axarr[idx].plot(row, color='tab:orange') for idx, row in enumerate(b)]
     plt.show()
+    
+
+    """
+    a = fir.apply(arr2, outtype='array', axis=-1, mode='full')
+    gen = fir.apply(arr2, outtype='generator', axis=-1, mode='full')
+    b = np.concatenate([arr for arr in gen], axis=-1)
+    """
+    
+
+    print(np.allclose(a,b))

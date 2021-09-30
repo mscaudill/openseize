@@ -1,12 +1,7 @@
+import copy
 import numpy as np
 from itertools import zip_longest
 from scipy import fft, ifft
-
-class IArrays:
-    """This will be the iterable arrays class that IEDF is based on. It will
-    have a data attr and a chunksize and an overidable iter method"""
-
-    pass
 
 def zero_pad(arr, pad, axis, **kwargs):
     """ """
@@ -14,6 +9,12 @@ def zero_pad(arr, pad, axis, **kwargs):
     pads = [(0,0)] * arr.ndim
     pads[axis] = pad
     return np.pad(arr, pads, **kwargs)
+
+
+def oaconvolve(signal, win, axis, mode):
+    """ """
+
+    pass
 
 def _optimal_nffts(arr):
     """ """
@@ -27,11 +28,11 @@ def _oa_applymode(segment, idx, total, win_len, mode):
     if mode not in modes:
         msg = 'mode {} is not one of the valid modes {}'
         raise ValueError(msg.format(mode, modes))
-    #remove zero pads
     nsamples = segment.shape[-1]
     if mode == 'full':
         result = segment
     if mode == 'same':
+        #remove zero pads
         result = segment
         if idx == 0:
             result = segment[:, (win_len-1)//2:]
@@ -46,49 +47,55 @@ def _oa_applymode(segment, idx, total, win_len, mode):
             result = segment[:, :nsamples - win_len + 1]
     return result
 
-def _oa_arr(arr, win, axis, mode):
-    """Performs overlap-add circular convolution of a window on a 2-D array.
+def _oa_array(arr, win, axis, mode):
+    """A generator that performs overlap-add circular convolution of an
+    array with a 1-dimensional window.
 
     Args:
-        arr (2-D array):            array of data to be convolved
-        win (1-D array):            window array to convolve arr with
-        axis (int):                 axis to apply convolution on
-        mode FIXME
-        
-    Returns: generator of arrays
+        arr (ndarray):              a n-dim numpy array to convolve
+        win (1-D array):            a 1-D window to convolve across arr
+        axis (int):                 axis of arr along which window should be
+                                    convolved
+        mode (str):                 one of 'full', 'same', 'valid'.
+                                    identical to numpy convovle mode
     """
 
-    arr = arr.T if axis == 0 else arr
-    nsamples = arr.shape[-1]
-    #est. nffts, transform window, & set segment size
+    nsamples = arr.shape[axis]
+    #estimate optimal nfft and transform window
     nfft = _optimal_nffts(win)
     W = fft.fft(win, nfft)
-    step = nfft - len(win) - 1
-    nsegments = int(np.ceil(arr.shape[-1] / step))
-    #overlap goes from step to nfft
-    overlap = np.zeros((arr.shape[0], nfft - step))
-    #perform overlap-add over each segment of size step
-    starts = range(0, arr.shape[1], step)
+    #set the step size and compute num of segments of step size
+    step = nfft - len(win) -1
+    nsegments = int(np.ceil(arr.shape[axis] / step))
+    #initialize the overlap with shape (nfft - step) along axis
+    overlap_shape = list(arr.shape)
+    overlap_shape[axis] = nfft - step
+    overlap = np.zeros(overlap_shape)
+    #create segments of steps size for overlap-add
+    starts = range(0, arr.shape[axis], step)
     segments = zip_longest(starts, starts[1:], fillvalue=nsamples)
+    slices = [slice(None)] * arr.ndim
     for segment_num, (start, stop) in enumerate(segments):
-        #extract and pad the segment upto nfft
-        subarr = arr[:, start:stop]
-        subarr = zero_pad(subarr, [0, nfft - step], axis=-1)
+        #extract and pad the step size subarr and pad upto nfft
+        slices[axis] = slice(start, stop)
+        subarr = zero_pad(arr[tuple(slices)], [0, nfft - step], axis=axis)
         #perform circular convolution
-        y = fft.ifft(fft.fft(subarr, nfft) * W).real
+        y = fft.ifft(fft.fft(subarr, nfft, axis=axis) * W, axis=axis).real
         #split filtered segment and overlap
-        y, new_overlap = np.split(y, [step], axis=-1)
-        #add previous overlap to filtered segment & update overlap
-        y[:, 0:nfft-step] += overlap
+        y, new_overlap = np.split(y, [step], axis=axis)
+        #add previous overlap to convolved (reuse slices list)
+        slices[axis] = slice(0, nfft-step)
+        y[tuple(slices)] += overlap
+        #update overlap for next segment
         overlap = new_overlap
-        #last step may not have step pts left so slice result
+        #last step may not have step pts left so slice result (reuse slices)
         samples = min((stop-start) + len(win) -1, step)
-        y = y[:, :samples]
-        y = _oa_applymode(y, segment_num, nsegments, len(win), mode=mode) 
+        slices[axis] = slice(None, samples)
+        y = y[tuple(slices)]
+        #apply the boundary mode (same defn as numpy & scipy)
+        y = _oa_applymode(y, segment_num, nsegments, len(win), mode=mode)
         yield y
 
-def _oa_iarrays(iarrays, win, axis, mode):
-    """ """
 
-    pass
 
+        
