@@ -5,11 +5,11 @@ from scipy.signal import signaltools, firwin, freqz, convolve, kaiserord
 from scipy.signal.windows import kaiser
 from matplotlib.patches import Rectangle
 
-from openseize.mixins import ViewInstance
+from openseize.types import mixins
 from openseize.filtering.viewer import FilterViewer
-from openseize.tools.numtools import _oa_array
+from openseize.tools.numerical import oaconvolve
 
-class FIR(abc.ABC, ViewInstance, FilterViewer):
+class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
     """Abstract Finite Impulse Response Filter defining required and common
     methods used by all FIR subclasses.
 
@@ -123,7 +123,7 @@ class FIR(abc.ABC, ViewInstance, FilterViewer):
                 result = convolve(signal, x, mode=mode)
             if outtype == 'generator':
                 #call oa algorithm
-                result = _oa_array(signal, self.coeffs, axis=axis, mode=mode)
+                result = oaconvolve(signal, self.coeffs, axis=axis, mode=mode)
         else:
             result = self.overlap_add(signal)
         return result
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     
     import time
 
-    time_s = 10
+    time_s = 1000
     fs = 5000
     nsamples = int(time_s * fs)
     t = np.linspace(0, time_s, nsamples)
@@ -229,8 +229,8 @@ if __name__ == '__main__':
         
     fir = Kaiser(50, width=20, fs=5000, btype='lowpass', 
                 pass_ripple=.005, stop_db=40)
-  
-    
+ 
+    """
     t0 = time.perf_counter()
     a = fir.apply(arr, outtype='array', axis=-1, mode='full')
     print('filtered in {}s'.format(time.perf_counter() - t0))
@@ -249,13 +249,19 @@ if __name__ == '__main__':
     [axarr[idx].plot(row, color='g') for idx,row in enumerate(arr)]
     [axarr[idx].plot(row, color='tab:orange') for idx, row in enumerate(b)]
     plt.show()
-    
+    """
 
-    """
-    a = fir.apply(arr2, outtype='array', axis=-1, mode='full')
-    gen = fir.apply(arr2, outtype='generator', axis=-1, mode='full')
+    t0 = time.perf_counter()
+    a = fir.apply(arr, outtype='array', axis=-1, mode='full')
+    print('scipy convolve in {} s'.format(time.perf_counter() - t0))
+
+
+    t0 = time.perf_counter()
+    gen = fir.apply(arr, outtype='generator', axis=-1, mode='full')
     b = np.concatenate([arr for arr in gen], axis=-1)
-    """
+    print('oaconvolve in {} s'.format(time.perf_counter() - t0))
+
+    
     
 
     print(np.allclose(a,b))
