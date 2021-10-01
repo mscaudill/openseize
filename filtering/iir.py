@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import scipy.signal as sps
 from matplotlib.patches import Rectangle
 
-from openseize.mixins import ViewInstance
+from openseize.types import mixins
 from openseize.filtering.viewer import FilterViewer
 
-class IIR(abc.ABC, ViewInstance, FilterViewer):
+class IIR(abc.ABC, mixins.ViewInstance, FilterViewer):
     """Abstract Infinite Impulse Response Filter defining required and common
     methods used by all IIR subclasses.
 
