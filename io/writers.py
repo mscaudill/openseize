@@ -2,10 +2,10 @@ import abc
 import numpy as np
 from pathlib import Path
 
-from openseize.io.data.headers import EDFHeader
-from openseize.mixins import ViewInstance
+from openseize.io.headers import EDFHeader
+from openseize.types import mixins
 
-class Writer(abc.ABC, ViewInstance):
+class Writer(abc.ABC, mixins.ViewInstance):
     """An ABC that defines all subclasses as context managers and describes
     required methods and properties."""
 
@@ -163,7 +163,7 @@ class EDF(Writer):
 if __name__ == '__main__':
 
     import time
-    from openseize.io.data import readers
+    from openseize.io import readers
 
     path = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
     path2 = '/home/matt/python/nri/data/openseize/test_write.edf'

@@ -5,10 +5,9 @@ from pathlib import Path
 import numpy as np
 import scipy.io as sio
 
-from openseize.io.managers import FileManager
-from openseize.mixins import ViewContainer
+from openseize.types import mixins
 
-class Annotation(ViewContainer):
+class Annotation(mixins.ViewContainer):
     """An immutable obj for holding annotation data.
 
     Attrs:
@@ -30,21 +29,38 @@ class Annotation(ViewContainer):
         self.channel = channel
 
 
-class Annotations(FileManager, abc.ABC):
-    """ABC defining expected interface of all annotation file managers.
+class Annotations(abc.ABC):
+    """ABC defining expected interface of all annotation context managers.
 
-    All annotation file managers must provide methods for computing the
+    All annotation context managers must provide methods for computing the
     attributes of a single annotation instance (see Annotation) from a row
     read by the csv DictReader builtin. 
     """
 
-    def __init__(self, path, start_row=0, **kwargs):
+    def __init__(self, path, start_row=0, mode='r', **kwargs):
         """Initialize this annotation FileManager by opening the file,
         building a csv DictReader and advancing to start row of file."""
-
-        super().__init__(path, 'r')
+        
+        self.path = Path(path)
+        self._fobj = open(path, mode)
         [next(self._fobj) for _ in range(start_row)]
         self._reader = csv.DictReader(self._fobj, **kwargs)
+
+    def __enter__(self):
+        """Return this instance as target variable of this context."""
+
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Closes this instance's file obj. & propagate errors by returning
+        None."""
+
+        self.close()
+
+    def close(self):
+        """Close this reader instance's opened file object."""
+
+        self._fobj.close()
 
     @abc.abstractmethod
     def label(self, row):
@@ -82,7 +98,7 @@ class Annotations(FileManager, abc.ABC):
 
 
 class Pinnacle(Annotations):
-    """A FileManager for reading Pinnacle formatted annotations."""
+    """An Annotations manager for reading Pinnacle formatted annotations."""
 
     def label(self, row):
         """Returns the annotation label of this row in the file."""
@@ -110,7 +126,8 @@ class Pinnacle(Annotations):
 
 
 class XueMat(Annotations):
-    """A FileManager for reading MAT annotation files in Xue lab format
+    """An Annotations manager for reading MAT annotation files in Xue lab
+    format.
 
     The XueMat format only stores the start and stop times in secs, no 
     labels or channels. However, we require all annotation readers to be
@@ -148,7 +165,7 @@ class XueMat(Annotations):
 
 
 class Frankel(Annotations):
-    """A FileManager for reading Frankel lab annotations."""
+    """An Annotations manager for reading Frankel lab annotations."""
 
     def rate(self, row):
         """ """
@@ -187,18 +204,14 @@ if __name__ == '__main__':
     fp3 = ('/home/matt/python/nri/data/frankel_lab/annotations/'
            'Scn8a_Gria4x2_Gabrg2_M1_14242.csv')
 
-    """
     with Pinnacle(fp, start_row=6, delimiter='\t') as p:
-        annotations = p.read(labels='exploring')
-    """
+        annotations0 = p.read(labels='exploring')
 
-    """
     with XueMat(fp2) as f:
-        annotations = f.read()
-    """
+        annotations1 = f.read()
 
     with Frankel(fp3, start_row=2) as fp:
-        annotations = fp.read()
+        annotations2 = fp.read()
 
 
 

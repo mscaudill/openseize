@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from openseize.io.data import headers, readers, writers
-from openseize.mixins import ViewInstance
+from openseize.io import headers, readers, writers
+from openseize.types import mixins
 
-class EDF(ViewInstance):
+class EDF(mixins.ViewInstance):
     """A tool for creating multiple EDFs using a subset of the data from
     a single EDF file.
 

@@ -4,10 +4,10 @@ from pathlib import Path
 
 import numpy as np
 
-from openseize.mixins import ViewInstance
-from openseize.io.data import headers
+from openseize.types import mixins, producer
+from openseize.io import headers
 
-class Reader(abc.ABC, ViewInstance):
+class Reader(abc.ABC, mixins.ViewInstance):
     """An ABC that defines all subclasses as context managers and describes
     required methods and properties."""
 
@@ -231,6 +231,7 @@ class EDF(Reader):
         if not stop:
             stop = max(self.header.samples)
         #return an array
+        print(start, stop)
         return self._read_array(start, stop, channels, padvalue)
 
     def as_iterable(self, channels=None, chunksize=1, padvalue=np.NaN):
@@ -254,8 +255,8 @@ class EDF(Reader):
         return IEDF(self, channels, chunksize, padvalue=np.NaN)
 
 
-class IEDF(ViewInstance):
-    """Iterable yielding arrays of shape channels x chunksize from an EDF. 
+class IEDF(producer.Producer, mixins.ViewInstance):
+    """Producer yielding arrays of shape channels x chunksize from an EDF. 
 
     Openseize operations that are memory intensive may use this iterable to
     access EDF data in batches.
@@ -264,16 +265,26 @@ class IEDF(ViewInstance):
         data:                       This is a Reader instance
         channels (list):            channels to include in each batch
         chunksize (int):            number of samples to yield per batch
-        kwargs:                     any valid reader.read kwargs
+        padvalue (float):           value to pad to channels that run out of
+                                    samples to return. Ignored if all 
+                                    channels have the same sample rates.
     """
     
-    def __init__(self, reader, channels=None, chunksize=1, **kwargs):
+    def __init__(self, reader, channels=None, chunksize=1, padvalue=np.NaN):
         """Initialize this iterable."""
 
-        self.data = reader
-        self.channels = channels
-        self.chunksize = int(chunksize)
-        self.kwargs = kwargs
+        #call Producer's init, channels & padval will be added as attrs
+        super().__init__(reader, chunksize, axis=-1, channels=channels,
+                         padvalue=padvalue)
+        #overwrite producer's channels attr if None passed
+        if not channels:
+            self.channels = self.data.header.channels
+
+    @property
+    def shape(self):
+        """Return the shape of this iterable EDF."""
+
+        return self.data.shape
 
     def __iter__(self):
         """Returns an iterator yielding arrays of shape channels x chunksize
@@ -287,7 +298,7 @@ class IEDF(ViewInstance):
         starts = itertools.count(start=0, step=self.chunksize)
         stops = itertools.count(start=self.chunksize, step=self.chunksize)
         for start, stop in zip(starts, stops): 
-            arr = self.data.read(start, stop, self.channels, **self.kwargs)
+            arr = self.data.read(start, stop, self.channels, self.padvalue)
             #if exhausted close reader and exit
             if arr.size == 0:
                 self.close()
@@ -306,8 +317,13 @@ if __name__ == '__main__':
 
     path = '/home/matt/python/nri/data/openseize/test_write.edf'
 
+    """
     with EDF(path) as reader:
         x = reader.as_iterable(chunksize=30e6)
         for idx, arr in enumerate(x):
             print(idx, arr.shape)
+    """
+
+    x = EDF(path)
+    y = x.as_iterable(chunksize=30e6)
 
