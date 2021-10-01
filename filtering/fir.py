@@ -1,13 +1,11 @@
 import abc
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.signal import signaltools, firwin, freqz, convolve, kaiserord
-from scipy.signal.windows import kaiser
-from matplotlib.patches import Rectangle
+import scipy.signal as sps
 
 from openseize.types import mixins
+from openseize.types.producer import producer
 from openseize.filtering.viewer import FilterViewer
-from openseize.tools.numerical import oaconvolve
+from openseize.tools import numerical as onum
 
 class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
     """Abstract Finite Impulse Response Filter defining required and common
@@ -94,45 +92,29 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
             ntaps = ntaps + 1 if ntaps % 2 == 1 else ntaps
         return ntaps
 
-    def apply(self, signal, axis, outtype, mode):
+    def apply(self, signal, axis, outtype, mode, chunksize=None):
         """Apply this FIR to an ndarray of data.
 
         Args:
-            arr (ndarray):      array with samples along last axis
-                                or a generator!! with chunksize
-
-            #FIXME
-            phase_shift (bool): whether to compensate for the filter's
-                                phase shift (Default is True)
+            signal  (producer or array-like):       
+            axis (int)
+            outtype (str):                      'array' or 'producer' str
+                                                indicating type to return
+            mode (str):
         
-        Returns: ndarry of filtered signal values
+        Returns: 
         """
-
-        # possible inputs/outputs
-        # 1. array
-        # 2. a generator
-        # Need to validate these type strings
-
-        if isinstance(signal, np.ndarray):
-            #we may have a memmap or in-memory array
-            if outtype == 'array':
-                #if using, use axis arg to set newaxis correctly
-                axes = list(range(signal.ndim))
-                axes.pop(axis)
-                x = np.expand_dims(self.coeffs, axes)
-                result = convolve(signal, x, mode=mode)
-            if outtype == 'generator':
-                #call oa algorithm
-                result = oaconvolve(signal, self.coeffs, axis=axis, mode=mode)
-        else:
-            result = self.overlap_add(signal)
+       
+        #TODO COMPLETE docs and test
+        result = onum.oaconvolve(signal, self.coeffs, axis, mode=mode)
+        if outtype == 'array':
+            result = np.concatenate([arr for arr in result], axis=axis)
+        elif outtype == 'producer':
+            #if not chunksize try to default to signals chunksize or 1
+            csize = getattr(signal, 'chunksize', 1)
+            chunksize = csize if not chunksize else chunksize
+            result = producer.producer(result, chunksize, axis)
         return result
-            
-
-
-
-
-
 
 
 class Kaiser(FIR):
@@ -193,7 +175,7 @@ class Kaiser(FIR):
         pass_db = -20 * np.log10(self.pass_ripple)
         design_param = max(pass_db, self.stop_db)
         #compute taps and shape parameter
-        ntaps, beta = kaiserord(design_param, self.width/(self.nyq))
+        ntaps, beta = sps.kaiserord(design_param, self.width/(self.nyq))
         #Symmetric FIR type I requires odd tap num
         ntaps = ntaps + 1 if ntaps % 2 == 0 else ntaps
         return ntaps, beta
@@ -202,7 +184,7 @@ class Kaiser(FIR):
         """Build & return the Kaiser windowed filter."""
 
         #call scipy firwin returning coeffs
-        return firwin(self.ntaps, self.norm_cutoff, window=('kaiser', 
+        return sps.firwin(self.ntaps, self.norm_cutoff, window=('kaiser', 
                        self.beta), pass_zero=self.btype, scale=False)
 
 
@@ -211,6 +193,7 @@ class Kaiser(FIR):
 if __name__ == '__main__':
     
     import time
+    import matplotlib.pyplot as plt
 
     time_s = 1000
     fs = 5000
