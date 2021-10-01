@@ -1,8 +1,9 @@
 from collections.abc import Iterable, Generator, Sequence
+import abc
 import itertools
 import numpy as np
 
-from openseize.mixins import ViewInstance
+from openseize.types import mixins
 
 def producer(data, chunksize, axis=-1):
     """Returns an iterable of numpy ndarrays from an ndarray, a sequence of
@@ -23,7 +24,8 @@ def producer(data, chunksize, axis=-1):
     Returns: a Producer iterable   
     """
 
-    chunksize = int(chunksize)
+    if isinstance(data, Producer):
+        return data
     if isinstance(data, Generator):
         return _ProducerFromGenerator(data, chunksize, axis)
     elif isinstance(data, np.ndarray):
@@ -36,7 +38,7 @@ def producer(data, chunksize, axis=-1):
         raise TypeError(msg.format(type(data)))
 
 
-class Producer(Iterable, ViewInstance):
+class Producer(Iterable, mixins.ViewInstance):
     """ABC defining concrete and required methods of all Producers.
 
     Args:
@@ -59,15 +61,25 @@ class Producer(Iterable, ViewInstance):
         """Concrete initializer for all Producer subclasses."""
 
         self.data = data
-        self.chunksize = chunksize
+        self.chunksize = int(chunksize)
         self.axis = axis
         self.__dict__.update(kwargs)
         #ViewInstance will use Producer name not subclass name
         self.__class__.__name__ = 'Producer'
 
+    @abc.abstractproperty
+    def shape(self):
+        """Returns the shape of this Producer data attr."""
+
 
 class _ProducerFromArray(Producer):
     """A Producer of ndarrays from an ndarray."""
+
+    @property
+    def shape(self):
+        """Returns the shape of this Producer's data array attr."""
+
+        return self.data.shape
 
     def segments(self):
         """Returns start, stop indices of span chunksize to apply along
@@ -96,9 +108,21 @@ class _ProducerFromGenerator(Producer):
     collecting arrays until chunksize shape is reached along axis. Once
     reached, iter yields a collected ndarray.
     """
+
+    @property
+    def shape(self):
+        """Returns the summed shape across all ndarrays yielded by data."""
+
+        #create 2 indpt gens & overwrite data since tmp will advance it
+        self.data, tmp = itertools.tee(self.data, 2)
+        #advance by one to get intial shape then update
+        result = np.array(next(tmp).shape)
+        for arr in tmp:
+            result[self.axis] += arr.shape[self.axis]
+        return result
  
     def _datastep(self):
-        """Returns the length of data generator's ndarrays along axis."""
+        """Returns the length of each ndarray along axis yielded by data."""
         
         #create 2 indpt gens & overwrite data since tmp will advance it
         self.data, tmp = itertools.tee(self.data, 2)
@@ -148,7 +172,7 @@ if __name__ == '__main__':
     """
 
 
-    x = np.random.random((10, 4,1110))
+    x = np.random.random((10, 4,1100))
     gen = (arr for arr in np.split(x, 10, axis=-1))
     gprod = producer(gen, chunksize=30, axis=-1)
     y = np.concatenate([arr for arr in gprod], axis=-1)
