@@ -55,7 +55,7 @@ def _oa_mode(segment, idx, win_len, axis, mode):
     #dict of slices to apply to axis for 0th & last segment for each mode
     cuts = {'full': [slice(None), slice(None)],
             'same': [slice((win_len - 1) // 2, None), 
-                     slice(None, ns - (win_len - 1) // 2)],
+                     slice(None, ns - ((win_len - 1) // 2))],
             'valid': [slice(win_len - 1, None), 
                       slice(None, ns - win_len + 1)]}
     #apply slices
@@ -116,7 +116,7 @@ def oaconvolve(iterable, win, axis, mode):
         slices[axis] = slice(None, samples)
         y = y[tuple(slices)]
         #apply the boundary mode to first and last segments
-        if segment_num == 0 or segment_num == nsegments:
+        if segment_num == 0 or segment_num == nsegments-1:
             y = _oa_mode(y, segment_num, len(win), axis, mode)
         yield y
 
