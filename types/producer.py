@@ -25,6 +25,8 @@ def producer(data, chunksize, axis=-1):
     """
 
     if isinstance(data, Producer):
+        data.chunksize = chunksize
+        data.axis = axis
         return data
     if isinstance(data, Generator):
         return _ProducerFromGenerator(data, chunksize, axis)
@@ -121,13 +123,17 @@ class _ProducerFromGenerator(Producer):
             result[self.axis] += arr.shape[self.axis]
         return result
  
-    def _datastep(self):
-        """Returns the length of each ndarray along axis yielded by data."""
-        
+    def _datapts(self):
+        """Returns start indices of each yielded array from this Producer's
+        generator.
+
+        The generator may yield arrays of unequal len along the chunking 
+        axis. So track start indices of each yielded ndarray.
+        """
+
         #create 2 indpt gens & overwrite data since tmp will advance it
         self.data, tmp = itertools.tee(self.data, 2)
-        #advance an indpt tmp generator by one step to get shape
-        return next(tmp).shape[self.axis]
+        return np.cumsum([x.shape[self.axis] for x in tmp])
 
     def segments(self):
         """Returns an iterable of start, stop tuples of span chunksize."""
@@ -138,21 +144,22 @@ class _ProducerFromGenerator(Producer):
 
     def __iter__(self):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
-       
-        datastep = self._datastep()
+
+        datapts = self._datapts()
         for start, stop in self.segments():
-            #find the data segments containing this Producer segment
-            datasegments = (start // datastep, stop // datastep + 1)
+            #find generator segments containing start through stop (+1)
+            genstart, genstop = np.searchsorted(datapts, [start, stop])
+            genstop += 1
             #create 2 indpt generators from data so one can be sliced
             self.data, tmp = itertools.tee(self.data, 2)
-            sliced = itertools.islice(tmp, *datasegments)
+            sliced = itertools.islice(tmp, genstart, genstop)
             arrs = [arr for arr in sliced]
             #data exhaustion check
             if not arrs:
                 break
             arr = np.concatenate(arrs, axis=self.axis)
             #index within start data segement where producer start occurs
-            idx = start - (start // datastep * datastep)
+            idx = max(start - datapts[genstart - 1], 0)
             #slice collected data segments (arr) starting from index & yield
             slices = [slice(None)] * arr.ndim
             slices[self.axis] = slice(idx, idx + self.chunksize)
@@ -163,20 +170,30 @@ class _ProducerFromGenerator(Producer):
 if __name__ == '__main__':
    
 
-    """ 
-    x = np.random.random((4,100))
-    ls = x.tolist()
-    a = producer(ls, chunksize=23, axis=-1)
-    y = np.concatenate([arr for arr in a], axis=1)
-    print(np.allclose(x,y))
+    def g(chs=4, samples=100021, csize=100, seed=0):
+        """ """
+
+        np.random.seed(seed)
+        starts = range(0, samples, csize)
+        segments = itertools.zip_longest(starts, starts[1:],
+                                         fillvalue=samples)
+        for start, stop in segments:
+            arr = np.random.random((chs, stop-start))
+            yield arr
+
+    values = np.concatenate([arr for arr in g(seed=0)], axis=-1)
+
+    a = producer(g(seed=0), chunksize=25, axis=-1)
+    y = np.concatenate([arr for arr in a], axis=-1)
+    print(np.allclose(values, y))
+
     """
-
-
     x = np.random.random((10, 4,1100))
     gen = (arr for arr in np.split(x, 10, axis=-1))
     gprod = producer(gen, chunksize=30, axis=-1)
     y = np.concatenate([arr for arr in gprod], axis=-1)
     print(np.allclose(x,y))
+    """
 
 
 
