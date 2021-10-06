@@ -5,9 +5,21 @@ from itertools import zip_longest
 from openseize.types.producer import producer
 
 def test_shape():
-    """ """
+    """Test if producer reports the correct shape when producing from
+    a generator."""
 
-    pass
+    chunksize=2231
+    np.random.seed(9634)
+    #make sure to use subarrays of varying lens along chunking axis
+    lens = np.random.randint(2000, high=40000, size=50)
+    #keep the arrays for comparison and make a 1-time generator
+    arrs = [np.random.random((17, l)) for l in lens]
+    gen = (arr for arr in arrs)
+    #create a producer from the generator
+    pro = producer(gen, chunksize=chunksize, axis=-1)
+    #create arrays for comparison from original and from producer
+    arr = np.concatenate(arrs, axis=-1)
+    assert np.allclose(arr.shape, pro.shape)
 
 def test_array():
     """Test if producer produces correct subarrays from a supplied array."""
