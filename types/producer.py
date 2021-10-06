@@ -158,8 +158,8 @@ class _ProducerFromGenerator(Producer):
             if not arrs:
                 break
             arr = np.concatenate(arrs, axis=self.axis)
-            #index within start data segement where producer start occurs
-            idx = max(start - datapts[genstart - 1], 0)
+            #offset within start gen segement where producer start occurs
+            idx = start - datapts[genstart - 1] if genstart > 0 else start
             #slice collected data segments (arr) starting from index & yield
             slices = [slice(None)] * arr.ndim
             slices[self.axis] = slice(idx, idx + self.chunksize)
