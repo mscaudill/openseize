@@ -219,7 +219,7 @@ if __name__ == '__main__':
     import time
     import matplotlib.pyplot as plt
 
-    time_s = 1000
+    time_s = 10
     fs = 5000
     nsamples = int(time_s * fs)
     t = np.linspace(0, time_s, nsamples)
@@ -239,10 +239,17 @@ if __name__ == '__main__':
 
     t0 = time.perf_counter()
     pro = fir.apply(arr, axis=-1, outtype='producer', mode='same',
-                       chunksize=100000)
+                       chunksize=1000)
     result = np.concatenate([arr for arr in pro], axis=-1)
     print('Openseize Filtering completed in {} s'.format(
           time.perf_counter() - t0))
+
+    plt.ion()
+    fig, axarr = plt.subplots(5,1)
+    [axarr[idx].plot(row) for idx, row in enumerate(arr)]
+    [axarr[idx].plot(row, color='r') for idx, row in enumerate(result)]
+
+
 
 
 
