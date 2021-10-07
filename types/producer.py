@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Generator, Sequence
+from collections.abc import Reversible, Generator, Sequence
 import abc
 import itertools
 import numpy as np
@@ -40,7 +40,7 @@ def producer(data, chunksize, axis=-1):
         raise TypeError(msg.format(type(data)))
 
 
-class Producer(Iterable, mixins.ViewInstance):
+class Producer(Reversible, mixins.ViewInstance):
     """ABC defining concrete and required methods of all Producers.
 
     Args:
@@ -101,6 +101,18 @@ class _ProducerFromArray(Producer):
             slices[self.axis] = slice(*segment)
             yield self.data[tuple(slices)]
 
+    def __reversed__(self):
+        """Returns an iterator yielding ndarrays of chunksize starting from
+        the end of data along axis."""
+
+        #create an ndarray slice sequence
+        slices = [slice(None)] * self.data.ndim
+        for start, stop in reversed(list(self.segments())):
+            #update slice, fetch and flip
+            slices[self.axis] = slice(start, stop)
+            y = np.flip(self.data[tuple(slices)], axis=self.axis)
+            yield y
+
 
 class _ProducerFromGenerator(Producer):
     """A Producer of ndarrays from a generator of ndarrays.
@@ -149,10 +161,9 @@ class _ProducerFromGenerator(Producer):
         for start, stop in self.segments():
             #find generator segments containing start through stop (+1)
             genstart, genstop = np.searchsorted(datapts, [start, stop])
-            genstop += 1
             #create 2 indpt generators from data so one can be sliced
             self.data, tmp = itertools.tee(self.data, 2)
-            sliced = itertools.islice(tmp, genstart, genstop)
+            sliced = itertools.islice(tmp, genstart, genstop+1)
             arrs = [arr for arr in sliced]
             #data exhaustion check
             if not arrs:
@@ -165,12 +176,47 @@ class _ProducerFromGenerator(Producer):
             slices[self.axis] = slice(idx, idx + self.chunksize)
             yield arr[tuple(slices)]
 
+    def __reversed__(self):
+        """Returns an iterator yielding ndarrays of chunnksize along axis in
+        reverse order."""
+
+        datapts = self._datapts()
+        csize = self.chunksize
+        samples = self.shape[self.axis]
+        #get reverse segments
+        rsegments = zip(itertools.count(samples, -1 * csize),
+                        itertools.count(samples - csize, -1 * csize))
+        for start, stop in rsegments:
+            #find the generator segments containing stop trhough start
+            genstart, genstop = np.searchsorted(datapts, [start, stop])
+            #exhaustion check
+            if start <= 0:
+                break
+            #create 2 indpt generators from data so one can be sliced
+            self.data, tmp = itertools.tee(self.data, 2)
+            sliced = itertools.islice(tmp, genstop, genstart + 1)
+            arrs = [arr for arr in sliced]
+            arr = np.concatenate(arrs, axis=self.axis)
+            #offset from arr end 
+            idx = start - datapts[genstart]
+            #slice collected data segments (arr) starting from index & yield
+            slices = [slice(None)] * arr.ndim
+            if idx == 0:
+                slices[self.axis] = slice(-1, -self.chunksize, -1)
+            else:
+                slices[self.axis] = slice(idx, idx-self.chunksize, -1)
+            yield arr[tuple(slices)]
+
+
+
+        
+
 
 
 if __name__ == '__main__':
    
-
-    def g(chs=4, samples=100021, csize=100, seed=0):
+    """
+    def g(chs=4, samples=1021, csize=100, seed=0):
         """ """
 
         np.random.seed(seed)
@@ -183,9 +229,13 @@ if __name__ == '__main__':
 
     values = np.concatenate([arr for arr in g(seed=0)], axis=-1)
 
-    a = producer(g(seed=0), chunksize=25, axis=-1)
+    a = producer(g(seed=0), chunksize=75, axis=-1)
     y = np.concatenate([arr for arr in a], axis=-1)
     print(np.allclose(values, y))
+
+    b = reversed(a)
+    z = np.concatenate([arr for arr in b], axis=-1)
+    """
 
     """
     x = np.random.random((10, 4,1100))
@@ -195,5 +245,8 @@ if __name__ == '__main__':
     print(np.allclose(x,y))
     """
 
-
+    data = np.random.random((10, 3000))
+    pro = producer(data, chunksize=300, axis=-1)
+    rev = np.concatenate([arr for arr in reversed(pro)], axis=-1)
+    print(np.allclose(data[:,::-1], rev))
 
