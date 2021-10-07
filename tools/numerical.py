@@ -1,7 +1,7 @@
-import copy
 import numpy as np
-from itertools import zip_longest
+import itertools
 from scipy import fft, ifft
+import scipy.signal as sps
 
 from openseize.types.producer import Producer, producer 
 
@@ -119,5 +119,63 @@ def oaconvolve(iterable, win, axis, mode):
         if segment_num == 0 or segment_num == nsegments-1:
             y = _oa_mode(y, segment_num, len(win), axis, mode)
         yield y
+
+def batch_sosfilt(sos, iterable, chunksize, axis):
+    """Batch applies a second-order-section fmt filter to a data iterable.
+
+    Args:
+        sos (array):             a nsectios x 6 array of numerator &
+                                 denominator coeffs from an iir filter
+        iterable:                an ndarray or producer of ndarrays (e.g
+                                 generator or Producer instance)
+        chunksize (int):         amount of data along axis to filter per
+                                 batch
+        axis (int):              axis along which to apply the filter in
+                                 chunksize batches
+
+    Returns: a generator of filtered values of len chunksize along axis
+    """
+
+    #create a producer yielding chunksize arrays
+    pro = producer(iterable, chunksize=chunksize, axis=axis)
+    #set initial conditions for filter (see scipy sosfilt; zi)
+    shape = list(pro.shape)
+    shape[axis] = 2
+    # TODO we could make odd extension of first subarray and 
+    # compute a better z initial
+    z = np.zeros((sos.shape[0], *shape))
+    #compute filter values & store current initial conditions 
+    for idx, subarr in enumerate(pro):
+        y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
+        yield y
+
+def batch_sosfiltfilt(sos, iterable, chunksize, axis):
+    """ """
+
+    #get taps to perform extension of first and last of iterable
+    #ntaps = 2 * sos.shape[0] + 1
+    #subtract the min number of numerator/denominator coeffs == 0
+    #ntaps -= min((sos[:, 2] == 0).sum(), (sos[:,5] == 0).sum())
+    
+    #create a producer yielding chunksize arrays
+    pro = producer(iterable, chunksize=chunksize, axis=axis)
+    nchunks = np.ceil(pro.shape[axis] / chunksize)
+    #create a generator of forward filter values
+    forward = batch_sosfilt(sos, iterable, chunksize, axis)
+    #get the last value of the last chunk
+    forward, tmp = itertools.tee(forward)
+    last_arr = next(itertools.islice(tmp, start=nchunks-1)) 
+    slices = [slice(None)] * last_arr.ndim
+    slices[axis] = slice(-1, None)
+    y0 = last_arr[tuple(slices)]
+    # TODO will need to pass y0 into batch_sosfilt to make z!
+    #create a producer of forward filtered values
+    pro_forward = producer(forward, chunksize=chunksize, axis=axis)
+    #reverse the forward producer and filter backwards
+    rev_forward = reversed(pro_foward)
+    return batch_sosfilt(sos, rev_forward, chunksize, axis)
+
+
+    
 
         
