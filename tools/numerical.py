@@ -120,7 +120,7 @@ def oaconvolve(iterable, win, axis, mode):
             y = _oa_mode(y, segment_num, len(win), axis, mode)
         yield y
 
-def batch_sosfilt(sos, iterable, chunksize, axis):
+def batch_sosfilt(sos, iterable, chunksize, axis, zi=None):
     """Batch applies a second-order-section fmt filter to a data iterable.
 
     Args:
@@ -141,9 +141,7 @@ def batch_sosfilt(sos, iterable, chunksize, axis):
     #set initial conditions for filter (see scipy sosfilt; zi)
     shape = list(pro.shape)
     shape[axis] = 2
-    # TODO we could make odd extension of first subarray and 
-    # compute a better z initial
-    z = np.zeros((sos.shape[0], *shape))
+    z = np.zeros((sos.shape[0], *shape)) if zi is None else zi
     #compute filter values & store current initial conditions 
     for idx, subarr in enumerate(pro):
         y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
@@ -159,23 +157,27 @@ def batch_sosfiltfilt(sos, iterable, chunksize, axis):
     
     #create a producer yielding chunksize arrays
     pro = producer(iterable, chunksize=chunksize, axis=axis)
-    nchunks = np.ceil(pro.shape[axis] / chunksize)
-    #create a generator of forward filter values
-    forward = batch_sosfilt(sos, iterable, chunksize, axis)
-    #get the last value of the last chunk
-    forward, tmp = itertools.tee(forward)
-    last_arr = next(itertools.islice(tmp, start=nchunks-1)) 
-    slices = [slice(None)] * last_arr.ndim
-    slices[axis] = slice(-1, None)
-    y0 = last_arr[tuple(slices)]
-    # TODO will need to pass y0 into batch_sosfilt to make z!
+
+    #get initial value from producer
+    subarr = next(iter(pro))
+    # TODO axis_slice
+    slices = [slice(None)] * subarr.ndim
+    slices[axis] = slice(None, 1)
+    x0 = subarr[tuple(slices)]
+    # build initial condition
+    zi = sps.sosfilt_zi(sos)
+    s = [1] * len(pro.shape)
+    s[axis] = 2
+    zi = np.reshape(zi, (sos.shape[0], *s))
+    #create a producer of forward filter values
+    forward_gen = batch_sosfilt(sos, pro, chunksize, axis, zi=zi * x0)
+    #get the last value of the forward filtered values
+    forward, tmp = itertools.tee(forward_gen)
+    y0 = next(reversed(producer(tmp, chunksize=1, axis=axis)))
     #create a producer of forward filtered values
     pro_forward = producer(forward, chunksize=chunksize, axis=axis)
     #reverse the forward producer and filter backwards
-    rev_forward = reversed(pro_foward)
-    return batch_sosfilt(sos, rev_forward, chunksize, axis)
-
-
-    
-
-        
+    rev_gen = reversed(pro_forward)
+    rev_gen = batch_sosfilt(sos, rev_gen, chunksize, axis, zi=zi * y0)
+    #build final reversed producer
+    return reversed(producer(rev_gen, chunksize, axis))
