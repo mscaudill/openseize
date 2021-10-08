@@ -61,8 +61,8 @@ def test_arr_reverse():
     """Test if a reversed producer built from an array produces correct
     subarrays."""
 
-    chunksize = 1033
-    arr = np.random.random((157, 351239))
+    chunksize = 1000
+    arr = np.random.random((157, 35000))
     pro = producer(arr, chunksize=chunksize, axis=-1)
     rev_pro = reversed(pro)
     rev = np.concatenate([r for r in rev_pro], axis=-1)
@@ -82,8 +82,22 @@ def test_gen_reverse():
     gen = (arr for arr in arrs)
     #create a producer from the generator
     pro = producer(gen, chunksize=chunksize, axis=-1)
-    rev_pro = reversed(pro)
-    rev = np.concatenate([arr for arr in rev_pro], axis=-1)
+    rev_gen = reversed(pro)
+    rev = np.concatenate([arr for arr in rev_gen], axis=-1)
+    probe = np.concatenate([arr for arr in arrs], axis=-1)
+    probe = np.flip(probe, axis=-1)
+    assert np.allclose(probe, rev)
+
+def test_gen_reverse2():
+    """ """
+
+    chunksize = 1000
+    np.random.seed(0)
+    arrs = [np.random.random((2, 10000)) for _ in range(5)]
+    gen = (arr for arr in arrs)
+    pro = producer(gen, chunksize, axis=-1)
+    rev_gen = reversed(pro)
+    rev = np.concatenate([arr for arr in rev_gen], axis=-1)
     probe = np.concatenate([arr for arr in arrs], axis=-1)
     probe = np.flip(probe, axis=-1)
     assert np.allclose(probe, rev)
