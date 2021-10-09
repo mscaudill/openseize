@@ -25,6 +25,23 @@ def pad_along_axis(arr, pad, axis, **kwargs):
     pads[axis] = pad
     return np.pad(arr, pads, **kwargs)
 
+def slice_along_axis(arr, start=None, stop=None, step=None, axis=-1):
+    """Returns slice of arr along axis from start to stop in 'step' steps.
+
+    (see scipy._arraytools.axis_slice)
+
+    Args:
+        arr (ndarray):              an ndarray to slice
+        start, stop, step (int):    passed to slice instance
+        axis (int):                 axis of array to slice along
+
+    Returns: sliced ndarray
+    """
+
+    slicer = [slice(None)] * arr.ndim
+    slicer[axis] = slice(start, stop, step)
+    return arr[tuple(slicer)]
+
 def optimal_nffts(arr):
     """Estimates the optimal number of FFT points for an arr."""
 
@@ -113,8 +130,7 @@ def oaconvolve(iterable, win, axis, mode):
         overlap = new_overlap
         #last segment may not have step pts, so slice upto 'full' overlap
         samples = min((subarr.shape[axis]) + len(win) -1, step)
-        slices[axis] = slice(None, samples)
-        y = y[tuple(slices)]
+        y = slice_along_axis(y, 0, samples, axis=axis)
         #apply the boundary mode to first and last segments
         if segment_num == 0 or segment_num == nsegments-1:
             y = _oa_mode(y, segment_num, len(win), axis, mode)
@@ -148,36 +164,53 @@ def batch_sosfilt(sos, iterable, chunksize, axis, zi=None):
         yield y
 
 def batch_sosfiltfilt(sos, iterable, chunksize, axis):
-    """ """
+    """Batch applies a forward-backward filter in sos format to an iterable
+    of numpy arrays.
 
-    #get taps to perform extension of first and last of iterable
-    #ntaps = 2 * sos.shape[0] + 1
-    #subtract the min number of numerator/denominator coeffs == 0
-    #ntaps -= min((sos[:, 2] == 0).sum(), (sos[:,5] == 0).sum())
-    
+    Args:
+        sos (array):             a nsectios x 6 array of numerator &
+                                 denominator coeffs from an iir filter
+        iterable:                an ndarray or producer of ndarrays (e.g
+                                 generator or Producer instance)
+        chunksize (int):         amount of data along axis to filter per
+                                 batch
+        axis (int):              axis along which to apply the filter in
+                                 chunksize batches
+
+    Returns: a generator of forward-backward filtered values of len 
+             chunksize along axis
+    """
+
     #create a producer yielding chunksize arrays
     pro = producer(iterable, chunksize=chunksize, axis=axis)
-
     #get initial value from producer
     subarr = next(iter(pro))
-    # TODO axis_slice
-    slices = [slice(None)] * subarr.ndim
-    slices[axis] = slice(None, 1)
-    x0 = subarr[tuple(slices)]
+    x0 = slice_along_axis(subarr, 0, 1, axis=axis) 
     # build initial condition
     zi = sps.sosfilt_zi(sos)
     s = [1] * len(pro.shape)
     s[axis] = 2
     zi = np.reshape(zi, (sos.shape[0], *s))
     #create a producer of forward filter values
-    forward_gen = batch_sosfilt(sos, pro, chunksize, axis, zi=zi * x0)
+    forward = batch_sosfilt(sos, pro, chunksize, axis, zi=zi * x0)
     #get the last value of the forward filtered values
-    forward, tmp = itertools.tee(forward_gen)
+    forward_filt, tmp = itertools.tee(forward)
     y0 = next(reversed(producer(tmp, chunksize=1, axis=axis)))
-    #create a producer of forward filtered values
-    pro_forward = producer(forward, chunksize=chunksize, axis=axis)
-    #reverse the forward producer and filter backwards
-    rev_gen = reversed(pro_forward)
-    rev_gen = batch_sosfilt(sos, rev_gen, chunksize, axis, zi=zi * y0)
-    #build final reversed producer
-    return reversed(producer(rev_gen, chunksize, axis))
+    #compute reverse filter values
+    rev_gen = reversed(producer(forward_filt, chunksize, axis))
+    rev_filt = batch_sosfilt(sos, rev_gen, chunksize, axis, zi=zi * y0)
+    #reverse the rev_filt values to get the filtfilt values
+    return reversed(producer(rev_filt, chunksize, axis))
+
+def batch_iirfilter(coeffs, iterable, chunksize, axis, compensate):
+    """Performs batch filtering of an array iterable.
+
+    Args:
+        coeffs (array-like (sos) or tuple (ba), (zpk))
+
+    """
+
+    # validate the coeffs are of fmt sos, ba or zpk -- need validator
+    # later add lfilter and lfiltfilt but now raise not Implemented error
+
+    pass
