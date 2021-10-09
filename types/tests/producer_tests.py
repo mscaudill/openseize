@@ -41,7 +41,7 @@ def test_array():
 def test_gen():
     """Test if producer produces correct subarrays from a generator."""
 
-    chunksize=2231
+    chunksize=10000
     np.random.seed(9634)
     #make sure to use subarrays of varying lens along chunking axis
     lens = np.random.randint(2000, high=40000, size=50)
@@ -56,6 +56,25 @@ def test_gen():
     arr = np.concatenate(arrs, axis=-1)
     pro_arr = np.concatenate(pro_arrays, axis=-1)
     assert np.allclose(arr, pro_arr)
+
+def test_gen2():
+    """Test if producer produces correct subarrays when chunksize exactly
+    equals the generator's segment sizes along axis."""
+
+    def g(chs=4, n=50000, segsize=9000, seed=0):
+        """A generator of constant sized arrays of segsize along axis=-1."""
+
+        np.random.seed(seed)
+        starts = range(0, n, segsize)
+        segments = zip_longest(starts, starts[1:], fillvalue=n)
+        for start, stop in segments:
+            arr = np.random.random((chs, stop-start))
+            yield arr
+
+    pro = producer(g(), chunksize=9000, axis=-1)
+    arr = np.concatenate([x for x in pro], axis=-1)
+    probe = np.concatenate([arr for arr in g(seed=0)], axis=-1)
+    assert np.allclose(probe, arr)
 
 def test_arr_reverse():
     """Test if a reversed producer built from an array produces correct
@@ -73,7 +92,7 @@ def test_gen_reverse():
     """Test if a reversed producer built from a generator produces correct
     subarrays."""
 
-    chunksize=229
+    chunksize=4399
     np.random.seed(9631)
     #make sure to use subarrays of varying lens along chunking axis
     lens = np.random.randint(2000, high=40000, size=20)
@@ -89,9 +108,10 @@ def test_gen_reverse():
     assert np.allclose(probe, rev)
 
 def test_gen_reverse2():
-    """ """
+    """Test if a reversed producer yields arrays of the correct shape when
+    the chunksize exactly equals the generator segment size. """
 
-    chunksize = 1000
+    chunksize = 10000
     np.random.seed(0)
     arrs = [np.random.random((2, 10000)) for _ in range(5)]
     gen = (arr for arr in arrs)

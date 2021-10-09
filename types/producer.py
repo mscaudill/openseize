@@ -26,23 +26,9 @@ def producer(obj, chunksize, axis=-1):
     """
 
     if isinstance(obj, Producer):
-        #copy underlying data
         obj.chunksize = chunksize
         obj.axis = axis
         return obj
-
-        """
-        # This does not work because advancing the subgen advances the
-        # original gen SOLVE THIS OR THROW ERROR
-        if isinstance(obj.data, Generator, itertools._tee):
-            data, old = itertools.tee(self.data, 2)
-            obj.data = data
-        elif isinstance(obj.data, np.ndarray):
-            obj.data = np.copy(pro.data)
-        elif isinstance(obj.data, Sequence):
-            obj.data = copy.deepcopy(obj.data)
-        return obj
-        """
 
     if isinstance(obj, (Generator, itertools._tee)):
         return _ProducerFromGenerator(obj, chunksize, axis)
@@ -177,34 +163,25 @@ class _ProducerFromGenerator(Producer):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
 
         datapts = self._datapts()
-        print(datapts)
         for start, stop in self.segments():
-            print(start, stop)
-            #find generator segments containing start through stop (+1)
-            genstart, genstop = np.searchsorted(datapts, [start, stop],
-                    side='right')
+            #exhaustion check
+            if start >= datapts[-1]:
+                return
+            #find generator segments containing start through stop
+            a, b = np.searchsorted(datapts, [start, stop], side='right')
+            b += 1
             #create 2 indpt generators from data so one can be sliced
             self.data, tmp = itertools.tee(self.data, 2)
-           
-            genstop = max(genstop, genstart + 1)
-            print('gen start, stop = ', genstart, genstop)
-            sliced = itertools.islice(tmp, genstart, genstop)
+            sliced = itertools.islice(tmp, a, b)
             arrs = [arr for arr in sliced]
-            print([a.shape for a in arrs])
-            #data exhaustion check
-            if not arrs:
-                return
             arr = np.concatenate(arrs, axis=self.axis)
-            #offset within start gen segement where producer start occurs
-
-            #FIXME THIS IS A MESS!
-            #idx = start - datapts[genstart - 1] if genstart > 0 else start
-            idx = start if start < datapts[genstart-1] else start - datapts[genstart
-                    ]-start
-            print('offset = ', idx)
-            #slice collected data segments (arr) starting from index & yield
+            #insert 0 into datapts to get start index of each segment
+            seg_starts = np.insert(datapts,0,0)
+            # measure offset of producer start to segment start
+            offset = start - seg_starts[a]
+            #slice from offset and yield
             slices = [slice(None)] * arr.ndim
-            slices[self.axis] = slice(idx, idx + self.chunksize)
+            slices[self.axis] = slice(offset, offset + self.chunksize)
             yield arr[tuple(slices)]
 
     def __reversed__(self):
@@ -212,50 +189,44 @@ class _ProducerFromGenerator(Producer):
         reverse order."""
 
         datapts = self._datapts()
-        #print('datapts = ', datapts)
         csize = self.chunksize
         samples = self.shape[self.axis]
-        #get reverse segments
+        #create reverse segments
         rsegments = zip(itertools.count(samples, -1 * csize),
                         itertools.count(samples - csize, -1 * csize))
-        
         for start, stop in rsegments:
-            print('producer start, stop = ', start, stop)
             #exhaustion check
             if start <= 0:
-                print('reverse break')
                 return
             #find the generator segments containing stop trhough start
             genstart, genstop = np.searchsorted(datapts, [start, stop])
-            print('gen start, stop = ', genstart, genstop)
+            genstart += 1
             #create 2 indpt generators from data so one can be sliced
             self.data, tmp = itertools.tee(self.data, 2)
-            sliced = itertools.islice(tmp, genstop, genstart + 1)
+            sliced = itertools.islice(tmp, genstop, genstart)
             arrs = [arr for arr in sliced]
             arr = np.concatenate(arrs, axis=self.axis)
-            #BETA
+            #flip array since we read stop to start where stop < start
             arr = np.flip(arr, axis=self.axis)
-            #offset
-            idx = datapts[genstart] - start
-            #print('offset = ', idx)
-
+            #insert 0 into datapts to get start index of each segment
+            seg_starts = np.insert(datapts,0,0)
+            #compute offset
+            idx = seg_starts[genstart] - start
+            #slice from offset and yield
             slices = [slice(None)] * arr.ndim
             slices[self.axis] = slice(idx, idx + self.chunksize)
-            #print('slices = ', slices)
             y = arr[tuple(slices)]
-            #print('y shape = ', y.shape)
             yield y
 
             
 
 if __name__ == '__main__':
    
-    """
-    def g(chs=4, samples=50000, csize=10000, seed=0):
+    def g(chs=4, samples=50000, segsize=9000, seed=0):
         """ """
 
         np.random.seed(seed)
-        starts = range(0, samples, csize)
+        starts = range(0, samples, segsize)
         segments = itertools.zip_longest(starts, starts[1:],
                                          fillvalue=samples)
         for start, stop in segments:
@@ -264,15 +235,14 @@ if __name__ == '__main__':
 
     values = np.concatenate([arr for arr in g(seed=0)], axis=-1)
 
+    
     a = producer(g(seed=0), chunksize=10000, axis=-1)
-    y = np.concatenate([arr for arr in a], axis=-1)
-    print(np.allclose(values, y))
-    """
+    #y = np.concatenate([arr for arr in a], axis=-1)
+    #print(np.allclose(values, y))
 
-    """
     b = reversed(a)
     z = np.concatenate([arr for arr in b], axis=-1)
-    """
+    print(np.allclose(values[:,::-1], z))
 
     """
     x = np.random.random((10, 4,1100))
@@ -301,8 +271,9 @@ if __name__ == '__main__':
     print(np.allclose(data[:,::-1], rev))
     """
 
+    """
     def test_gen():
-        """Test if producer produces correct subarrays from a generator."""
+        #Test if producer produces correct subarrays from a generator.
 
         chunksize=12231
         np.random.seed(9634)
@@ -322,4 +293,5 @@ if __name__ == '__main__':
 
 
     test_gen()
+    """
 
