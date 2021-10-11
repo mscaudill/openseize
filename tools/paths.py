@@ -110,12 +110,12 @@ def mismatches(files, others):
 
 if __name__ == '__main__':
 
-    from openseize.tools.files.dialogs import standard
+    from openseize.io.dialogs import standard
 
     path = standard('askopenfilename',
                     initialdir='/home/matt/python/nri/data/rett_eeg')
 
-    mdata = PathMeta(path, side=['Left', 'Right'], animal='\d+',
+    mdata = MetaData(path, side=['Left', 'Right'], animal='\d+',
             group=['\s(A)', '\s(B)'], treatment=['-(D)', '-(S)'])
 
 
