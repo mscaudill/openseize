@@ -22,7 +22,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
         """Returns an ndarray of shape channels x (stop-start)."""
 
     @abc.abstractmethod
-    def as_iterable(self, channels, chunksize, **kwargs):
+    def as_producer(self, channels, chunksize, **kwargs):
         """Returns an iterable of arrays of shape chs x chunksize."""
 
     def __enter__(self):
@@ -231,10 +231,9 @@ class EDF(Reader):
         if not stop:
             stop = max(self.header.samples)
         #return an array
-        print(start, stop)
         return self._read_array(start, stop, channels, padvalue)
 
-    def as_iterable(self, channels=None, chunksize=1, padvalue=np.NaN):
+    def as_producer(self, channels=None, chunksize=1, padvalue=np.NaN):
         """Returns an iterable EDF instance that can be used to create an
         iterator of arrays of shape channels x chunksize.
 
@@ -252,10 +251,10 @@ class EDF(Reader):
 
         """
 
-        return IEDF(self, channels, chunksize, padvalue=np.NaN)
+        return _ProducerFromEDF(self, channels, chunksize, padvalue=np.NaN)
 
 
-class IEDF(producer.Producer, mixins.ViewInstance):
+class _ProducerFromEDF(producer.Producer, mixins.ViewInstance):
     """Producer yielding arrays of shape channels x chunksize from an EDF. 
 
     Openseize operations that are memory intensive may use this iterable to
@@ -305,6 +304,12 @@ class IEDF(producer.Producer, mixins.ViewInstance):
                 break
             yield arr
 
+    def __reversed__(self):
+        """ """
+        
+        # TODO implement to support full Producer protocol
+        raise NotImplementedError
+
     def close(self):
         """Closes this iterable's file resource."""
 
@@ -325,5 +330,5 @@ if __name__ == '__main__':
     """
 
     x = EDF(path)
-    y = x.as_iterable(chunksize=30e6)
+    y = x.as_producer(chunksize=30e6)
 
