@@ -4,7 +4,7 @@ import tkinter.messagebox as tkmsgbox
 import re
 from pathlib import Path
 
-from openseize.io.files import ops
+from openseize.tools.files import ops
 
 def root_deco(dialog):
     """Decorates a dialog with a toplevel that is destroyed when the dialog
@@ -37,8 +37,8 @@ def standard(kind, **options):
         multiple (bool):        when True multiple selection enabled
     """
 
-    paths = getattr(tkdialogs, kind)(**options)
-    return [Path(p) for p in paths] if len(paths) > 1 else Path(paths)
+    fp = getattr(tkdialogs, kind)(**options)
+    return Path(fp) if isinstance(fp, str) else [Path(p) for p in fp]
 
 
 @root_deco
