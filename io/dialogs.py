@@ -4,8 +4,6 @@ import tkinter.messagebox as tkmsgbox
 import re
 from pathlib import Path
 
-from openseize.tools.files import ops
-
 def root_deco(dialog):
     """Decorates a dialog with a toplevel that is destroyed when the dialog
     is closed."""
