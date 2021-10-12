@@ -233,7 +233,7 @@ class EDF(Reader):
         #return an array
         return self._read_array(start, stop, channels, padvalue)
 
-    def as_producer(self, channels=None, chunksize=1, padvalue=np.NaN):
+    def as_producer(self, chunksize, channels=None, padvalue=np.NaN):
         """Returns an iterable EDF instance that can be used to create an
         iterator of arrays of shape channels x chunksize.
 
@@ -241,17 +241,14 @@ class EDF(Reader):
             channels (list):        indices to return or yield data from
                                     (Default None returns data on all
                                     channels in EDF)
-            chunksize (int):        number of samples to return from
-                                    generator per iteration (Default is
-                                    30e6 samples). This value is ignored if
-                                    stop sample is provided.
+            chunksize (int):        number of samples to return per batch
             padvalue (float):       value to pad to channels that run out of
                                     samples to return. Ignored if all 
                                     channels have the same sample rates.
 
         """
 
-        return _ProducerFromEDF(self, channels, chunksize, padvalue=np.NaN)
+        return _ProducerFromEDF(self, chunksize, channels, padvalue=np.NaN)
 
 
 class _ProducerFromEDF(producer.Producer, mixins.ViewInstance):
@@ -269,7 +266,7 @@ class _ProducerFromEDF(producer.Producer, mixins.ViewInstance):
                                     channels have the same sample rates.
     """
     
-    def __init__(self, reader, channels=None, chunksize=1, padvalue=np.NaN):
+    def __init__(self, reader, chunksize, channels=None, padvalue=np.NaN):
         """Initialize this iterable."""
 
         #call Producer's init, channels & padval will be added as attrs
@@ -287,11 +284,7 @@ class _ProducerFromEDF(producer.Producer, mixins.ViewInstance):
 
     def __iter__(self):
         """Returns an iterator yielding arrays of shape channels x chunksize
-        from a reader instance.
-
-        Note: no assumption on the reader shape is made since reader.shape
-        is not guaranteed by the Reader abc.
-        """
+        from a reader instance."""
 
         #make generators of start, stop samples & exhaust reader
         starts = itertools.count(start=0, step=self.chunksize)
@@ -305,10 +298,23 @@ class _ProducerFromEDF(producer.Producer, mixins.ViewInstance):
             yield arr
 
     def __reversed__(self):
-        """ """
+        """Returns an iterator yielding arrays of shape channels x chunksize
+        starting from the end of reader instance."""
         
-        # TODO implement to support full Producer protocol
-        raise NotImplementedError
+        #start, stop tuples starting from readers last sample
+        last = self.shape[-1]
+        starts = itertools.count(last, step=-self.chunksize)
+        stops = itertools.count(last - self.chunksize, step=-self.chunksize)
+        for start, stop in zip(starts, stops):
+            #data exhaustion check
+            if start <= 0:
+                self.close()
+                break
+            #ensure stop is + or 0
+            stop = max(stop, 0)
+            arr = self.data.read(stop, start, self.channels, self.padvalue)
+            arr = np.flip(arr, axis=-1)
+            yield arr
 
     def close(self):
         """Closes this iterable's file resource."""
