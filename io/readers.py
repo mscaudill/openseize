@@ -293,7 +293,6 @@ class _ProducerFromEDF(producer.Producer, mixins.ViewInstance):
             arr = self.data.read(start, stop, self.channels, self.padvalue)
             #if exhausted close reader and exit
             if arr.size == 0:
-                self.close()
                 break
             yield arr
 
@@ -308,7 +307,6 @@ class _ProducerFromEDF(producer.Producer, mixins.ViewInstance):
         for start, stop in zip(starts, stops):
             #data exhaustion check
             if start <= 0:
-                self.close()
                 break
             #ensure stop is + or 0
             stop = max(stop, 0)
