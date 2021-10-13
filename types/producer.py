@@ -26,7 +26,7 @@ def producer(obj, chunksize, axis=-1):
     """
 
     if isinstance(obj, Producer):
-        obj.chunksize = chunksize
+        obj.chunksize = int(chunksize)
         obj.axis = axis
         return obj
 
