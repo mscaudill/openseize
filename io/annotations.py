@@ -6,6 +6,7 @@ import numpy as np
 import scipy.io as sio
 
 from openseize.types import mixins
+from openseize.tools import arraytools
 
 class Annotation(mixins.ViewContainer):
     """An immutable obj for holding annotation data.
@@ -29,7 +30,54 @@ class Annotation(mixins.ViewContainer):
         self.channel = channel
 
 
-class Annotations(abc.ABC):
+class Annotations(tuple):
+    """An extended tuple of annotation instances.
+
+    An Annotations tuple is a tuple with an additional as_bool method that
+    converts a list of annotation objects into a boolean array for data
+    indexing.
+    """
+
+    def __new__(cls, annotations):
+        """Overide tuples new method to include a type check."""
+        
+        cls._validate(annotations)
+        return super().__new__(cls, annotations)
+
+    @classmethod
+    def _validate(cls, annotations):
+        """Validates that all objects passed are of type Annotation."""
+
+        obj_types = [type(x) for x in annotations]
+        vals = [otype == Annotation for otype in obj_types]
+        if not all(vals):
+            idx = [v for v in vals if not v][0]
+            msg = 'object at index {} is of type {} not {}'
+            raise TypeError(msg.format(idx, obj_types[idx],
+                            Annotation.__name__))
+
+    def as_bool(self, size, fs, include=True):
+        """Convert this annotations tuple into a 1D boolean array.
+
+        Args:
+            size (int):             len of bool array to return
+            fs (int):               sampling rate in Hz
+            include (bool):         determines if annotations should map to
+                                    True or False in the returned array
+                                    (Default is True -> annotations should
+                                    be True and all other values False)
+        
+        Returns: 1-D boolean array of shape 1 x size.
+        """
+    
+        times = [(a.start_time, a.start_time + a.duration) for a in self]
+        indices = np.round((np.array(times) * fs)).astype(int)
+        slices = [slice(*row) for row in indices]
+        result = arraytools.filter1D(size, slices)
+        return result if include else ~result
+
+
+class Reader(abc.ABC):
     """ABC defining expected interface of all annotation context managers.
 
     All annotation context managers must provide methods for computing the
@@ -94,10 +142,10 @@ class Annotations(abc.ABC):
             result.append(Annotation(*attrs))
         if labels:
             result = [ann for ann in result if ann.label in labels]
-        return result
+        return Annotations(result)
 
 
-class Pinnacle(Annotations):
+class Pinnacle(Reader):
     """An Annotations manager for reading Pinnacle formatted annotations."""
 
     def label(self, row):
@@ -125,7 +173,7 @@ class Pinnacle(Annotations):
         return row['Channel']
 
 
-class XueMat(Annotations):
+class XueMat(Reader):
     """An Annotations manager for reading MAT annotation files in Xue lab
     format.
 
@@ -164,7 +212,7 @@ class XueMat(Annotations):
         return 'ANY'
 
 
-class Frankel(Annotations):
+class Frankel(Reader):
     """An Annotations manager for reading Frankel lab annotations."""
 
     def rate(self, row):
@@ -192,6 +240,7 @@ class Frankel(Annotations):
 
         return row['Channel Index']
 
+
 if __name__ == '__main__':
     
 
@@ -206,6 +255,8 @@ if __name__ == '__main__':
 
     with Pinnacle(fp, start_row=6, delimiter='\t') as p:
         annotations0 = p.read(labels='exploring')
+
+    x = annotations0.as_bool(size=17e6, fs=5000, include=False)
 
     with XueMat(fp2) as f:
         annotations1 = f.read()
