@@ -4,43 +4,7 @@ from scipy import fft, ifft
 import scipy.signal as sps
 
 from openseize.types.producer import Producer, producer 
-
-def pad_along_axis(arr, pad, axis, **kwargs):
-    """Wrapper for numpy pad allowing before and after padding along
-    a single axis.
-
-    Args:
-        arr (ndarray):              ndarray to pad
-        pad (int or array-like):    number of pads to apply before the 0th
-                                    and after the last index of array along 
-                                    axis. If int, pad number of pads will be 
-                                    added to both
-        axis (int):                 axis of arr along which to apply pad
-        **kwargs:                   any valid kwarg for np.pad
-    """
-    
-    #convert int pad to seq. of pads & place along axis of pads
-    pad = [pad, pad] if isinstance(pad, int) else pad
-    pads = [(0,0)] * arr.ndim
-    pads[axis] = pad
-    return np.pad(arr, pads, **kwargs)
-
-def slice_along_axis(arr, start=None, stop=None, step=None, axis=-1):
-    """Returns slice of arr along axis from start to stop in 'step' steps.
-
-    (see scipy._arraytools.axis_slice)
-
-    Args:
-        arr (ndarray):              an ndarray to slice
-        start, stop, step (int):    passed to slice instance
-        axis (int):                 axis of array to slice along
-
-    Returns: sliced ndarray
-    """
-
-    slicer = [slice(None)] * arr.ndim
-    slicer[axis] = slice(start, stop, step)
-    return arr[tuple(slicer)]
+from openseize.tools import arraytools
 
 def optimal_nffts(arr):
     """Estimates the optimal number of FFT points for an arr."""
@@ -117,7 +81,7 @@ def oaconvolve(iterable, win, axis, mode):
     pro.chunksize = step
     for segment_num, subarr in enumerate(pro):
         #pad the subarr upto nfft
-        x = pad_along_axis(subarr, [0, nfft - step], axis=axis)
+        x = arraytools.pad_along_axis(subarr, [0, nfft - step], axis=axis)
         #perform circular convolution
         y = fft.ifft(fft.fft(x, nfft, axis=axis) * W, axis=axis).real
         #split filtered segment and overlap
@@ -130,11 +94,29 @@ def oaconvolve(iterable, win, axis, mode):
         overlap = new_overlap
         #last segment may not have step pts, so slice upto 'full' overlap
         samples = min((subarr.shape[axis]) + len(win) -1, step)
-        y = slice_along_axis(y, 0, samples, axis=axis)
+        y = arraytools.slice_along_axis(y, 0, samples, axis=axis)
         #apply the boundary mode to first and last segments
         if segment_num == 0 or segment_num == nsegments-1:
             y = _oa_mode(y, segment_num, len(win), axis, mode)
         yield y
+
+def _sosfilt(sos, arr, axis, zi):
+    """
+
+    zi is nsections x chs x 2 if axis==-1
+    """
+
+    n_channels, n_samples = arr.shape
+    for ch in range(n_channels):
+        # zi at this pt in scipy is chs x n_sections x 2 so we need to do
+        # the same
+        z = zi[ch, :, :]
+        for sample in range(nsamples):
+            x_curr = arr[ch, sample]
+            for sec in range(sos.shape[0]):
+                x_new = sos[sec, 0] * x_curr + z[sec, 0]
+        
+
 
 def batch_sosfilt(sos, iterable, chunksize, axis, zi=None):
     """Batch applies a second-order-section fmt filter to a data iterable.
@@ -160,6 +142,7 @@ def batch_sosfilt(sos, iterable, chunksize, axis, zi=None):
     z = np.zeros((sos.shape[0], *shape)) if zi is None else zi
     #compute filter values & store current initial conditions 
     for idx, subarr in enumerate(pro):
+        print(idx, subarr.shape)
         y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
         yield y
 
