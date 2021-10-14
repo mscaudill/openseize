@@ -1,6 +1,7 @@
 import abc
 import numpy as np
 import scipy.signal as sps
+from functools import partial
 
 from openseize.types import mixins
 from openseize.types.producer import producer
@@ -126,19 +127,18 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
         Returns: an ndarray or producer of ndarrays of filtered values
         """
        
-        result = onum.oaconvolve(x, self.coeffs, axis, mode=mode)
-        ls = []
-        if outtype == 'array':
-            result = np.concatenate([arr for arr in result], axis=axis)
-        elif outtype == 'producer':
-            #if not chunksize try to default to signals chunksize or 1
-            csize = getattr(x, 'chunksize', 1)
-            chunksize = csize if not chunksize else chunksize
-            result = producer(result, chunksize, axis)
+        if outtype == 'producer':
+            if chunksize is None:
+                msg = "chunksize must be given if outtype is 'producer'"
+                raise ValueError(msg)
+            func = partial(onum.oaconvolve, x, self.coeffs, axis, mode)
+            return producer(func, chunksize, axis, shape=x.shape)
+        elif outtype == 'array':
+            result = onum.oaconvolve(x, self.coeffs, axis, mode=mode)
+            return np.concatenate([arr for arr in result], axis=axis)
         else:
             msg = 'Output type of a filter must be one of {}'
             raise TypeError(msg.format("{'array', 'producer'}"))
-        return result
 
 
 class Kaiser(FIR):
@@ -218,7 +218,9 @@ if __name__ == '__main__':
     
     import time
     import matplotlib.pyplot as plt
+    from openseize.io.readers import EDF
 
+    """
     time_s = 10
     fs = 5000
     nsamples = int(time_s * fs)
@@ -233,10 +235,27 @@ if __name__ == '__main__':
     arr = np.stack((x,y, z, 1.5*x, y))
     #make ndarray
     #arr2 = np.stack((arr, arr, arr))
+    """
         
-    fir = Kaiser(50, width=20, fs=5000, btype='lowpass', 
+    fir = Kaiser(500, width=100, fs=5000, btype='lowpass', 
                 pass_ripple=.005, stop_db=40)
 
+    PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
+    edf = EDF(PATH)
+    pro = edf.as_producer(chunksize=30e6)
+    result = fir.apply(pro, axis=-1, outtype='producer', mode='same',
+                       chunksize=30e6)
+    
+    t0 = time.perf_counter()
+    samples = 0
+    for idx, arr in enumerate(result):
+        print(idx, arr.shape)
+        samples += arr.shape[-1]
+    print('filtered in {} s'.format(time.perf_counter() - t0))
+    
+
+
+    """
     t0 = time.perf_counter()
     pro = fir.apply(arr, axis=-1, outtype='producer', mode='same',
                        chunksize=1000)
@@ -260,4 +279,5 @@ if __name__ == '__main__':
           time.perf_counter() - t0))
 
     print('Filtered Equality? ', np.allclose(spresult, result))
+    """
 
