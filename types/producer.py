@@ -1,17 +1,21 @@
-from collections.abc import Reversible, Generator, Sequence
+from collections.abc import Reversible, Sequence
 import abc
 import copy
 import itertools
 import numpy as np
 
 from openseize.types import mixins
+from openseize.tools import arraytools
 
-def producer(obj, chunksize, axis=-1):
-    """Returns an iterable of numpy ndarrays from an ndarray, a sequence of
-    arrays or generator of arrays.
+def producer(obj, chunksize, axis, shape=None):
+    """Returns an reversible iterable of numpy ndarrays from an ndarray, 
+    a sequence of arrays or generator of arrays.
+
+    Note: if obj is generator type it must be a callable (i.e. generator
+    function) that returns a generator object.
 
     Args:
-        obj (ndarray, Sequence, Generator):   an ndarray or object that
+        obj (ndarray, Sequence, Producer):     an ndarray or object that
                                                contains or yields ndarrays
                                                (e.g. np.memmap, list of
                                                ndarrays, or a generator of
@@ -21,8 +25,9 @@ def producer(obj, chunksize, axis=-1):
                                                parameter
         axis (int):                            axis of data to partition
                                                into chunks of chunksize
+        shape (tuple):                         shape of 
         
-    Returns: a Producer iterable   
+    Returns: a Producer reversible iterable   
     """
 
     if isinstance(obj, Producer):
@@ -30,15 +35,15 @@ def producer(obj, chunksize, axis=-1):
         obj.axis = axis
         return obj
 
-    if isinstance(obj, (Generator, itertools._tee)):
-        return _ProducerFromGenerator(obj, chunksize, axis)
+    if callable(obj):
+        return _ProduceFromGenerator(obj, chunksize, axis, shape)
 
     elif isinstance(obj, np.ndarray):
-        return _ProducerFromArray(obj, chunksize, axis)
+        return _ProduceFromArray(obj, chunksize, axis)
 
     elif isinstance(obj, Sequence):
         data = np.array(data)
-        return _ProducerFromArray(obj, chunksize, axis)
+        return _ProduceFromArray(obj, chunksize, axis)
 
     else:
         msg = 'unproducible type: {}'
@@ -61,25 +66,25 @@ class Producer(Reversible, mixins.ViewInstance):
                                                into chunks of chunksize
 
     As an ABC, this class cannot be instantiated. To create a producer
-    instance use producer() function call.
+    instance use producer function.
     """
 
     def __init__(self, data, chunksize, axis, **kwargs):
-        """Concrete initializer for all Producer subclasses."""
+        """Concrete initializer for all Collector subclasses."""
 
         self.data = data
         self.chunksize = int(chunksize)
         self.axis = axis
         self.__dict__.update(kwargs)
-        #ViewInstance will use Producer name not subclass name
+        #ViewInstance will use Collector name not subclass name
         self.__class__.__name__ = 'Producer'
 
     @abc.abstractproperty
     def shape(self):
-        """Returns the shape of this Producer data attr."""
+        """Returns the shape of this Producer's data attr."""
 
 
-class _ProducerFromArray(Producer):
+class _ProduceFromArray(Producer):
     """A Producer of ndarrays from an ndarray."""
 
     @property
@@ -119,27 +124,64 @@ class _ProducerFromArray(Producer):
             yield y
 
 
-class _ProducerFromGenerator(Producer):
-    """A Producer of ndarrays from a generator of ndarrays.
+class _ProduceFromGenerator(Producer):
+    """A Producer of ndarrays from a generating function of ndarrays.
 
-    A generator of ndarrays will return arrays whose shape is determined
-    when the generator was created. This iterable moves over these arrays
-    collecting arrays until chunksize shape is reached along axis. Once
-    reached, iter yields a collected ndarray.
+    This iterable moves over a generator's yielded arrays collecting until
+    chunksize shape is reached along axis. Once reached, it yields a 
+    collected ndarray.
     """
+
+    def __init__(self, genfunc, chunksize, axis, shape):
+        """ """
+
+        self.genfunc = genfunc
+        self.chunksize = int(chunksize)
+        self.axis = axis
+        self._shape = shape
+        #ViewInstance will use Collector name not subclass name
+        self.__class__.__name__ = 'Producer'
 
     @property
     def shape(self):
-        """Returns the summed shape across all ndarrays yielded by data."""
+        """Returns the summed shape across all ndarrays yielded by pro."""
 
-        #create 2 indpt gens & overwrite data since tmp will advance it
-        self.data, tmp = itertools.tee(self.data, 2)
-        #advance by one to get intial shape then update
-        result = np.array(next(tmp).shape)
-        for arr in tmp:
-            result[self.axis] += arr.shape[self.axis]
-        return result
- 
+        return self._shape
+
+    def __iter__(self):
+        """Returns an iterator yielding ndarrays of chunksize along axis."""
+
+        #build gen obj
+        gen = self.genfunc()
+        #collect arrays and overage amt until chunksize reached
+        collected, size = [np.zeros((self.shape[0], 0))], 0
+        for subarr in gen:
+            collected.append(subarr)
+            #check if chunksize has been reached
+            size += subarr.shape[self.axis]
+            if size >= self.chunksize:
+                # split the collected storing overage for next round
+                y = np.concatenate(collected, axis=self.axis)
+                print('unsliced shape = ', y.shape)
+                y, overage = np.split(y, [self.chunksize], axis=self.axis)
+                #reset collected and size
+                collected = []
+                collected.append(overage)
+                size = overage.shape[self.axis]
+                yield y
+        else:
+            #yield everything that is left
+            yield np.concatenate(collected, axis=self.axis)
+
+    def __reversed__(self):
+        """Returns an iterator yielding ndarrays of chunnksize along axis in
+        reverse order."""
+
+        #definitely going to need islice to do this
+        
+
+
+    
     def _datapts(self):
         """Returns start indices of each yielded array from this Producer's
         generator.
@@ -148,9 +190,7 @@ class _ProducerFromGenerator(Producer):
         axis. So track start indices of each yielded ndarray.
         """
 
-        #create 2 indpt gens & overwrite data since tmp will advance it
-        self.data, tmp = itertools.tee(self.data, 2)
-        return np.cumsum([x.shape[self.axis] for x in tmp])
+        return np.cumsum([x.shape[self.axis] for x in self.data])
 
     def segments(self):
         """Returns an iterable of start, stop tuples of span chunksize."""
@@ -159,9 +199,11 @@ class _ProducerFromGenerator(Producer):
         return zip(itertools.count(0, self.chunksize), 
                    itertools.count(self.chunksize, self.chunksize))
 
-    def __iter__(self):
+    def DEPR__iter__(self):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
 
+
+        #FIXME REMOVE REFS TO TEE
         datapts = self._datapts()
         for start, stop in self.segments():
             #exhaustion check
@@ -188,6 +230,7 @@ class _ProducerFromGenerator(Producer):
         """Returns an iterator yielding ndarrays of chunnksize along axis in
         reverse order."""
 
+        #FIXME REMOVE REFS TO TEE
         datapts = self._datapts()
         csize = self.chunksize
         samples = self.shape[self.axis]
@@ -221,8 +264,10 @@ class _ProducerFromGenerator(Producer):
             
 
 if __name__ == '__main__':
-   
-    def g(chs=4, samples=50000, segsize=9000, seed=0):
+
+    from functools import partial
+ 
+    def g(chs=4, samples=50000, segsize=2009, seed=0):
         """ """
 
         np.random.seed(seed)
@@ -235,14 +280,19 @@ if __name__ == '__main__':
 
     values = np.concatenate([arr for arr in g(seed=0)], axis=-1)
 
+    gen = partial(g)
+    coll = _CollectFromGenerator(gen, chunksize=10000, axis=-1,
+            shape=(4,50000))
+    result = np.concatenate([a for a in coll], axis=-1)
+    print(np.allclose(result, values))
     
-    a = producer(g(seed=0), chunksize=10000, axis=-1)
-    #y = np.concatenate([arr for arr in a], axis=-1)
-    #print(np.allclose(values, y))
 
+    """
     b = reversed(a)
     z = np.concatenate([arr for arr in b], axis=-1)
     print(np.allclose(values[:,::-1], z))
+    """
+    
 
     """
     x = np.random.random((10, 4,1100))
