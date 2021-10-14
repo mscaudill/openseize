@@ -248,10 +248,10 @@ class EDF(Reader):
 
         """
 
-        return _ProducerFromEDF(self, chunksize, channels, padvalue=np.NaN)
+        return _ProduceFromEDF(self, chunksize, channels, padvalue=np.NaN)
 
 
-class _ProducerFromEDF(producer.Producer, mixins.ViewInstance):
+class _ProduceFromEDF(producer.Producer, mixins.ViewInstance):
     """Producer yielding arrays of shape channels x chunksize from an EDF. 
 
     Openseize operations that are memory intensive may use this iterable to
