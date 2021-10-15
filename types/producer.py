@@ -72,11 +72,23 @@ class Producer(Reversible, mixins.ViewInstance):
         """Concrete initializer for all Collector subclasses."""
 
         self.data = data
-        self.chunksize = int(chunksize)
+        self._chunksize = int(chunksize)
         self.axis = axis
         self.__dict__.update(kwargs)
         #ViewInstance will use Collector name not subclass name
         self.__class__.__name__ = 'Producer'
+
+    @property
+    def chunksize(self):
+        """Returns the chunksize of this Producer."""
+
+        return self._chunksize
+
+    @chunksize.setter
+    def chunksize(self, value):
+        """Sets this Producer's chunksize attr ensuring it is int type."""
+
+        self._chunksize = int(value)
 
 
 class _ProduceFromArray(Producer):
