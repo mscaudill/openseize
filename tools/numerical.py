@@ -66,7 +66,8 @@ def oaconvolve(iterable, win, axis, mode):
     """
 
     #create a producer, chunksize will be changed later
-    pro = producer(iterable, chunksize=1, axis=axis)
+    isize = iterable.chunksize if hasattr(iterable, 'chunksize') else 1
+    pro = producer(iterable, chunksize=isize, axis=axis)
     #estimate optimal nfft and transform window
     nfft = optimal_nffts(win)
     W = fft.fft(win, nfft)
@@ -99,6 +100,9 @@ def oaconvolve(iterable, win, axis, mode):
         if segment_num == 0 or segment_num == nsegments-1:
             y = _oa_mode(y, segment_num, len(win), axis, mode)
         yield y
+    #on iteration completion reset producer chunksize
+    pro.chunksize = isize
+    
 
 def _sosfilt(sos, arr, axis, zi):
     """
