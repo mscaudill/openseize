@@ -132,7 +132,8 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
                 msg = "chunksize must be given if outtype is 'producer'"
                 raise ValueError(msg)
             func = partial(onum.oaconvolve, x, self.coeffs, axis, mode)
-            return producer(func, chunksize, axis, shape=x.shape)
+            return producer(func, chunksize, axis)
+            return result
         elif outtype == 'array':
             result = onum.oaconvolve(x, self.coeffs, axis, mode=mode)
             return np.concatenate([arr for arr in result], axis=axis)
@@ -244,16 +245,23 @@ if __name__ == '__main__':
     edf = EDF(PATH)
     pro = edf.as_producer(chunksize=30e6)
     result = fir.apply(pro, axis=-1, outtype='producer', mode='same',
-                       chunksize=30e6)
-    
-    t0 = time.perf_counter()
-    samples = 0
-    for idx, arr in enumerate(result):
-        print(idx, arr.shape)
-        samples += arr.shape[-1]
-    print('filtered in {} s'.format(time.perf_counter() - t0))
-    
+                       chunksize=1e6)
 
+    for idx, filt in enumerate(result):
+        if idx == 0:
+            fig, axarr = plt.subplots(4,1)
+            [axarr[idx].plot(row[0:50000], color='r') for idx, row in enumerate(filt)]
+        else:
+            break
+    #since loop above is terminated early manually reset chunksize 
+    pro.chunksize = 30e6
+    for idx, arr in enumerate(pro):
+        if idx == 0:
+            [axarr[idx].plot(row[0:50000], color='b', alpha=0.5) for idx, row in 
+                    enumerate(arr)]
+        else:
+            break
+    plt.show()
 
     """
     t0 = time.perf_counter()
