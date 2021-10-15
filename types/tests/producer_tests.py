@@ -4,23 +4,6 @@ from itertools import zip_longest
 
 from openseize.types.producer import producer
 
-def test_shape():
-    """Test if producer reports the correct shape when producing from
-    a generator."""
-
-    chunksize=2231
-    np.random.seed(9634)
-    #make sure to use subarrays of varying lens along chunking axis
-    lens = np.random.randint(2000, high=40000, size=50)
-    #keep the arrays for comparison and make a 1-time generator
-    arrs = [np.random.random((17, l)) for l in lens]
-    gen = (arr for arr in arrs)
-    #create a producer from the generator
-    pro = producer(gen, chunksize=chunksize, axis=-1)
-    #create arrays for comparison from original and from producer
-    arr = np.concatenate(arrs, axis=-1)
-    assert np.allclose(arr.shape, pro.shape)
-
 def test_array():
     """Test if producer produces correct subarrays from a supplied array."""
     
@@ -44,12 +27,14 @@ def test_gen():
     chunksize=10000
     np.random.seed(9634)
     #make sure to use subarrays of varying lens along chunking axis
-    lens = np.random.randint(2000, high=40000, size=50)
-    #keep the arrays for comparison and make a 1-time generator
+    lens = np.random.randint(2000, high=80034, size=50)
+    #keep the arrays for comparison and make a generator func
     arrs = [np.random.random((17, l)) for l in lens]
-    gen = (arr for arr in arrs)
-    #create a producer from the generator
-    pro = producer(gen, chunksize=chunksize, axis=-1)
+    def g():
+        for arr in arrs:
+            yield arr
+    #create a producer from the generator func g
+    pro = producer(g, chunksize=chunksize, axis=-1)
     #fetch and store the arrays from the producer
     pro_arrays = [arr for arr in pro]
     #create arrays for comparison from original and from producer
@@ -71,7 +56,7 @@ def test_gen2():
             arr = np.random.random((chs, stop-start))
             yield arr
 
-    pro = producer(g(), chunksize=9000, axis=-1)
+    pro = producer(g, chunksize=9000, axis=-1)
     arr = np.concatenate([x for x in pro], axis=-1)
     probe = np.concatenate([arr for arr in g(seed=0)], axis=-1)
     assert np.allclose(probe, arr)
@@ -95,12 +80,14 @@ def test_gen_reverse():
     chunksize=4399
     np.random.seed(9631)
     #make sure to use subarrays of varying lens along chunking axis
-    lens = np.random.randint(2000, high=40000, size=20)
+    lens = np.random.randint(2000, high=80000, size=20)
     #keep the arrays for comparison and make a 1-time generator
-    arrs = [np.random.random((12, l)) for l in lens]
-    gen = (arr for arr in arrs)
+    arrs = [np.random.random((12, 10, l)) for l in lens]
+    def g():
+        for arr in arrs:
+            yield arr
     #create a producer from the generator
-    pro = producer(gen, chunksize=chunksize, axis=-1)
+    pro = producer(g, chunksize=chunksize, axis=-1)
     rev_gen = reversed(pro)
     rev = np.concatenate([arr for arr in rev_gen], axis=-1)
     probe = np.concatenate([arr for arr in arrs], axis=-1)
@@ -114,8 +101,10 @@ def test_gen_reverse2():
     chunksize = 10000
     np.random.seed(0)
     arrs = [np.random.random((2, 10000)) for _ in range(5)]
-    gen = (arr for arr in arrs)
-    pro = producer(gen, chunksize, axis=-1)
+    def g():
+        for arr in arrs:
+            yield arr
+    pro = producer(g, chunksize, axis=-1)
     rev_gen = reversed(pro)
     rev = np.concatenate([arr for arr in rev_gen], axis=-1)
     probe = np.concatenate([arr for arr in arrs], axis=-1)
