@@ -65,14 +65,3 @@ def filter1D(size, indices):
     return result
 
 
-
-
-if __name__ == '__main__':
-
-    x = filter1D(60, [slice(0,8), slice(11,13)])
-    y = filter1D(60, slice(0,4))
-    p = filter1D(60, [1,5,8])
-    q = filter1D(60, [[2,3,4], [7,11, 21, 22]])
-    
-
-
