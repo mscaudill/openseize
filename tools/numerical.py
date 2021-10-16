@@ -104,24 +104,6 @@ def oaconvolve(iterable, win, axis, mode):
     pro.chunksize = isize
     
 
-def _sosfilt(sos, arr, axis, zi):
-    """
-
-    zi is nsections x chs x 2 if axis==-1
-    """
-
-    n_channels, n_samples = arr.shape
-    for ch in range(n_channels):
-        # zi at this pt in scipy is chs x n_sections x 2 so we need to do
-        # the same
-        z = zi[ch, :, :]
-        for sample in range(nsamples):
-            x_curr = arr[ch, sample]
-            for sec in range(sos.shape[0]):
-                x_new = sos[sec, 0] * x_curr + z[sec, 0]
-        
-
-
 def batch_sosfilt(sos, iterable, chunksize, axis, zi=None):
     """Batch applies a second-order-section fmt filter to a data iterable.
 
