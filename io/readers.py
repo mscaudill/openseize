@@ -319,20 +319,3 @@ class _ProduceFromEDF(producer.Producer, mixins.ViewInstance):
 
         if hasattr(self.data, 'close'):
             self.data.close()
-
-
-if __name__ == '__main__':
-
-
-    path = '/home/matt/python/nri/data/openseize/test_write.edf'
-
-    """
-    with EDF(path) as reader:
-        x = reader.as_iterable(chunksize=30e6)
-        for idx, arr in enumerate(x):
-            print(idx, arr.shape)
-    """
-
-    x = EDF(path)
-    y = x.as_producer(chunksize=30e6)
-
