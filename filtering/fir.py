@@ -4,7 +4,7 @@ import scipy.signal as sps
 from functools import partial
 
 from openseize.types import mixins
-from openseize.types.producer import producer
+from openseize.types import producer
 from openseize.filtering.viewer import FilterViewer
 from openseize.tools import numerical as onum
 
@@ -93,7 +93,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
             ntaps = ntaps + 1 if ntaps % 2 == 1 else ntaps
         return ntaps
 
-    def apply(self, x, axis, outtype, mode, chunksize=None):
+    def apply(self, x, axis, mode, chunksize):
         """Apply this FIR to an ndarray or producer of ndarrays of data.
 
         Args:
@@ -101,10 +101,6 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
                                                ndarrays of data to filter
             axis (int):                        axis of x along which to
                                                apply the filter
-            outtype (str):                     'array' or 'producer' str
-                                               indicating type to return
-                                               for details on producer type
-                                               please see openseize.types
             mode (str):                        boundary handling; one of
                                                {'full', 'same', 'valid'}
                                                These modes are identical to 
@@ -120,26 +116,22 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
                                                where the filter and
                                                x completely overlap.
             chunksize (int):                   sets the size of the output
-                                               along axis if the outtype is
-                                               'producer', ignored if 
-                                               outtype is 'array'.
+                                               along axis if returning
+                                               producer. Ignored if input is
+                                               type ndarray.
         
         Returns: an ndarray or producer of ndarrays of filtered values
         """
-       
-        if outtype == 'producer':
-            if chunksize is None:
-                msg = "chunksize must be given if outtype is 'producer'"
-                raise ValueError(msg)
-            func = partial(onum.oaconvolve, x, self.coeffs, axis, mode)
-            return producer(func, chunksize, axis)
-            return result
-        elif outtype == 'array':
+      
+        if isinstance(x, np.ndarray):
             result = onum.oaconvolve(x, self.coeffs, axis, mode=mode)
             return np.concatenate([arr for arr in result], axis=axis)
+        elif isinstance(x, producer.Producer):
+            func = partial(onum.oaconvolve, x, self.coeffs, axis, mode)
+            return producer.producer(func, chunksize, axis)
         else:
-            msg = 'Output type of a filter must be one of {}'
-            raise TypeError(msg.format("{'array', 'producer'}"))
+            msg = 'Input type must be one of {}'
+            raise TypeError(msg.format("{'ndarray', 'producer'}"))
 
 
 class Kaiser(FIR):
@@ -244,8 +236,7 @@ if __name__ == '__main__':
     PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
     edf = EDF(PATH)
     pro = edf.as_producer(chunksize=30e6)
-    result = fir.apply(pro, axis=-1, outtype='producer', mode='same',
-                       chunksize=1e6)
+    result = fir.apply(pro, axis=-1, mode='same', chunksize=1e6)
 
     for idx, filt in enumerate(result):
         if idx == 0:
