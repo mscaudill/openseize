@@ -29,7 +29,7 @@ def producer(obj, chunksize, axis, **kwargs):
     Returns: a Producer reversible iterable   
     """
 
-    if isinstance(obj, Producer):
+    if isinstance(obj, (Producer, MaskedProducer)):
         obj.chunksize = int(chunksize)
         obj.axis = axis
         return obj
@@ -211,3 +211,56 @@ class _ProduceFromGenerator(Producer):
             #yield everything that is left
             yield np.concatenate(collected, axis=self.axis)
 
+
+class MaskedProducer(Producer):
+    """A Producer of numpy arrays with values that have been filtered by
+    a boolean mask.
+
+    Args:
+       pro (obj):               reversible iterable producing numpy ndarrays
+       mask (1-D Bool):         a 1-D boolean array of masked values. The
+                                length of the mask does not have to match 
+                                the length of the producer but 
+                                MaskedProducer will stop producing as soon
+                                as the producer or mask raise StopIteration.
+        chunksize (int):        size of ndarray along axis to return per
+                                iteration
+        axis (int):             producer's axis along which data is chunked
+
+    Note: The bool mask is applied on all 1-D slices of producer's array
+    oriented along axis (see np.take).
+    """
+
+    def __init__(self, pro, mask, chunksize, axis, **kwargs):
+        """Initialize this Producer with a boolean array mask."""
+
+        super().__init__(pro, chunksize, axis, **kwargs)
+        self.mask = producer(mask, chunksize, axis=0, *kwargs)
+
+    @property
+    def chunksize(self):
+        """Returns the chunksize of this MaskedProducer."""
+
+        return self.data._chunksize
+
+    @chunksize.setter
+    def chunksize(self, value):
+        """On change, set chunksize for both producer and mask."""
+
+        self.data._chunksize = int(value)
+        self.mask._chunksize = int(value)
+
+    def __iter__(self):
+        """Returns an iterator of boolean masked numpy arrays along axis."""
+
+        for (arr, marr) in zip(self.data, self.mask):
+            indices = np.flatnonzero(marr)
+            yield np.take(arr, indices, axis=self.axis)
+
+    def __reversed__(self):
+        """Returns a reversed iterator of bool masked arrays along axis."""
+
+        for arr, marr in zip(reversed(self.data), reversed(self.mask)):
+            indices = np.flatnonzero(marr)
+            yield np.take(arr, indices, axis=self.axis)
+    

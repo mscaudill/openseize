@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from itertools import zip_longest
 
-from openseize.types.producer import producer
+from openseize.types.producer import producer, MaskedProducer
 
 def test_array():
     """Test if producer produces correct subarrays from a supplied array."""
@@ -111,5 +111,59 @@ def test_gen_reverse2():
     probe = np.flip(probe, axis=-1)
     assert np.allclose(probe, rev)
 
+def test_masked_arr():
+    """Tests if a producer of masked arrays yields correct subarrays."""
+
+    chunksize = 10028
+    size = 510023
+    arr = np.random.random((7, 119, 510023))
+    pro = producer(arr, chunksize=chunksize, axis=-1)
+    mask = np.random.choice([True, False], size=size)
+    mpro = MaskedProducer(pro, mask, chunksize=chunksize, axis=-1)
+    result0 = np.concatenate([x for x in mpro], axis=-1)
+    result1 = np.take(arr, np.flatnonzero(mask), axis=-1)
+    assert np.allclose(result0, result1)
+
+def test_revmask_arr():
+    """Tests if a reversed masked producer yields correct subarrays."""
+
+    chunksize = 70012
+    size = 235780
+    arr = np.random.random((7, size, 52))
+    pro = producer(arr, chunksize=chunksize, axis=1)
+    mask = np.random.choice([True, False], size=size)
+    mpro = MaskedProducer(pro, mask, chunksize, axis=1)
+    rev_mask_pro = reversed(mpro)
+    rev = np.concatenate([x for x in rev_mask_pro], axis=1)
+    probe = np.take(arr, np.flatnonzero(mask), axis=1)
+    probe = np.flip(probe, axis=1)
+    assert np.allclose(rev, probe)
+
+def test_masked_gen():
+    """Test if a producer of masked arrays from a generator yields correct
+    subarray shapes."""
+
+    chunksize=10011
+    np.random.seed(9634)
+    #make sure to use subarrays of varying lens along chunking axis
+    lens = np.random.randint(2000, high=80034, size=50)
+    #keep the arrays for comparison and make a generator func
+    arrs = [np.random.random((17, l)) for l in lens]
+    def g():
+        for x in arrs:
+            yield x
+    #create a producer from the generator func g
+    pro = producer(g, chunksize=chunksize, axis=-1)
+    mask = np.random.choice([True, False], size=sum(lens))
+    mpro = MaskedProducer(pro, mask, chunksize, axis=-1)
+    full_arr = np.concatenate(arrs, axis=-1)
+    for arr, marr  in zip(pro, producer(mask, chunksize, axis=0)):
+        print(arr.shape, marr.shape)
+    return mask, full_arr
+
+
+if __name__ == '__main__':
+
+    mask, arr = test_masked_gen()
 
 
