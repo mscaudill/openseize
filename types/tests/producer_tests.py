@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from itertools import zip_longest
 
-from openseize.types.producer import producer, MaskedProducer
+from openseize.types.producer import producer
 
 ######################## ARRAY TESTS ##############################
 
@@ -35,10 +35,13 @@ def test_arr_reverse():
     probe = np.flip(arr, axis=-1)
     assert np.allclose(probe, rev)
 
+# FIXME add additional test that shows each yielded array exactly matches
+# the expected subarr in both the forward and reverse directions
+
 ##################### GENERATOR TESTS ##############################
 
 def test_gen0():
-    """Test if concatenated arrays from producer match test array."""
+    """Test if concatenated arrays from gen producer match test array."""
 
     chunksize=10000
     np.random.seed(9634)
@@ -58,7 +61,7 @@ def test_gen0():
     pro_arr = np.concatenate(pro_arrays, axis=-1)
     assert np.allclose(arr, pro_arr)
 
-def test_gen2():
+def test_gen1():
     """Test if concatenated arrays from producer match test array when the
     chunksize equals the generators subarr size."""
 
@@ -77,7 +80,7 @@ def test_gen2():
     probe = np.concatenate([arr for arr in g(seed=0)], axis=-1)
     assert np.allclose(probe, arr)
 
-def test_gen3():
+def test_gen2():
     """Test if a producer of masked arrays from a generator yields correct
         subarray shapes."""
 
@@ -105,12 +108,12 @@ def test_gen3():
         subarr = next(p)
         assert np.allclose(probe.shape, subarr.shape)
 
-def test_gen4():
+def test_gen3():
     """Asserts that the yielded subarr values from a generator match slices
     of a test array."""
 
     chunksize=10231
-    np.random.seed(9)
+    np.random.seed(999)
     #make subarrays of varying lens along chunking axis
     lens = np.random.randint(2000, high=91034, size=50)
     arrs = [np.random.random((2, 17, l)) for l in lens]
@@ -133,23 +136,10 @@ def test_gen4():
         subarr = next(p)
         assert np.allclose(probe, subarr)
 
-# FIXME place the reverse generator tests here
-
-
-
-
-
-###################### MASK TESTS #######################################
-
-
-
-
-
-
-def test_gen_reverse():
-    """Test if a reversed producer built from a generator produces correct
-    subarrays."""
-
+def test_revgen0():
+    """Test if concatenated arrays from a reversed gen producer match the
+    full arr."""
+    
     chunksize=4399
     np.random.seed(9631)
     #make sure to use subarrays of varying lens along chunking axis
@@ -167,13 +157,13 @@ def test_gen_reverse():
     probe = np.flip(probe, axis=-1)
     assert np.allclose(probe, rev)
 
-def test_gen_reverse2():
+def test_revgen1():
     """Test if a reversed producer yields arrays of the correct shape when
     the chunksize exactly equals the generator segment size. """
 
     chunksize = 10000
     np.random.seed(0)
-    arrs = [np.random.random((2, 10000)) for _ in range(5)]
+    arrs = [np.random.random((2, 10000)) for _ in range(15)]
     def g():
         for arr in arrs:
             yield arr
@@ -184,33 +174,118 @@ def test_gen_reverse2():
     probe = np.flip(probe, axis=-1)
     assert np.allclose(probe, rev)
 
-def test_masked_arr():
-    """Tests if a producer of masked arrays yields correct subarrays."""
+def test_revgen2():
+    """Test if arrays from a reversed producer match expected subarrs."""
+
+    chunksize=20227
+    np.random.seed(999)
+    #make subarrays of varying lens along chunking axis
+    lens = np.random.randint(2000, high=91034, size=50)
+    arrs = [np.random.random((3, l, 9)) for l in lens]
+    arr = np.concatenate(arrs, axis=1)
+    #reverse the array
+    rev_arr = np.flip(arr, axis=1)
+
+    def g():
+        """A generator yielding arrays of varying size."""
+        for x in arrs:
+            yield x
+
+    #make a producer and reverse it
+    pro = producer(g, chunksize=chunksize, axis=1)
+    rev_gen = reversed(pro)
+    starts = range(0, arr.shape[1], chunksize)
+    for idx, (start, stop) in enumerate(zip_longest(starts, starts[1:],
+                                        fillvalue=arr.shape[1])):
+        probe = np.take(rev_arr, np.arange(start, stop), axis=1)
+        subarr = next(rev_gen)
+        assert np.allclose(probe, subarr)
+
+###################### MASK TESTS #######################################
+
+def test_masked_arr0():
+    """Tests if subarrs from a producer equals the original arr."""
 
     chunksize = 10028
     size = 510023
-    arr = np.random.random((7, 119, 510023))
+    arr = np.random.random((7, 119, size))
     pro = producer(arr, chunksize=chunksize, axis=-1)
     mask = np.random.choice([True, False], size=size)
-    mpro = MaskedProducer(pro, mask, chunksize=chunksize, axis=-1)
+    mpro = producer(pro, chunksize=chunksize, axis=-1, mask=mask)
     result0 = np.concatenate([x for x in mpro], axis=-1)
     result1 = np.take(arr, np.flatnonzero(mask), axis=-1)
     assert np.allclose(result0, result1)
 
-def test_revmask_arr():
-    """Tests if a reversed masked producer yields correct subarrays."""
+def test_masked_arr1():
+    """Test if each subarr from a masked producer equals expected subarr."""
 
-    chunksize = 70012
-    size = 235780
-    arr = np.random.random((7, size, 52))
-    pro = producer(arr, chunksize=chunksize, axis=1)
+    chunksize = 70028
+    size = 4967882
+    arr = np.random.random((3, 8, size))
+    pro = producer(arr, chunksize=chunksize, axis=-1)
     mask = np.random.choice([True, False], size=size)
-    mpro = MaskedProducer(pro, mask, chunksize, axis=1)
-    rev_mask_pro = reversed(mpro)
-    rev = np.concatenate([x for x in rev_mask_pro], axis=1)
-    probe = np.take(arr, np.flatnonzero(mask), axis=1)
-    probe = np.flip(probe, axis=1)
-    assert np.allclose(rev, probe)
+    mpro = producer(pro, chunksize=chunksize, axis=-1, mask=mask)
+    mp = iter(mpro)
+    starts = range(0, arr.shape[-1], chunksize)
+    for idx, (start, stop) in enumerate(zip_longest(starts, starts[1:],
+                                        fillvalue=arr.shape[-1])):
+        probe = np.take(arr, np.arange(start, stop), axis=-1)
+        filt = np.take(mask, np.arange(start, stop))
+        probe = np.take(probe, np.flatnonzero(filt), axis=-1)
+        x = next(mp)
+        assert np.allclose(probe, x)
+
+def test_revmasked_arr0():
+    """Test if subarrs from a rev producer == the reverse of orig. arr."""
+
+    chunksize = 109831
+    size = 4967882
+    arr = np.random.random((8, size))
+    pro = producer(arr, chunksize=chunksize, axis=-1)
+    mask = np.random.choice([True, False], size=size)
+    mpro = producer(pro, chunksize=chunksize, axis=-1, mask=mask)
+    #reverse the masked producer
+    mgen = reversed(mpro)
+    result0 = np.concatenate([x for x in mgen], axis=-1)
+    result1 = np.flip(np.take(arr, np.flatnonzero(mask), axis=-1), axis=-1)
+    assert np.allclose(result0, result1)
+
+def test_revmasked_arr1():
+    """Test if each subarr from a reversed masked pro matches expected
+    subarr."""
+
+    np.random.seed(9634)
+    chunksize = 90123
+    size = 4967882
+    arr = np.random.random(8, size))
+    flipped_arr = np.flip(arr, axis=-1)
+    mask = np.random.choice([True, False], size=size)
+    flipped_mask = np.flip(mask, axis=-1)
+    mpro = producer(arr, chunksize=chunksize, axis=-1, mask=mask)
+    #reverse the masked producer
+    mrgen = reversed(mpro)
+    starts = range(0, arr.shape[-1], chunksize)
+    for idx, (start, stop) in enumerate(zip_longest(starts, starts[1:],
+                                        fillvalue=arr.shape[-1])):
+        probe = np.take(flipped_arr, np.arange(start, stop), axis=-1)
+        filt = np.take(flipped_mask, np.arange(start, stop), axis=-1)
+        #print(filt.shape)
+        y = np.take(probe, np.flatnonzero(filt), axis=-1)
+        x = next(mrgen)
+        #print(y.shape, x.shape)
+
+    # FIXME THIS is not working. I suspect that __reversed__ in FromArray is
+    # not working. Place test for this under the array tests section above.
+    # Then try this again. Also notice that with masked data each yield is
+    # masked meaning chunksize is not followed. I think this is the right
+    # way but make this clear in the MaskedProducer documentation
+
+    return mpro
+
+
+        
+
+
 
 def test_masked_gen():
     """Test if a producer of masked arrays from a generator yields correct
@@ -236,17 +311,8 @@ def test_masked_gen():
     #assert np.allclose(probe, test_arr)
     return pro, mpro, full_arr, mask
 
-"""
+
+
 if __name__ == '__main__':
 
-    pro, mpro, arr, mask = test_masked_gen()
-
-    #if you run 
-    for idx, subarr in enumerate(pro):
-        print(idx, subarr.shape)
-    # you will see that the last yielded arr shape is wrong. This must be
-    # an error in the _ProduceFromGenerator
-    # we need to run more tests on the ProduceFromGenerator, checking the
-    # shape of each yielded array!
-"""
-
+    mpro = test_revmasked_arr1()

@@ -7,12 +7,9 @@ import numpy as np
 from openseize.types import mixins
 from openseize.tools import arraytools
 
-def producer(obj, chunksize, axis, **kwargs):
+def producer(obj, chunksize, axis, mask=None, **kwargs):
     """Returns an reversible iterable of numpy ndarrays from an ndarray, 
     a sequence of arrays or generator of arrays.
-
-    Note: if obj is generator type it must be a callable (i.e. generator
-    function) that returns a generator object.
 
     Args:
         obj (ndarray, Sequence, Producer):     an ndarray or object that
@@ -25,32 +22,46 @@ def producer(obj, chunksize, axis, **kwargs):
                                                parameter
         axis (int):                            axis of data to partition
                                                into chunks of chunksize
+        mask (1-D bool):                       boolean array to mask
+                                               producer outputs along axis.
+                                               Values of obj at True mask
+                                               indices will be yielded and
+                                               False will be ignored. If 
+                                               mask len does not match obj
+                                               len along axis, The producer
+                                               yields subarrays upto the 
+                                               shorter of mask and obj.
         
+    Note: if obj is generator type it must be a callable (i.e. generator
+    function) that returns a generator object.
+    
     Returns: a Producer reversible iterable   
     """
 
     if isinstance(obj, Producer):
         obj.chunksize = int(chunksize)
         obj.axis = axis
-        return obj
+        result = obj
 
-    if callable(obj):
-        return _ProduceFromGenerator(obj, chunksize, axis, **kwargs)
+    elif callable(obj):
+        result = _ProduceFromGenerator(obj, chunksize, axis, **kwargs)
 
     elif isinstance(obj, np.ndarray):
-        return _ProduceFromArray(obj, chunksize, axis, **kwargs)
+        result = _ProduceFromArray(obj, chunksize, axis, **kwargs)
 
     elif isinstance(obj, Sequence):
-        data = np.array(data)
-        return _ProduceFromArray(obj, chunksize, axis, **kwargs)
+        data = np.array(obj)
+        result = _ProduceFromArray(obj, chunksize, axis, **kwargs)
 
     else:
         msg = 'unproducible type: {}'
         raise TypeError(msg.format(type(obj)))
 
-def maskedproducer():
-    # FIXME pass
-    pass
+    #apply mask if passed
+    if mask is None:
+        return result
+    else:
+        return _MaskedProducer(result, mask, chunksize, axis, **kwargs)
 
 
 class Producer(Reversible, mixins.ViewInstance):
@@ -150,15 +161,16 @@ class _ProduceFromGenerator(Producer):
             return self._genlen
 
     def __partitioner(self, gen):
-        """An iterator of arrays of chunksize along this producers axis
-        obtained from a generator yielding arrays of any size along axis."""
+        """An iterator of arrays of chunksize along this Producers axis
+        obtained from a generator yielding arrays of any size along axis.
+
+        Args:
+            gen (generator):        a generator object that yields ndarrays
+        """
 
         #collect arrays and overage amt until chunksize reached
         collected, size = list(), 0
-        self._genlen = 0
         for subarr in gen:
-            #save cnt since we are exhausting generator obj
-            self._genlen += 1
             collected.append(subarr)
             #check if chunksize has been reached
             size += subarr.shape[self.axis]
@@ -199,35 +211,18 @@ class _ProduceFromGenerator(Producer):
                 arr = next(itertools.islice(self.data(), idx-1, idx))
                 idx -= 1
                 yield np.flip(arr, self.axis)
-        return reverser
+        return reverser()
 
     def __reversed__(self):
-        """Returns an iterator yielding ndarrays of chunksize along axis in
+        """Returns an iterator of ndarrays of chunksize along axis in 
         reverse order."""
 
         #build a reverse generator obj
         rgen = self.reverse_generator()
-        #collect arrays and overage amt until chunksize reached
-        collected, size = list(), 0
-        for subarr in rgen():
-            collected.append(subarr)
-            #check if chunksize has been reached
-            size += subarr.shape[self.axis]
-            if size >= self.chunksize:
-                # split the collected storing overage for next round
-                y = np.concatenate(collected, axis=self.axis)
-                y, overage = np.split(y, [self.chunksize], axis=self.axis)
-                #reset collected and size
-                collected = []
-                collected.append(overage)
-                size = overage.shape[self.axis]
-                yield y
-        else:
-            #yield everything that is left
-            yield np.concatenate(collected, axis=self.axis)
+        return self.__partitioner(rgen)
 
 
-class MaskedProducer(Producer):
+class _MaskedProducer(Producer):
     """A Producer of numpy arrays with values that have been filtered by
     a boolean mask.
 
@@ -278,39 +273,4 @@ class MaskedProducer(Producer):
         for arr, marr in zip(reversed(self.data), reversed(self.mask)):
             indices = np.flatnonzero(marr)
             yield np.take(arr, indices, axis=self.axis)
-  
 
-if __name__ == '__main__':
-
-    def test_genpro_shapes():
-        """Test if a producer of masked arrays from a generator yields correct
-        subarray shapes."""
-
-        chunksize=10011
-        np.random.seed(9634)
-        #make sure to use subarrays of varying lens along chunking axis
-        lens = np.random.randint(2000, high=80034, size=50)
-        #keep the arrays for comparison and make a generator func
-        arrs = [np.random.random((17, l)) for l in lens]
-        def g():
-            for x in arrs:
-                yield x
-        #create a producer from the generator func g
-        pro = producer(g, chunksize=chunksize, axis=-1)
-        #create the full ground-truth array
-        arr = np.concatenate(arrs, axis=-1)
-        #check that shape of each yielded array is correct
-        starts = range(0, arr.shape[-1], chunksize)
-        p = iter(pro)
-        for idx, (start, stop) in enumerate(itertools.zip_longest(starts, 
-                                    starts[1:], fillvalue=arr.shape[-1])):
-            probe = np.take(arr, np.arange(start, stop), axis=-1)
-            subarr = next(p)
-            msg = 'idx: {}\nprobe shape = {}\nsubarr shape = {}'
-            print(msg.format(idx, probe.shape, subarr.shape))
-            print('Equality = ', np.allclose(probe, subarr))
-            #if idx == 1:
-            #    break
-        return probe, subarr
-    
-    probe, subarr = test_genpro_shapes()   
