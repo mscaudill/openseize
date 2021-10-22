@@ -29,7 +29,7 @@ def producer(obj, chunksize, axis, **kwargs):
     Returns: a Producer reversible iterable   
     """
 
-    if isinstance(obj, (Producer, MaskedProducer)):
+    if isinstance(obj, Producer):
         obj.chunksize = int(chunksize)
         obj.axis = axis
         return obj
@@ -47,6 +47,10 @@ def producer(obj, chunksize, axis, **kwargs):
     else:
         msg = 'unproducible type: {}'
         raise TypeError(msg.format(type(obj)))
+
+def maskedproducer():
+    # FIXME pass
+    pass
 
 
 class Producer(Reversible, mixins.ViewInstance):
@@ -145,11 +149,10 @@ class _ProduceFromGenerator(Producer):
             self._genlen = sum(1 for _ in self.data())
             return self._genlen
 
-    def __iter__(self):
-        """Returns an iterator yielding ndarrays of chunksize along axis."""
+    def __partitioner(self, gen):
+        """An iterator of arrays of chunksize along this producers axis
+        obtained from a generator yielding arrays of any size along axis."""
 
-        #build gen obj
-        gen = self.data()
         #collect arrays and overage amt until chunksize reached
         collected, size = list(), 0
         self._genlen = 0
@@ -163,14 +166,26 @@ class _ProduceFromGenerator(Producer):
                 # split the collected storing overage for next round
                 y = np.concatenate(collected, axis=self.axis)
                 y, overage = np.split(y, [self.chunksize], axis=self.axis)
-                #reset collected and size
+                yield y
+                # exhaust overage while its size > chunksize
+                while overage.shape[self.axis] >= self.chunksize:
+                    y, overage = np.split(overage, [self.chunksize],
+                                          axis=self.axis)
+                    yield y
+                #reset collected and size, and carry overage to next round
                 collected = []
                 collected.append(overage)
                 size = overage.shape[self.axis]
-                yield y
         else:
             #yield everything that is left
             yield np.concatenate(collected, axis=self.axis)
+
+    def __iter__(self):
+        """Returns an iterator yielding ndarrays of chunksize along axis."""
+
+        #build gen obj
+        gen = self.data()
+        return self.__partitioner(gen)
 
     def reverse_generator(self):
         """A generating function that yields elements from this Producer's
@@ -263,4 +278,39 @@ class MaskedProducer(Producer):
         for arr, marr in zip(reversed(self.data), reversed(self.mask)):
             indices = np.flatnonzero(marr)
             yield np.take(arr, indices, axis=self.axis)
+  
+
+if __name__ == '__main__':
+
+    def test_genpro_shapes():
+        """Test if a producer of masked arrays from a generator yields correct
+        subarray shapes."""
+
+        chunksize=10011
+        np.random.seed(9634)
+        #make sure to use subarrays of varying lens along chunking axis
+        lens = np.random.randint(2000, high=80034, size=50)
+        #keep the arrays for comparison and make a generator func
+        arrs = [np.random.random((17, l)) for l in lens]
+        def g():
+            for x in arrs:
+                yield x
+        #create a producer from the generator func g
+        pro = producer(g, chunksize=chunksize, axis=-1)
+        #create the full ground-truth array
+        arr = np.concatenate(arrs, axis=-1)
+        #check that shape of each yielded array is correct
+        starts = range(0, arr.shape[-1], chunksize)
+        p = iter(pro)
+        for idx, (start, stop) in enumerate(itertools.zip_longest(starts, 
+                                    starts[1:], fillvalue=arr.shape[-1])):
+            probe = np.take(arr, np.arange(start, stop), axis=-1)
+            subarr = next(p)
+            msg = 'idx: {}\nprobe shape = {}\nsubarr shape = {}'
+            print(msg.format(idx, probe.shape, subarr.shape))
+            print('Equality = ', np.allclose(probe, subarr))
+            #if idx == 1:
+            #    break
+        return probe, subarr
     
+    probe, subarr = test_genpro_shapes()   
