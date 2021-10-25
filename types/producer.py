@@ -1,7 +1,7 @@
 from collections.abc import Reversible, Sequence
 import abc
 import copy
-import itertools
+from itertools import zip_longest, islice
 import numpy as np
 
 from openseize.types import mixins
@@ -109,36 +109,29 @@ class Producer(Reversible, mixins.ViewInstance):
 class _ProduceFromArray(Producer):
     """A Producer of ndarrays from an ndarray."""
 
-    def segments(self):
-        """Returns start, stop indices of span chunksize to apply along
-        this Producer's axis."""
+    def _slice(self, start, stop, step=None):
+        """Returns a slice tuple for slicing data between start & stop with
+        an optional step."""
 
-        extent = self.data.shape[self.axis]
-        starts = range(0, extent, self.chunksize)
-        return itertools.zip_longest(starts, starts[1:], fillvalue=extent)
+        slices = [slice(None)] * self.data.ndim
+        slices[self.axis] = slice(start, stop, step)
+        return tuple(slices)
 
     def __iter__(self):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
 
-        #create an ndarray slice sequence
-        slices = [slice(None)] * self.data.ndim
-        for segment in self.segments():
-            #update slice and fetch from data
-            slices[self.axis] = slice(*segment)
-            yield self.data[tuple(slices)]
+        starts = range(0, self.data.shape[self.axis], self.chunksize)
+        for segment in zip_longest(starts, starts[1:], fillvalue=None):
+            yield self.data[self._slice(*segment)]
 
     def __reversed__(self):
         """Returns an iterator yielding ndarrays of chunksize starting from
         the end of data along axis."""
 
-        #create an ndarray slice sequence
-        slices = [slice(None)] * self.data.ndim
-        for start, stop in reversed(list(self.segments())):
-            #update slice, fetch and flip
-            slices[self.axis] = slice(start, stop)
-            y = np.flip(self.data[tuple(slices)], axis=self.axis)
-            yield y
-
+        starts = range(self.data.shape[self.axis]-1, -1, -self.chunksize)
+        for segment in zip_longest(starts, starts[1:], fillvalue=None):
+            yield self.data[self._slice(*segment, step=-1)]
+        
 
 class _ProduceFromGenerator(Producer):
     """A Producer of ndarrays from a generating function of ndarrays.
@@ -208,7 +201,7 @@ class _ProduceFromGenerator(Producer):
         def reverser():
             nonlocal idx
             while idx > 0:
-                arr = next(itertools.islice(self.data(), idx-1, idx))
+                arr = next(islice(self.data(), idx-1, idx))
                 idx -= 1
                 yield np.flip(arr, self.axis)
         return reverser()
