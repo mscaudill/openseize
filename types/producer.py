@@ -1,18 +1,20 @@
-from collections.abc import Reversible, Sequence
-import abc
-import copy
-from itertools import zip_longest, islice
 import numpy as np
+import abc
+import functools
+import inspect
+from collections.abc import Iterable, Sequence, Generator
+from itertools import zip_longest
 
 from openseize.types import mixins
-from openseize.tools import arraytools
 
 def producer(obj, chunksize, axis, mask=None, **kwargs):
-    """Returns an reversible iterable of numpy ndarrays from an ndarray, 
-    a sequence of arrays or generator of arrays.
+    """Returns an iterable of numpy ndarrays from an ndarray, a sequence of
+    ndarrays or a generating function yielding ndarrays.
 
     Args:
-        obj (ndarray, Sequence, Producer):     an ndarray or object that
+        obj (ndarray, Sequence, 
+             Producer, or generating 
+             function of ndarrays):            an ndarray or object that
                                                contains or yields ndarrays
                                                (e.g. np.memmap, list of
                                                ndarrays, or a generator of
@@ -32,10 +34,7 @@ def producer(obj, chunksize, axis, mask=None, **kwargs):
                                                yields subarrays upto the 
                                                shorter of mask and obj.
         
-    Note: if obj is generator type it must be a callable (i.e. generator
-    function) that returns a generator object.
-    
-    Returns: a Producer reversible iterable   
+    Returns: a Producer iterable   
     """
 
     if isinstance(obj, Producer):
@@ -43,8 +42,14 @@ def producer(obj, chunksize, axis, mask=None, **kwargs):
         obj.axis = axis
         result = obj
 
-    elif callable(obj):
-        result = _ProduceFromGenerator(obj, chunksize, axis, **kwargs)
+    elif inspect.isgeneratorfunction(obj):
+        shape = kwargs.pop('shape', None)
+        if not shape:
+            msg = ("producing from a generating func. requires a 'shape' "
+                   "keyword argument.")
+            raise TypeError(msg)
+        result = _ProduceFromGenerator(obj, chunksize, axis, shape, 
+                                       **kwargs)
 
     elif isinstance(obj, np.ndarray):
         result = _ProduceFromArray(obj, chunksize, axis, **kwargs)
@@ -63,12 +68,46 @@ def producer(obj, chunksize, axis, mask=None, **kwargs):
     else:
         return _MaskedProducer(result, mask, chunksize, axis, **kwargs)
 
+def as_producer(func):
+    """Decorator that returns a Producer from a generating function.
 
-class Producer(Reversible, mixins.ViewInstance):
+    Producing from a generator requires the original generating function
+    since iteration by a Producer exhaust single use generators. This
+    decorator can be used to decorate any generating function recasting it
+    as a Producer.
+
+    Implementation note: the first argument of the func to be decorated is
+    required to be of type Producer.
+    """
+
+    if not inspect.isgeneratorfunction(func):
+        msg = 'as_producer requries a generating function not {}'
+        raise TypeError(msg.format(type(func)))
+
+    
+    @functools.wraps(func)
+    def decorated(pro, *args, **kwargs):
+        """Returns a producer using values from generating func."""
+   
+        if not isinstance(pro, Producer):
+            msg = ("First positional argument of decorated function"
+                   " must be of type {} not {}")
+            raise TypeError(msg.format('Producer', type(pro)))
+
+        genfunc = functools.partial(func, pro, *args, **kwargs)
+        return producer(genfunc, pro.chunksize, pro.axis, shape=pro.shape,
+                        **kwargs)
+
+    return decorated
+
+
+class Producer(Iterable, mixins.ViewInstance):
     """ABC defining concrete and required methods of all Producers.
 
-    Args:
-        data (ndarray, Sequence, Generator):   an ndarray or object that
+    Attrs:
+        data (ndarray, Sequence, 
+              Producer, or generating
+              function yielding ndarrays):     an ndarray or object that
                                                contains or yields ndarrays
                                                (e.g. np.memmap, list of
                                                ndarrays, or a generator of
@@ -105,9 +144,20 @@ class Producer(Reversible, mixins.ViewInstance):
 
         self._chunksize = int(value)
 
+    @abc.abstractproperty
+    def shape(self):
+        """Returns the shape of this producers data attribute."""
+
+
 
 class _ProduceFromArray(Producer):
     """A Producer of ndarrays from an ndarray."""
+
+    @property
+    def shape(self):
+        """Returns the shape of this Producers data array."""
+
+        return self.data.shape
 
     def _slice(self, start, stop, step=None):
         """Returns a slice tuple for slicing data between start & stop with
@@ -124,14 +174,6 @@ class _ProduceFromArray(Producer):
         for segment in zip_longest(starts, starts[1:], fillvalue=None):
             yield self.data[self._slice(*segment)]
 
-    def __reversed__(self):
-        """Returns an iterator yielding ndarrays of chunksize starting from
-        the end of data along axis."""
-
-        starts = range(self.data.shape[self.axis]-1, -1, -self.chunksize)
-        for segment in zip_longest(starts, starts[1:], fillvalue=None):
-            yield self.data[self._slice(*segment, step=-1)]
-        
 
 class _ProduceFromGenerator(Producer):
     """A Producer of ndarrays from a generating function of ndarrays.
@@ -141,29 +183,24 @@ class _ProduceFromGenerator(Producer):
     collected ndarray.
     """
 
-    @property
-    def genlen(self):
-        """Returns the number of subarrays in the generator."""
+    def __init__(self, data, chunksize, axis, shape, **kwargs):
+        """Initialize this producer with an additional required shape."""
 
-        if hasattr(self, '_genlen'):
-            #get stored value
-            return self._genlen
-        else:
-            #compute num of arrays in generator obj
-            self._genlen = sum(1 for _ in self.data())
-            return self._genlen
+        super().__init__(data, chunksize, axis, **kwargs)
+        self._shape = shape
 
-    def __partitioner(self, gen):
-        """An iterator of arrays of chunksize along this Producers axis
-        obtained from a generator yielding arrays of any size along axis.
+    @property 
+    def shape(self):
+        """Returns the summed shape of arrays in this Producer."""
 
-        Args:
-            gen (generator):        a generator object that yields ndarrays
-        """
+        return self._shape
+
+    def __iter__(self):
+        """Returns an iterator yielding ndarrays of chunksize along axis."""
 
         #collect arrays and overage amt until chunksize reached
         collected, size = list(), 0
-        for subarr in gen:
+        for subarr in self.data():
             collected.append(subarr)
             #check if chunksize has been reached
             size += subarr.shape[self.axis]
@@ -185,42 +222,13 @@ class _ProduceFromGenerator(Producer):
             #yield everything that is left
             yield np.concatenate(collected, axis=self.axis)
 
-    def __iter__(self):
-        """Returns an iterator yielding ndarrays of chunksize along axis."""
-
-        #build gen obj
-        gen = self.data()
-        return self.__partitioner(gen)
-
-    def reverse_generator(self):
-        """A generating function that yields elements from this Producer's
-        generating function in reverse order. """
-
-        #closure to track generator position starting at len of gen
-        idx = self.genlen
-        def reverser():
-            nonlocal idx
-            while idx > 0:
-                arr = next(islice(self.data(), idx-1, idx))
-                idx -= 1
-                yield np.flip(arr, self.axis)
-        return reverser()
-
-    def __reversed__(self):
-        """Returns an iterator of ndarrays of chunksize along axis in 
-        reverse order."""
-
-        #build a reverse generator obj
-        rgen = self.reverse_generator()
-        return self.__partitioner(rgen)
-
 
 class _MaskedProducer(Producer):
     """A Producer of numpy arrays with values that have been filtered by
     a boolean mask.
 
     Args:
-       pro (obj):               reversible iterable producing numpy ndarrays
+       pro (obj):               iterable producing numpy ndarrays
        mask (1-D Bool):         a 1-D boolean array of masked values. The
                                 length of the mask does not have to match 
                                 the length of the producer but 
@@ -259,11 +267,3 @@ class _MaskedProducer(Producer):
         for (arr, marr) in zip(self.data, self.mask):
             indices = np.flatnonzero(marr)
             yield np.take(arr, indices, axis=self.axis)
-
-    def __reversed__(self):
-        """Returns a reversed iterator of bool masked arrays along axis."""
-
-        for arr, marr in zip(reversed(self.data), reversed(self.mask)):
-            indices = np.flatnonzero(marr)
-            yield np.take(arr, indices, axis=self.axis)
-

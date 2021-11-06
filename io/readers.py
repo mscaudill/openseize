@@ -202,9 +202,6 @@ class EDF(Reader):
     def read(self, start, stop=None, channels=None, padvalue=np.NaN):
         """Reads samples from an edf file for the specified channels.
 
-        Depending on supplied arguments this function will return an array
-        of samples or a generator of arrays of samples.
-
         Args:
             start (int):            start sample to read
             stop (int):             stop sample to read. If None read all
@@ -266,11 +263,11 @@ class _ProduceFromEDF(producer.Producer, mixins.ViewInstance):
                                     channels have the same sample rates.
     """
     
-    def __init__(self, reader, chunksize, channels=None, padvalue=np.NaN):
+    def __init__(self, data, chunksize, channels=None, padvalue=np.NaN):
         """Initialize this iterable."""
 
         #call Producer's init, channels & padval will be added as attrs
-        super().__init__(reader, chunksize, axis=-1, channels=channels,
+        super().__init__(data, chunksize, axis=-1, channels=channels,
                          padvalue=padvalue)
         #overwrite producer's channels attr if None passed
         if not channels:
@@ -294,24 +291,6 @@ class _ProduceFromEDF(producer.Producer, mixins.ViewInstance):
             #if exhausted close reader and exit
             if arr.size == 0:
                 break
-            yield arr
-
-    def __reversed__(self):
-        """Returns an iterator yielding arrays of shape channels x chunksize
-        starting from the end of reader instance."""
-        
-        #start, stop tuples starting from readers last sample
-        last = self.shape[-1]
-        starts = itertools.count(last, step=-self.chunksize)
-        stops = itertools.count(last - self.chunksize, step=-self.chunksize)
-        for start, stop in zip(starts, stops):
-            #data exhaustion check
-            if start <= 0:
-                break
-            #ensure stop is + or 0
-            stop = max(stop, 0)
-            arr = self.data.read(stop, start, self.channels, self.padvalue)
-            arr = np.flip(arr, axis=-1)
             yield arr
 
     def close(self):
