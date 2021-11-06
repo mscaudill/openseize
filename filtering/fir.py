@@ -4,7 +4,7 @@ import scipy.signal as sps
 from functools import partial
 
 from openseize.types import mixins
-from openseize.types import producer
+from openseize.types.producer import Producer, producer
 from openseize.filtering.viewer import FilterViewer
 from openseize.tools import numerical as onum
 
@@ -93,7 +93,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
             ntaps = ntaps + 1 if ntaps % 2 == 1 else ntaps
         return ntaps
 
-    def apply(self, x, axis, mode, chunksize):
+    def apply(self, x, axis, chunksize, mode='same'):
         """Apply this FIR to an ndarray or producer of ndarrays of data.
 
         Args:
@@ -101,6 +101,8 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
                                                ndarrays of data to filter
             axis (int):                        axis of x along which to
                                                apply the filter
+            chunksize (int):                   sets the size of x to hold in
+                                               memory per iteration
             mode (str):                        boundary handling; one of
                                                {'full', 'same', 'valid'}
                                                These modes are identical to 
@@ -115,23 +117,17 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
                                                'valid': returns an array
                                                where the filter and
                                                x completely overlap.
-            chunksize (int):                   sets the size of the output
-                                               along axis if returning
-                                               producer. Ignored if input is
-                                               type ndarray.
-        
+                    
         Returns: an ndarray or producer of ndarrays of filtered values
         """
-      
+     
         if isinstance(x, np.ndarray):
-            result = onum.oaconvolve(x, self.coeffs, axis, mode=mode)
-            return np.concatenate([arr for arr in result], axis=axis)
-        elif isinstance(x, producer.Producer):
-            func = partial(onum.oaconvolve, x, self.coeffs, axis, mode)
-            return producer.producer(func, chunksize, axis)
-        else:
-            msg = 'Input type must be one of {}'
-            raise TypeError(msg.format("{'ndarray', 'producer'}"))
+            x = producer(x, chunksize, axis)
+        #compute a producer of filtered values
+        result = onum.oaconvolve(x, self.coeffs, axis, mode)
+        if isinstance(x, np.ndarray):
+            result = np.concantenate([arr for arr in result], axis=axis)
+        return result
 
 
 class Kaiser(FIR):
@@ -213,8 +209,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     from openseize.io.readers import EDF
 
-    """
-    time_s = 10
+    time_s = 100
     fs = 5000
     nsamples = int(time_s * fs)
     t = np.linspace(0, time_s, nsamples)
@@ -226,17 +221,42 @@ if __name__ == '__main__':
     z = 2 * np.cos(2 * np.pi * 7.5 * t) + 0.5 *np.random.random(nsamples) 
 
     arr = np.stack((x,y, z, 1.5*x, y))
-    #make ndarray
-    #arr2 = np.stack((arr, arr, arr))
-    """
         
-    fir = Kaiser(500, width=100, fs=5000, btype='lowpass', 
+    fir = Kaiser(50, width=100, fs=5000, btype='lowpass', 
                 pass_ripple=.005, stop_db=40)
 
+    t0 = time.perf_counter()
+    pro = fir.apply(arr, chunksize=1000, axis=-1, mode='same')
+    result = np.concatenate([arr for arr in pro], axis=-1)
+    print('Openseize Filtering completed in {} s'.format(
+          time.perf_counter() - t0))
+
+    plt.ion()
+    fig, axarr = plt.subplots(5,1)
+    [axarr[idx].plot(row) for idx, row in enumerate(arr)]
+    [axarr[idx].plot(row, color='r') for idx, row in enumerate(result)]
+
+    #get result using scipy
+    t0 = time.perf_counter()
+    spresult = sps.convolve(arr, fir.coeffs[np.newaxis, :], mode='same')
+    print('Scipy Filtering completed in {} s'.format(
+          time.perf_counter() - t0))
+
+    print('Filtered Equality? ', np.allclose(spresult, result))
+
+    """
     PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
     edf = EDF(PATH)
     pro = edf.as_producer(chunksize=30e6)
-    result = fir.apply(pro, axis=-1, mode='same', chunksize=1e6)
+    fir = Kaiser(500, width=100, fs=5000, btype='lowpass', 
+                pass_ripple=.005, stop_db=40)
+
+    result = fir.apply(pro, axis=-1, mode='same', chunksize=30e6)
+
+    t0 = time.perf_counter()
+    for idx, filt in enumerate(result):
+        print(idx)
+    print('FIR completed in {} s'.format(time.perf_counter() - t0))
 
     for idx, filt in enumerate(result):
         if idx == 0:
@@ -255,28 +275,10 @@ if __name__ == '__main__':
     plt.show()
 
     """
-    t0 = time.perf_counter()
-    pro = fir.apply(arr, axis=-1, outtype='producer', mode='same',
-                       chunksize=1000)
-    result = np.concatenate([arr for arr in pro], axis=-1)
-    print('Openseize Filtering completed in {} s'.format(
-          time.perf_counter() - t0))
 
-    plt.ion()
-    fig, axarr = plt.subplots(5,1)
-    [axarr[idx].plot(row) for idx, row in enumerate(arr)]
-    [axarr[idx].plot(row, color='r') for idx, row in enumerate(result)]
+    
 
 
 
 
-
-    #get result using scipy
-    t0 = time.perf_counter()
-    spresult = sps.convolve(arr, fir.coeffs[np.newaxis, :], mode='same')
-    print('Scipy Filtering completed in {} s'.format(
-          time.perf_counter() - t0))
-
-    print('Filtered Equality? ', np.allclose(spresult, result))
-    """
-
+    
