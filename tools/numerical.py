@@ -1,9 +1,10 @@
 import numpy as np
 import itertools
+from functools import partial
 from scipy import fft, ifft
 import scipy.signal as sps
 
-from openseize.types.producer import Producer, producer 
+from openseize.types.producer import Producer, producer, as_producer 
 from openseize.tools import arraytools
 
 def optimal_nffts(arr):
@@ -44,12 +45,13 @@ def _oa_mode(segment, idx, win_len, axis, mode):
     slices[axis] = cuts[mode][1] if idx > 0 else cuts[mode][0]
     return segment[tuple(slices)]
 
-def oaconvolve(iterable, win, axis, mode):
+@as_producer
+def oaconvolve(pro, win, axis, mode):
     """A generator that performs overlap-add circular convolution of a
     an array or producer of arrays with a 1-dimensional window.
 
     Args:
-        iterable:                   an ndarray or a producer of ndarrays
+        pro:                        producer of ndarray(s)
         win (1-D array):            a 1-D window to convolve across arr
         axis (int):                 axis of arr or each producer array
                                     along which window should be convolved
@@ -65,9 +67,8 @@ def oaconvolve(iterable, win, axis, mode):
     axis will be (optimal_nffts - len(win) - 1).
     """
 
-    #create a producer, chunksize will be changed later
-    isize = iterable.chunksize if hasattr(iterable, 'chunksize') else 1
-    pro = producer(iterable, chunksize=isize, axis=axis)
+    #fetch the producers initial chunksize
+    isize = pro.chunksize
     #estimate optimal nfft and transform window
     nfft = optimal_nffts(win)
     W = fft.fft(win, nfft)
@@ -103,8 +104,7 @@ def oaconvolve(iterable, win, axis, mode):
     #on iteration completion reset producer chunksize
     pro.chunksize = isize
     
-
-def batch_sosfilt(sos, iterable, chunksize, axis, zi=None):
+def _sosfilt(sos, iterable, chunksize, axis, zi=None, count=None, shape=None):
     """Batch applies a second-order-section fmt filter to a data iterable.
 
     Args:
@@ -116,23 +116,26 @@ def batch_sosfilt(sos, iterable, chunksize, axis, zi=None):
                                  batch
         axis (int):              axis along which to apply the filter in
                                  chunksize batches
+        zi (ndarray):            initial condition data (Default None ->
+                                 zeros as intial condition)
 
     Returns: a generator of filtered values of len chunksize along axis
     """
 
+    #FIXME how to handle count and shape if array passed?
     #create a producer yielding chunksize arrays
-    pro = producer(iterable, chunksize=chunksize, axis=axis)
+    pro = producer(iterable, chunksize, axis, count=count, shape=shape)
     #set initial conditions for filter (see scipy sosfilt; zi)
+    #FIXME producers don't have shape attr
     shape = list(pro.shape)
     shape[axis] = 2
     z = np.zeros((sos.shape[0], *shape)) if zi is None else zi
     #compute filter values & store current initial conditions 
     for idx, subarr in enumerate(pro):
-        print(idx, subarr.shape)
         y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
         yield y
 
-def batch_sosfiltfilt(sos, iterable, chunksize, axis):
+def _sosfiltfilt(sos, iterable, chunksize, axis, count=None, shape=None):
     """Batch applies a forward-backward filter in sos format to an iterable
     of numpy arrays.
 
@@ -151,27 +154,33 @@ def batch_sosfiltfilt(sos, iterable, chunksize, axis):
     """
 
     #create a producer yielding chunksize arrays
-    pro = producer(iterable, chunksize=chunksize, axis=axis)
+    pro = producer(iterable, chunksize, axis, count=count, shape=shape)
     #get initial value from producer
     subarr = next(iter(pro))
-    x0 = slice_along_axis(subarr, 0, 1, axis=axis) 
+    x0 = arraytools.slice_along_axis(subarr, 0, 1, axis=axis) 
     # build initial condition
     zi = sps.sosfilt_zi(sos)
     s = [1] * len(pro.shape)
     s[axis] = 2
     zi = np.reshape(zi, (sos.shape[0], *s))
-    #create a producer of forward filter values
-    forward = batch_sosfilt(sos, pro, chunksize, axis, zi=zi * x0)
-    #get the last value of the forward filtered values
-    forward_filt, tmp = itertools.tee(forward)
-    y0 = next(reversed(producer(tmp, chunksize=1, axis=axis)))
-    #compute reverse filter values
-    rev_gen = reversed(producer(forward_filt, chunksize, axis))
-    rev_filt = batch_sosfilt(sos, rev_gen, chunksize, axis, zi=zi * y0)
-    #reverse the rev_filt values to get the filtfilt values
-    return reversed(producer(rev_filt, chunksize, axis))
 
-def batch_iirfilter(coeffs, iterable, chunksize, axis, compensate):
+    #create a producer of forward filter values
+    forward = partial(_sosfilt, sos, pro, chunksize, axis, zi=zi*x0,
+            count=pro.count, shape=pro.shape)
+    forward_pro = producer(forward, chunksize, axis, count=pro.count,
+                           shape=pro.shape)
+
+    for idx, forward_arr in enumerate(forward_pro):
+        flipped = np.flip(forward_arr, axis=axis)
+        #need to set correct initial condition!
+        y0 = arraytools.slice_along_axis(flipped,0,1, axis=axis)
+        backward_arr = next(_sosfilt(sos, flipped, chunksize, axis,
+                                     zi=zi*y0))
+        print(idx)
+        yield np.flip(backward_arr, axis=axis)
+
+
+def batch_filter(coeffs, iterable, chunksize, axis, compensate):
     """Performs batch filtering of an array iterable.
 
     Args:
