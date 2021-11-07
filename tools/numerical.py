@@ -103,15 +103,15 @@ def oaconvolve(pro, win, axis, mode):
         yield y
     #on iteration completion reset producer chunksize
     pro.chunksize = isize
-    
-def _sosfilt(sos, iterable, chunksize, axis, zi=None, count=None, shape=None):
-    """Batch applies a second-order-section fmt filter to a data iterable.
+  
+@as_producer  
+def sosfilt(pro, sos, chunksize, axis, zi=None):
+    """Batch applies a second-order-section fmt filter to a producer.
 
     Args:
+        pro:                     producer of ndarrays
         sos (array):             a nsectios x 6 array of numerator &
                                  denominator coeffs from an iir filter
-        iterable:                an ndarray or producer of ndarrays (e.g
-                                 generator or Producer instance)
         chunksize (int):         amount of data along axis to filter per
                                  batch
         axis (int):              axis along which to apply the filter in
@@ -122,11 +122,7 @@ def _sosfilt(sos, iterable, chunksize, axis, zi=None, count=None, shape=None):
     Returns: a generator of filtered values of len chunksize along axis
     """
 
-    #FIXME how to handle count and shape if array passed?
-    #create a producer yielding chunksize arrays
-    pro = producer(iterable, chunksize, axis, count=count, shape=shape)
     #set initial conditions for filter (see scipy sosfilt; zi)
-    #FIXME producers don't have shape attr
     shape = list(pro.shape)
     shape[axis] = 2
     z = np.zeros((sos.shape[0], *shape)) if zi is None else zi
@@ -135,15 +131,15 @@ def _sosfilt(sos, iterable, chunksize, axis, zi=None, count=None, shape=None):
         y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
         yield y
 
-def _sosfiltfilt(sos, iterable, chunksize, axis, count=None, shape=None):
-    """Batch applies a forward-backward filter in sos format to an iterable
+@as_producer
+def sosfiltfilt(pro, sos, chunksize, axis):
+    """Batch applies a forward-backward filter in sos format to a producer
     of numpy arrays.
 
     Args:
+        pro:                     producer of ndarrays
         sos (array):             a nsectios x 6 array of numerator &
                                  denominator coeffs from an iir filter
-        iterable:                an ndarray or producer of ndarrays (e.g
-                                 generator or Producer instance)
         chunksize (int):         amount of data along axis to filter per
                                  batch
         axis (int):              axis along which to apply the filter in
@@ -153,42 +149,22 @@ def _sosfiltfilt(sos, iterable, chunksize, axis, count=None, shape=None):
              chunksize along axis
     """
 
-    #create a producer yielding chunksize arrays
-    pro = producer(iterable, chunksize, axis, count=count, shape=shape)
     #get initial value from producer
     subarr = next(iter(pro))
     x0 = arraytools.slice_along_axis(subarr, 0, 1, axis=axis) 
     # build initial condition
-    zi = sps.sosfilt_zi(sos)
+    zi = sps.sosfilt_zi(sos) #nsections x 2
     s = [1] * len(pro.shape)
     s[axis] = 2
-    zi = np.reshape(zi, (sos.shape[0], *s))
-
+    zi = np.reshape(zi, (sos.shape[0], *s)) #nsections,1,2
     #create a producer of forward filter values
-    forward = partial(_sosfilt, sos, pro, chunksize, axis, zi=zi*x0,
-            count=pro.count, shape=pro.shape)
-    forward_pro = producer(forward, chunksize, axis, count=pro.count,
-                           shape=pro.shape)
+    forward = sosfilt(pro, sos, chunksize, axis, zi=zi*x0)
+    #filter backwards each forward produced arr
+    for idx, arr in enumerate(forward):
+        flipped = np.flip(arr, axis=axis)
+        #get the last value as initial condition for backward pass
+        y0 = arraytools.slice_along_axis(flipped, 0, 1, axis=axis)
+        #filter in reverse, reflip and yield
+        revfilt, z = sps.sosfilt(sos, flipped, axis=axis, zi=zi*y0)
+        yield np.flip(revfilt, axis=axis)
 
-    for idx, forward_arr in enumerate(forward_pro):
-        flipped = np.flip(forward_arr, axis=axis)
-        #need to set correct initial condition!
-        y0 = arraytools.slice_along_axis(flipped,0,1, axis=axis)
-        backward_arr = next(_sosfilt(sos, flipped, chunksize, axis,
-                                     zi=zi*y0))
-        print(idx)
-        yield np.flip(backward_arr, axis=axis)
-
-
-def batch_filter(coeffs, iterable, chunksize, axis, compensate):
-    """Performs batch filtering of an array iterable.
-
-    Args:
-        coeffs (array-like (sos) or tuple (ba), (zpk))
-
-    """
-
-    # validate the coeffs are of fmt sos, ba or zpk -- need validator
-    # later add lfilter and lfiltfilt but now raise not Implemented error
-
-    pass
