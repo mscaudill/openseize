@@ -21,10 +21,6 @@ class Reader(abc.ABC, mixins.ViewInstance):
     def read(self, start, stop, channels, **kwargs):
         """Returns an ndarray of shape channels x (stop-start)."""
 
-    @abc.abstractmethod
-    def as_producer(self, channels, chunksize, **kwargs):
-        """Returns an iterable of arrays of shape chs x chunksize."""
-
     def __enter__(self):
         """Return reader instance as target variable of this context."""
 
@@ -229,72 +225,3 @@ class EDF(Reader):
             stop = max(self.header.samples)
         #return an array
         return self._read_array(start, stop, channels, padvalue)
-
-    def as_producer(self, chunksize, channels=None, padvalue=np.NaN):
-        """Returns an iterable EDF instance that can be used to create an
-        iterator of arrays of shape channels x chunksize.
-
-        Args:
-            channels (list):        indices to return or yield data from
-                                    (Default None returns data on all
-                                    channels in EDF)
-            chunksize (int):        number of samples to return per batch
-            padvalue (float):       value to pad to channels that run out of
-                                    samples to return. Ignored if all 
-                                    channels have the same sample rates.
-
-        """
-
-        return _ProduceFromEDF(self, chunksize, channels, padvalue=np.NaN)
-
-
-class _ProduceFromEDF(producer.Producer, mixins.ViewInstance):
-    """Producer yielding arrays of shape channels x chunksize from an EDF. 
-
-    Openseize operations that are memory intensive may use this iterable to
-    access EDF data in batches.
-
-    Attrs:
-        data:                       This is a Reader instance
-        channels (list):            channels to include in each batch
-        chunksize (int):            number of samples to yield per batch
-        padvalue (float):           value to pad to channels that run out of
-                                    samples to return. Ignored if all 
-                                    channels have the same sample rates.
-    """
-    
-    def __init__(self, data, chunksize, channels=None, padvalue=np.NaN):
-        """Initialize this iterable."""
-
-        #call Producer's init, channels & padval will be added as attrs
-        super().__init__(data, chunksize, axis=-1, channels=channels,
-                         padvalue=padvalue)
-        #overwrite producer's channels attr if None passed
-        if not channels:
-            self.channels = self.data.header.channels
-
-    @property
-    def shape(self):
-        """Return the shape of this iterable EDF."""
-
-        return self.data.shape
-
-    def __iter__(self):
-        """Returns an iterator yielding arrays of shape channels x chunksize
-        from a reader instance."""
-
-        #make generators of start, stop samples & exhaust reader
-        starts = itertools.count(start=0, step=self.chunksize)
-        stops = itertools.count(start=self.chunksize, step=self.chunksize)
-        for start, stop in zip(starts, stops): 
-            arr = self.data.read(start, stop, self.channels, self.padvalue)
-            #if exhausted close reader and exit
-            if arr.size == 0:
-                break
-            yield arr
-
-    def close(self):
-        """Closes this iterable's file resource."""
-
-        if hasattr(self.data, 'close'):
-            self.data.close()
