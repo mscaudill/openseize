@@ -93,16 +93,16 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
             ntaps = ntaps + 1 if ntaps % 2 == 1 else ntaps
         return ntaps
 
-    def apply(self, x, axis, chunksize, mode='same'):
+    def apply(self, x, chunksize, axis, mode='same', **kwargs):
         """Apply this FIR to an ndarray or producer of ndarrays of data.
 
         Args:
             x  (producer or array-like):       an ndarray or producer of
                                                ndarrays of data to filter
-            axis (int):                        axis of x along which to
-                                               apply the filter
             chunksize (int):                   sets the size of x to hold in
                                                memory per iteration
+            axis (int):                        axis of x along which to
+                                               apply the filter
             mode (str):                        boundary handling; one of
                                                {'full', 'same', 'valid'}
                                                These modes are identical to 
@@ -121,10 +121,10 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
         Returns: an ndarray or producer of ndarrays of filtered values
         """
      
-        if isinstance(x, np.ndarray):
-            x = producer(x, chunksize, axis)
-        #compute a producer of filtered values
-        result = onum.oaconvolve(x, self.coeffs, axis, mode)
+        pro = producer(x, chunksize, axis, **kwargs)
+        #build a producer of filtered values
+        result = onum.oaconvolve(pro, self.coeffs, axis, mode)
+        #if input is array -> return an array
         if isinstance(x, np.ndarray):
             result = np.concantenate([arr for arr in result], axis=axis)
         return result
@@ -209,6 +209,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     from openseize.io.readers import EDF
 
+    """
     time_s = 100
     fs = 5000
     nsamples = int(time_s * fs)
@@ -245,9 +246,10 @@ if __name__ == '__main__':
     print('Filtered Equality? ', np.allclose(spresult, result))
 
     """
+
     PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
     edf = EDF(PATH)
-    pro = edf.as_producer(chunksize=30e6)
+    pro = producer(edf, chunksize=30e6, axis=-1)
     fir = Kaiser(500, width=100, fs=5000, btype='lowpass', 
                 pass_ripple=.005, stop_db=40)
 
@@ -274,7 +276,6 @@ if __name__ == '__main__':
             break
     plt.show()
 
-    """
 
     
 
