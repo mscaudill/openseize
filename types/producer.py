@@ -296,16 +296,15 @@ class MaskedProducer(Producer):
     """A Producer of numpy arrays with values that have been filtered by
     a boolean mask.
 
-    Args:
-       pro (obj):               iterable producing numpy ndarrays
+    Attrs:
+       see Producer
        mask (1-D Bool):         a 1-D boolean array of masked values. The
                                 length of the mask does not have to match 
                                 the length of the producer but 
                                 MaskedProducer will stop producing as soon
                                 as the producer or mask raise StopIteration.
-        chunksize (int):        size of ndarray along axis to return per
-                                iteration
-        axis (int):             producer's axis along which data is chunked
+    
+    The data attribute in this Producer is a Producer instance
 
     Note: The bool mask is applied on all 1-D slices of producer's array
     oriented along axis (see np.take).
@@ -316,6 +315,12 @@ class MaskedProducer(Producer):
 
         super().__init__(pro, chunksize, axis, **kwargs)
         self.mask = producer(mask, chunksize, axis=0, *kwargs)
+
+    @property
+    def shape(self):
+        """Return the shape of this Producers data attr."""
+
+        return self.data.shape
 
     @property
     def chunksize(self):
