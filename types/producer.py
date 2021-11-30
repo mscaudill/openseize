@@ -26,8 +26,8 @@ def producer(obj, chunksize, axis, shape=None, mask=None, **kwargs):
 
         shape (tuple):          Tuple of ints describing objects total size 
                                 with samples expected along axis. This 
-                                parameter is only requried when obj is
-                                a generating function and ignored otherwise.
+                                parameter is only requried when obj requires
+                                it and ignored otherwise.
         
         mask (1-D bool):        boolean array to mask producer outputs along
                                 axis. Values of obj at True mask indices 
