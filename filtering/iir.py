@@ -67,6 +67,7 @@ class IIRBase(abc.ABC, mixins.ViewInstance, FilterViewer):
 
         Args:
             x (producer or array-like):          
+
         """
         #FIXME DOCS
 
