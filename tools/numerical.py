@@ -11,7 +11,8 @@ def optimal_nffts(arr):
     """Estimates the optimal number of FFT points for an arr."""
 
     return int(8 * 2 ** np.ceil(np.log2(len(arr))))
-   
+
+
 def _oa_mode(segment, idx, win_len, axis, mode):
     """Applies the numpy/scipy mode to the first and last segement of the
     oaconvolve generator.
@@ -40,10 +41,12 @@ def _oa_mode(segment, idx, win_len, axis, mode):
                      slice(None, ns - ((win_len - 1) // 2))],
             'valid': [slice(win_len - 1, None), 
                       slice(None, ns - win_len + 1)]}
+
     #apply slices
     slices = [slice(None)] * segment.ndim
     slices[axis] = cuts[mode][1] if idx > 0 else cuts[mode][0]
     return segment[tuple(slices)]
+
 
 @as_producer
 def oaconvolve(pro, win, axis, mode):
@@ -69,16 +72,20 @@ def oaconvolve(pro, win, axis, mode):
 
     #fetch the producers initial chunksize
     isize = pro.chunksize
+
     #estimate optimal nfft and transform window
     nfft = optimal_nffts(win)
     W = fft.fft(win, nfft)
+
     #set the step size and compute num of segments of step size
     step = nfft - len(win) -1
     nsegments = int(np.ceil(pro.shape[axis] / step))
+
     #initialize the overlap with shape (nfft - step) along axis
     overlap_shape = list(pro.shape)
     overlap_shape[axis] = nfft - step
     overlap = np.zeros(overlap_shape)
+
     #set producer chunksize to step & perform overlap add
     pro.chunksize = step
     for segment_num, subarr in enumerate(pro):
@@ -103,7 +110,8 @@ def oaconvolve(pro, win, axis, mode):
         yield y
     #on iteration completion reset producer chunksize
     pro.chunksize = isize
-  
+
+
 @as_producer  
 def sosfilt(pro, sos, chunksize, axis, zi=None):
     """Batch applies a second-order-section fmt filter to a producer.
@@ -131,6 +139,7 @@ def sosfilt(pro, sos, chunksize, axis, zi=None):
         y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
         yield y
 
+
 @as_producer
 def sosfiltfilt(pro, sos, chunksize, axis):
     """Batch applies a forward-backward filter in sos format to a producer
@@ -152,13 +161,16 @@ def sosfiltfilt(pro, sos, chunksize, axis):
     #get initial value from producer
     subarr = next(iter(pro))
     x0 = arraytools.slice_along_axis(subarr, 0, 1, axis=axis) 
+    
     # build initial condition
     zi = sps.sosfilt_zi(sos) #nsections x 2
     s = [1] * len(pro.shape)
     s[axis] = 2
     zi = np.reshape(zi, (sos.shape[0], *s)) #nsections,1,2
+    
     #create a producer of forward filter values
     forward = sosfilt(pro, sos, chunksize, axis, zi=zi*x0)
+    
     #filter backwards each forward produced arr
     for idx, arr in enumerate(forward):
         flipped = np.flip(arr, axis=axis)
@@ -167,4 +179,69 @@ def sosfiltfilt(pro, sos, chunksize, axis):
         #filter in reverse, reflip and yield
         revfilt, z = sps.sosfilt(sos, flipped, axis=axis, zi=zi*y0)
         yield np.flip(revfilt, axis=axis)
+
+
+def welch(pro, fs, nperseg, window, axis, **kwargs):
+    """Iteratively estimates the power spectral density of data from
+    a producer using Welch's method.
+
+    Args:
+        pro: producer instance
+                a producer of ndarrays
+
+        fs: float
+                sampling rate of produced data
+
+        nperseg: int
+                number of points used to compute FFT on each segment. Should
+                be < pro.chunksize and ideally a power of 2
+
+        window: str or tuple or array_like
+                a scipy window string or 1-D array of window heights. If 
+                array_like, its length must match nperseg
+
+        axis: int
+                axis of producer along which spectrum is computed
+
+        kwargs: passed to scipy.signal.welch
+
+    Returns:
+        f: ndarray
+                array of FFT sample frequencies
+
+        pxx: ndarray
+                power spectral density or power spectrum of producer
+
+    See also:
+        scipy.signal.welch
+
+    References:
+    1.  P. Welch, “The use of the fast Fourier transform for the 
+        estimation of power spectra: A method based on time averaging over
+        short, modified periodograms”, IEEE Trans. Audio Electroacoust. 
+        vol. 15, pp. 70-73, 1967.
+
+    Notes:
+        Masked producers may produce arrays with few if any values. Scipy 
+        sets the nperseg parameter to the min. of the input data & nperseg.
+        This behavior changes the FFT frequency resolution depending on the
+        amount of data in each produced array. We therefore drop segments
+        from the producer whose size along axis is less than nperseg.
+    """
+
+    # for each arr in producer
+        #call spectral helper returning an array with segments along -1 axis
+        #call your own csd function called '_psd_helper' and return the
+        #freqs and averaged (mean or median) psd 
+
+    #FIXME this is wrong bc last chunk may not be same size as all others!
+    pxx, n = 0, 0
+    for arr in pro:
+        #arr size must >= nperseg to maintain same number of freqs in FFT
+        if arr.size > nperseg:
+            f, p = sps.welch(arr, fs=fs, nperseg=nperseg, axis=axis, **kwargs)
+            pxx = (n * pxx + p) / (n + 1)
+            n += 1
+    return f, pxx
+
 
