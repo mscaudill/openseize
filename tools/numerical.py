@@ -5,7 +5,7 @@ from scipy import fft, ifft
 import scipy.signal as sps
 
 from openseize.types.producer import Producer, producer, as_producer 
-from openseize.tools import arraytools
+from openseize.tools.arraytools import pad_along_axis, slice_along_axis
 
 def optimal_nffts(arr):
     """Estimates the optimal number of FFT points for an arr."""
@@ -90,7 +90,7 @@ def oaconvolve(pro, win, axis, mode):
     pro.chunksize = step
     for segment_num, subarr in enumerate(pro):
         #pad the subarr upto nfft
-        x = arraytools.pad_along_axis(subarr, [0, nfft - step], axis=axis)
+        x = pad_along_axis(subarr, [0, nfft - step], axis=axis)
         #perform circular convolution
         y = fft.ifft(fft.fft(x, nfft, axis=axis) * W, axis=axis).real
         #split filtered segment and overlap
@@ -103,7 +103,7 @@ def oaconvolve(pro, win, axis, mode):
         overlap = new_overlap
         #last segment may not have step pts, so slice upto 'full' overlap
         samples = min((subarr.shape[axis]) + len(win) -1, step)
-        y = arraytools.slice_along_axis(y, 0, samples, axis=axis)
+        y = slice_along_axis(y, 0, samples, axis=axis)
         #apply the boundary mode to first and last segments
         if segment_num == 0 or segment_num == nsegments-1:
             y = _oa_mode(y, segment_num, len(win), axis, mode)
@@ -160,7 +160,7 @@ def sosfiltfilt(pro, sos, chunksize, axis):
 
     #get initial value from producer
     subarr = next(iter(pro))
-    x0 = arraytools.slice_along_axis(subarr, 0, 1, axis=axis) 
+    x0 = slice_along_axis(subarr, 0, 1, axis=axis) 
     
     # build initial condition
     zi = sps.sosfilt_zi(sos) #nsections x 2
@@ -175,13 +175,13 @@ def sosfiltfilt(pro, sos, chunksize, axis):
     for idx, arr in enumerate(forward):
         flipped = np.flip(arr, axis=axis)
         #get the last value as initial condition for backward pass
-        y0 = arraytools.slice_along_axis(flipped, 0, 1, axis=axis)
+        y0 = slice_along_axis(flipped, 0, 1, axis=axis)
         #filter in reverse, reflip and yield
         revfilt, z = sps.sosfilt(sos, flipped, axis=axis, zi=zi*y0)
         yield np.flip(revfilt, axis=axis)
 
 
-def welch(pro, fs, nperseg, window, axis, **kwargs):
+def welch(pro, fs, nperseg, window, axis, csize=100, **kwargs):
     """Iteratively estimates the power spectral density of data from
     a producer using Welch's method.
 
@@ -202,6 +202,12 @@ def welch(pro, fs, nperseg, window, axis, **kwargs):
 
         axis: int
                 axis of producer along which spectrum is computed
+
+        csize: int
+                factor to multipy nperseg by that will be used as the
+                chunksize of the producer during welch computation. Default
+                is 100. The producer's chunksize will be set back to initial
+                chunksize after PSD is computed.
 
         kwargs: passed to scipy.signal.welch
 
@@ -229,19 +235,63 @@ def welch(pro, fs, nperseg, window, axis, **kwargs):
         from the producer whose size along axis is less than nperseg.
     """
 
-    # for each arr in producer
-        #call spectral helper returning an array with segments along -1 axis
-        #call your own csd function called '_psd_helper' and return the
-        #freqs and averaged (mean or median) psd 
+    # chunksize will need to be a multiple of nperseg to avoid gaps
+    # need to get last overlap window from previous array to have 
+    # continuous overlapping windows
 
-    #FIXME this is wrong bc last chunk may not be same size as all others!
-    pxx, n = 0, 0
+    overlap = kwargs.pop('noverlap', nperseg // 2)
+    isize = pro.chunksize
+    pro.chunksize = csize * nperseg
+
+    cnt, current_sum = 0, 0
+    previous = np.array([])
     for arr in pro:
-        #arr size must >= nperseg to maintain same number of freqs in FFT
-        if arr.size > nperseg:
-            f, p = sps.welch(arr, fs=fs, nperseg=nperseg, axis=axis, **kwargs)
-            pxx = (n * pxx + p) / (n + 1)
-            n += 1
-    return f, pxx
+        
+        if previous.size > 0:
+            x = np.concatenate((previous, arr), axis=axis)
+        else:
+            x = arr
 
+        if x.shape[axis] >= nperseg:
+            f, _, pxx = sps.spectral._spectral_helper(x, x, fs=fs, 
+                            window=window, nperseg=nperseg, axis=axis, 
+                            mode='psd', **kwargs)
+            #update number of windows and add to summed psd
+            cnt += pxx.shape[-1]
+            current_sum += np.sum(pxx, axis=-1)
+            previous = slice_along_axis(x, x.shape[axis]-overlap, axis=axis)
 
+    pro.chunksize = isize
+    return f, current_sum / cnt
+
+if __name__ == '__main__':
+
+    import matplotlib.pyplot as plt
+    from openseize.io.readers import EDF
+    from openseize.types.producer import producer
+
+    import time
+
+    PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
+    edf = EDF(PATH)
+    pro = producer(edf, chunksize=10e6, axis=-1)
+
+    t0 = time.perf_counter()
+    f, pxx = welch(pro, 5000, nperseg=16384, window='hann', axis=-1,
+            csize=1000)
+    print('ops welch in {} s'.format(time.perf_counter() - t0))
+
+    """
+    x = np.concatenate([arr for arr in pro], axis=-1)
+    t0 = time.perf_counter()
+    sp_f, sp_pxx = sps.welch(x, fs=5000, nperseg=16384, window='hann', axis=-1)
+    print('sp welch in {} s'.format(time.perf_counter() - t0))
+    """
+
+    plt.plot(f, pxx[0], label='os result')
+    """
+    plt.plot(f, sp_pxx[0], label='sp result')
+    plt.plot(f, (pxx[0] - sp_pxx[0]), label='residual')
+    plt.legend()
+    plt.show()
+    """
