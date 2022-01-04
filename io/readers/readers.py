@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from openseize.types import mixins, producer
+from openseize.core import mixins, producer
 from openseize.io import headers
 
 class Reader(abc.ABC, mixins.ViewInstance):
@@ -36,7 +36,6 @@ class Reader(abc.ABC, mixins.ViewInstance):
         """Close this reader instance's opened file object."""
 
         self._fobj.close()
-
 
 class EDF(Reader):
     """A reader of European Data Format (EDF/EDF+) files.

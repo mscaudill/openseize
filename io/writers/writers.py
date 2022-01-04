@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 
 from openseize.io.headers import EDFHeader
-from openseize.types import mixins
+from openseize.core import mixins
 
 class Writer(abc.ABC, mixins.ViewInstance):
     """An ABC that defines all subclasses as context managers and describes

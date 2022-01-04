@@ -3,10 +3,10 @@ import numpy as np
 import scipy.signal as sps
 from functools import partial
 
-from openseize.types import mixins
-from openseize.types.producer import producer
+from openseize.core import mixins
+from openseize.core.producer import producer
+from openseize.core import numerical as onum
 from openseize.filtering.viewer import FilterViewer
-from openseize.tools import numerical as onum
 
 class IIRBase(abc.ABC, mixins.ViewInstance, FilterViewer):
     """Abstract Infinite Impulse Response Filter defining required and common

@@ -3,10 +3,10 @@ import numpy as np
 import scipy.signal as sps
 from functools import partial
 
-from openseize.types import mixins
-from openseize.types.producer import Producer, producer
+from openseize.core import mixins
+from openseize.core.producer import Producer, producer
+from openseize.core import numerical as onum
 from openseize.filtering.viewer import FilterViewer
-from openseize.tools import numerical as onum
 
 class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
     """Abstract Finite Impulse Response Filter defining required and common
@@ -130,7 +130,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FilterViewer):
         return result
 
 
-class Kaiser(FIR):
+class FIR_Kaiser(FIR):
     """A Type I Finitie Impulse Response filter constructed using the Kaiser
     window method.
 

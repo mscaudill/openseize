@@ -5,8 +5,8 @@ import inspect
 import itertools
 from collections.abc import Iterable, Sequence, Generator
 
-from openseize.io.readers import Reader
-from openseize.types import mixins
+from openseize.io.readers.readers import Reader
+from openseize.core import mixins
 
 def producer(obj, chunksize, axis, shape=None, mask=None, **kwargs):
     """Returns a maskable iterable of ndarrays of shape chunksize along 

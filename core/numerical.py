@@ -4,8 +4,8 @@ from functools import partial
 from scipy import fft, ifft
 import scipy.signal as sps
 
-from openseize.types.producer import Producer, producer, as_producer 
-from openseize.tools.arraytools import pad_along_axis, slice_along_axis
+from openseize.core.producer import Producer, producer, as_producer 
+from openseize.core.arraytools import pad_along_axis, slice_along_axis
 
 def optimal_nffts(arr):
     """Estimates the optimal number of FFT points for an arr."""

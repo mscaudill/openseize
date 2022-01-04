@@ -26,12 +26,13 @@ if __name__ == '__main__':
     from scipy.fft import fft, fftshift    
 
     fs = 5000
-    window = sps.hann(8192)
-    A = fft(window, 16384) / (len(window) / 2)
+    window = sps.windows.hann(16384*2)
+    #window = np.ones(10000)
+    A = fft(window, 10000) / (len(window) / 2)
     freq = np.linspace(-fs/2, fs/2, len(A))
     resp = 20 * np.log10(np.abs(fftshift(A/ abs(A).max())))
 
-    resolution =  np.sum(window**2) / np.sum(window)**2 * fs
+    resolution =  np.sum(window**2) / np.sum(window)**2 * len(window)
     print(resolution)
 
     plt.plot(freq, resp)
