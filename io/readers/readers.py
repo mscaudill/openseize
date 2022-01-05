@@ -1,25 +1,67 @@
-import abc
-import itertools
-from pathlib import Path
+"""Context managers for reading EEG data from a variety of file types.
 
+This module defines a collection of Reader types for reading EEG files.
+Formats currently supported include: EDF. Each file type specific reader is
+expected to inherit the Reader ABC and override its abstract read method.
+
+Typical usage example:
+   
+# Read samples 10 to 1000 for channels 0, 1 & 3 to a 'data' numpy array.
+# File will be closed automatically.
+
+with EDf(*.edf) as infile:
+    data = infile.read(10, 1000, channels=[0,1,3])
+
+# Read samples 10 to 1000 for channels 0 & 2 to a 'data' numpy array.
+# File must closed by calling 'close' method.
+
+eeg = EDF(*.edf)
+data = eeg.read(10, 1000, [0, 2])
+eeg.close()
+"""
+
+import abc
 import numpy as np
 
-from openseize.core import mixins, producer
+from pathlib import Path
+from openseize.core import mixins
 from openseize.io import headers
+
 
 class Reader(abc.ABC, mixins.ViewInstance):
     """An ABC that defines all subclasses as context managers and describes
     required methods and properties."""
 
     def __init__(self, path, mode):
-        """Initialize readers with a path & a read mode ('r' or 'rb')."""
+        """Initialize this reader.
+
+        Args:
+            path: Path instance or str
+                A path to eeg file.
+            mode: str
+                A mode for reading the eeg file. Must be 'r' for plain
+                string files and 'rb' for binary files.
+        """
 
         self.path = Path(path)
         self._fobj = open(path, mode)
 
     @abc.abstractmethod
     def read(self, start, stop, channels, **kwargs):
-        """Returns an ndarray of shape channels x (stop-start)."""
+        """Returns a numpy array of sample values between start and stop for
+        each channel in channels.
+
+        Args:
+            start: int
+                Start sample index of file read.
+            stop: int
+                Stop sample index of file read (exclusive).
+            channels: sequence
+                Sequence of channel indices to read.
+            
+        Returns: 
+            A channels x (stop-start) array of sample values.
+        """
 
     def __enter__(self):
         """Return reader instance as target variable of this context."""
@@ -27,8 +69,8 @@ class Reader(abc.ABC, mixins.ViewInstance):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """Close this reader instance's file obj. & propagate errors by 
-        returning None."""
+        """On context exit, close this reader's file object and propogate
+        errors by returning None."""
 
         self.close()
 
@@ -37,6 +79,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
 
         self._fobj.close()
 
+
 class EDF(Reader):
     """A reader of European Data Format (EDF/EDF+) files.
 
@@ -44,41 +87,55 @@ class EDF(Reader):
     Each data record contains all signals stored sequentially. EDF+
     files include an annotation signal within each data record. To
     distinguish these signals we refer to data containing signals as
-    channels and annotation signals as annotation. For details on the EDF/+
-    file specification please see:
+    channels and annotation signals as annotation. Currently, this reader
+    does not support the reading of annotation signals.
+
+    For details on the EDF/+ file specification please see:
 
     https://www.edfplus.info/specs/index.html
 
-    Currently, this reader does not support the reading of annotation
-    signals.
+    Attributes:
+        header: A dictionary representation of an EDF Header.
+        shape: A tuple of channels, samples contained in this EDF
     """
 
     def __init__(self, path):
-        """Initialize with a path, & construct header & file object."""
+        """Extends the Reader ABC with a header attribute."""
 
         super().__init__(path, mode='rb')
         self.header = headers.EDFHeader(path)
 
     @property
     def shape(self):
-        """Returns the number of channels x number of samples."""
+        """Returns a 2-tuple containing the number of channels and 
+        number of samples in this EDF."""
 
         return len(self.header.channels), max(self.header.samples)
 
     def _decipher(self, arr, channels, axis=-1):
-        """Deciphers an array of integers read from an EDF into an array of
-        voltage float values.
+        """Converts an array of EDF integers to an array of voltage floats.
+
+        The EDF file specification asserts that the physical voltage 
+        values 'p' are linearly mapped from the integer digital values 'd'
+        in the EDF according to:
+
+            p = slope * d + offset
+            slope = (pmax -pmin) / (dmax - dmin)
+            offset = p - slope * d for any (p,d)
+
+        The EDF header contains pmax, pmin, dmax and dmin for each channel.
 
         Args:
-            arr (ndarry):           2D-array of int type
-            channels (list):        list of channels to decipher
-            axis (int):             sample axis of arr
-
-        The physical values p are linearly mapped from the digital values d:
-        p = slope * d + offset, where the slope = 
-        (pmax -pmin) / (dmax - dmin) & offset = p - slope * d for any (p,d)
-
-        Returns: ndarray with shape matching input shape & float64 dtype
+            arr: 2-D array
+                An array of integer digital values read from the EDF file.
+            channels: sequence
+                Sequence of channels read from the EDF file
+            axis: int
+                The samples axis of arr. Default is last axis.
+            
+        Returns: 
+            A float64 ndarray of physical voltage values with shape matching
+            input 'arr' shape.
         """
 
         slopes = self.header.slopes[channels]
@@ -91,14 +148,37 @@ class EDF(Reader):
         return result
 
     def _find_records(self, start, stop, channels):
-        """Returns tuples (one per signal) of start, stop record numbers
-        that include the start, stop sample numbers
+        """Locates a start and stop record number containing the start and
+        stop sample number for each channel in channels.
+
+        EDF files are partitioned into records. Each record contains data
+        for each channel sequentially. Below is an example record for
+        4-channels of data.
+
+        Record:
+        ******************************************************
+        * Ch0 samples, Ch1 samples, Ch2 samples, Ch3 samples *
+        ******************************************************
+
+        The number of samples for each chanel will be different if the
+        sample rates for the channels are not equal. The number of samples
+        in a record for each channel is given in the header by the field
+        samples_per_record. This method locates the start and stop record
+        numbers that include the start and stop sample indices for each
+        channel.
 
         Args:
-            start (int):                start of sample range to read
-            stop (int):                 stop of sample range to read
-            channels (list):            list of channels to return record
-                                        numbers for
+            start: int
+                The start sample to read.
+            stop: int
+                The stop sample to read (exclusive).
+            channels: sequence
+                Sequence of channels to read.
+
+        Returns: 
+            A list of 2-tuples containing the start and stop record numbers
+            that inlcude the start and stop sample number for each channel
+            in channels.
         """
 
         spr = np.array(self.header.samples_per_record)[channels]
@@ -109,118 +189,125 @@ class EDF(Reader):
     def _records(self, a, b):
         """Reads samples between the ath to bth record.
 
-        Returns: a 2D array of shape (b-a) x sum(samples_per_record)
-        
-        Note 1:   Returns samples upto end of file if b > num. of records
-        Note 2:   If the start record is off the file we return an empty 
-                  array of shape (1,0)
+        If b exceeds the number of records in the EDF, then samples upto the
+        end of file are returned. If a exceeds the number of records, an
+        empty array is returned.
+
+        Args:
+            a: int
+                The start record to read.
+            b: int
+                The last record to be read (exclusive).
+
+        Returns:
+            A 2-D array of shape (b-a) x sum(samples_per_record)
         """
 
-        #if the start record is off the file return an empty array
         if a >= self.header.num_records:
             return np.empty((1,0))
-        #move to file start
-        self._fobj.seek(0)
-        #ensure last record is not off file and cnt records
         b = min(b, self.header.num_records)
         cnt = b - a
-        #each sample is represented as a 2-byte integer
+        
+        self._fobj.seek(0)
+        #EDF samples are 2-byte integers
         bytes_per_record = sum(self.header.samples_per_record) * 2
         #get offset in bytes & num samples spanning a to b
         offset = self.header.header_bytes + a * bytes_per_record
         nsamples = cnt * sum(self.header.samples_per_record)
+        #read records and reshape to num_records x sum(samples_per_record)
         recs = np.fromfile(self._fobj, '<i2', nsamples, offset=offset)
-        #reshape the records to num_records x sum samples_per_rec
         arr = recs.reshape(cnt, sum(self.header.samples_per_record))
         return arr
 
-    def _padstack(self, arrs, padvalue):
-        """Pads 1-D arrays so that all lengths match and stacks them.
+    def _padstack(self, arrs, value, axis=0):
+        """Pads a sequence of 1-D arrays to equal length and stacks them
+        along axis.
 
         Args:
-            padvalue (float):          value to pad 
-
-        The channels in the edf may have different sample rates. If
-        a channel runs out of values to return, we pad that channel with
-        padvalue to ensure the reader can return a 2-D array.
-
-        Returns: a channels x samples array
+            arrs: sequence
+                A sequence of 1-D arrays.
+            value: float
+                Value to append to arrays that are shorter than the longest
+                array in arrs.
+        
+        Returns:
+            A 2-D array.
         """
 
-        req = max(len(arr) for arr in arrs)
-        amts = [req - len(arr) for arr in arrs]
-        if all(amt == 0 for amt in amts):
+        longest = max(len(arr) for arr in arrs)
+        pad_sizes = np.array([longest - len(arr) for arr in arrs])
+
+        if all(pad_sizes == 0):
             return np.stack(arrs, axis=0)
+        
         else:
-            #convert to float for unlimited value pad
-            x = [np.pad(arr.astype(float), (0, amt), 
-                 constant_values=padvalue) for arr, amt in zip(arrs, amts)]
+            x = [np.pad(arr.astype(float), (0, pad), constant_values=value)
+                    for arr, pad in zip(arrs, pad_sizes)]
             return np.stack(x, axis=0)
 
     def _read_array(self, start, stop, channels, padvalue):
-        """Returns samples from start to stop for channels of this EDF.
+        """Reads samples between start & stop for each channel in channels.
 
         Args:
-            start (int):            start sample to begin reading
-            stop (int):             stop sample to end reading (exclusive)
-            channels (list):        channels to return samples for
-            padvalue (float):       value to pad to channels that run out of
-                                    samples to return (see _padstack).
-                                    Ignored if all channels have the same
-                                    sample rates.
+            start: int
+                The start sample index to read.
+            stop: int
+                The stop sample index to read (exclusive).
+            channels: sequence
+                Sequence of channels to read from EDF.
+            padvalue: float
+                Value to pad to channels that run out of data to return.
+                Only applicable if sample rates of channels differ.
 
-        Returns: array of shape chs x samples with float64 dtype
-        
-        Note: Returns an empty array if start exceeds samples in file 
-        as np.fromfile gracefully handles this for us
+        Returns:
+            A float64 2-D array of shape len(channels) x (stop-start).
         """
+        
+        # Locate record tuples that include start & stop samples for
+        # each channel but only perform reads over unique record tuples.
+        rec_tuples = self._find_records(start, stop, channels)
+        uniq_tuples = set(rec_tuples)
+        reads = {tup: self._records(*tup) for tup in uniq_tuples}
 
-        #locate record endpts for each channel
-        rec_pts = self._find_records(start, stop, channels)
-        #read the data for each unique record endpt tuple
-        uniq_pts = set(rec_pts)
-        reads = {pts: self._records(*pts) for pts in uniq_pts}
-        #perform final slicing and transform for each channel
         result=[]
-        for ch, pts in zip(channels, rec_pts):
+        for ch, rec_tup in zip(channels, rec_tuples):
+            
             #get preread array and extract samples for this ch
-            arr = reads[pts]
+            arr = reads[rec_tup]
             arr = arr[:, self.header.record_map[ch]].flatten()
+            
             #adjust start & stop relative to records start pt
-            a = start - pts[0] * self.header.samples_per_record[ch]
+            a = start - rec_tup[0] * self.header.samples_per_record[ch]
             b = a + (stop - start)
             result.append(arr[a:b])
+        
         res = self._padstack(result, padvalue)
-        #decipher and return
         return self._decipher(res, channels)
     
     def read(self, start, stop=None, channels=None, padvalue=np.NaN):
-        """Reads samples from an edf file for the specified channels.
+        """Reads samples from this EDF for the specified channels.
 
         Args:
-            start (int):            start sample to read
-            stop (int):             stop sample to read. If None read all
-                                    samples to end of file.
-            channels (list):        indices to return or yield data from
-                                    (Default None returns data on all
-                                    channels in EDF)
-            chunksize (int):        number of samples to return from
-                                    generator per iteration (Default is
-                                    30e6 samples). This value is ignored if
-                                    stop sample is provided.
-            padvalue (float):       value to pad to channels that run out of
-                                    samples to return. Ignored if all 
-                                    channels have the same sample rates.
+            start: int
+                The start sample index to read.
+            stop: int
+                The stop sample index to read (exclusive). If None, samples
+                will be read until the end of file. Default is None.
+            channels: sequence
+                Sequence of channels to read from EDF. If None, all channels
+                in the EDF will be read. Default is None.
+            padvalue: float
+                Value to pad to channels that run out of samples to return.
+                Only applicable if sample rates of channels differ. Default
+                padvalue is NaN.
 
-        Returns: an array of chs x (stop-start) samples of dtype float64.
+        Returns: 
+            A float64 array of shape len(chs) x (stop-start) samples.
         """
 
-        #use all channels if None
         channels = self.header.channels if not channels else channels
-        #if out of samples return an empty array
         if start > max(self.header.samples):
             return np.empty((len(channels), 0))
         if not stop:
             stop = max(self.header.samples)
-        #return an array
         return self._read_array(start, stop, channels, padvalue)
