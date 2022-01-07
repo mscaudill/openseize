@@ -44,7 +44,7 @@ class Header(dict):
                 A path to eeg data file.
         """
 
-        self.path = Path(path)
+        self.path = Path(path) if path else None
         dict.__init__(self)
         self.update(self.read())
 
@@ -87,7 +87,7 @@ class Header(dict):
             return header
 
         with open(self.path, 'rb') as fp:
-            #loop over the bytemap, read and store the decoded values
+            # loop over the bytemap, read and store the decoded values
             for name, (nbytes, dtype) in self.bytemap().items():
                 res = [dtype(fp.read(n).strip().decode(encoding=encoding))
                        for n in nbytes]
@@ -104,14 +104,7 @@ class Header(dict):
                 A dictionary containing all expected bytemap keys.
         """
 
-        instance = cls(path=None)
-        instance.update(dic)
-        #validate dic contains all bytemap keys
-        if set(dic) == set(instance.bytemap()):
-            return instance
-        else:
-            msg='Missing keys required to create a header of type {}.'
-            raise ValueError(msg.format(cls.__name__))
+        raise NotImplementedError
 
     def _isprop(self, attr):
         """Returns True if attr is a property of this Header.
@@ -126,7 +119,7 @@ class Header(dict):
     def __str__(self):
         """Overrides dict's print string to show accessible properties."""
 
-        #get header properties and return  pprinter fmt str
+        # get header properties and return  pprinter fmt str
         props = [k for k, v in getmembers(self.__class__, self._isprop)]
         pp = pprint.PrettyPrinter(sort_dicts=False, compact=True)
         props = {'Accessible Properties': props}
@@ -153,8 +146,27 @@ class EDFHeader(Header):
         in this EDF."""
 
         with open(self.path, 'rb') as fp:
-            fp.seek(252) #edf specifies num signals at 252nd byte
+            fp.seek(252) # edf specifies num signals at 252nd byte
             return int(fp.read(4).strip().decode())
+
+    @classmethod
+    def from_dict(cls, dic):
+        """Alternative constructor that creates a Header instance from
+        a dictionary.
+
+        Args:
+            dic: dictionary 
+                A dictionary containing all expected bytemap keys.
+        """
+
+        instance = cls(path=None)
+        instance.update(dic)
+        # validate dic contains all bytemap keys
+        if set(dic) == set(bytemaps.edf(1)):
+            return instance
+        else:
+            msg='Missing keys required to create a header of type {}.'
+            raise ValueError(msg.format(cls.__name__))
 
     @property
     def annotated(self):
@@ -268,7 +280,7 @@ class EDFHeader(Header):
             if isinstance(value, list):
                 header[key] = [value[idx] for idx in indices]
         
-        #update header_bytes and num_signals
+        # update header_bytes and num_signals
         bytemap = bytemaps.edf(len(indices))
         nbytes = sum(sum(tup[0]) for tup in bytemap.values())
         header['header_bytes'] = nbytes
