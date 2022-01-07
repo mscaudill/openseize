@@ -80,7 +80,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
         self._fobj.close()
 
 
-class EDF(Reader):
+class EDFReader(Reader):
     """A reader of European Data Format (EDF/EDF+) files.
 
     The EDF specification has a header section followed by data records
