@@ -1,1 +1,1 @@
-from .readers import EDF
+from .readers import EDFReader

@@ -1,2 +1,2 @@
-from . import headers
+from .headers import EDFHeader
 from . import bytemaps
