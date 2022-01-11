@@ -12,8 +12,10 @@ import numpy as np
 from openseize.io.tests.pyedf.EDF import EDFReader as pyEDF
 from openseize.io.edf import Reader as openEDF
 from openseize.io.edf import Header as openHeader
+from openseize.io.edf import Writer as openWriter
 
 DATAPATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
+WRITEPATH = '/home/matt/python/nri/data/openseize/test.edf'
 
 ################
 # HEADER TESTS #
@@ -161,6 +163,39 @@ def test_read_EOF2():
 ################
 # WRITER TESTS #
 ################
+
+def test_write_header(channels=[0,3]):
+    """Writes a file using a subset of channels from a supplied file and
+    then tests header equality."""
+
+    openeeg = openEDF(DATAPATH)
+    header = openeeg.header
+    
+    with openWriter(WRITEPATH) as outfile:
+        outfile.write(header, openeeg, channels=channels)
+    
+    # reopen and test file
+    with openEDF(WRITEPATH) as infile:
+        h = header.filter(channels)
+        assert infile.header == h
+
+    openeeg.close()
+
+def test_write_data():
+    """Test if sequentially written data for a selection of channels matches
+    the supplied data."""
+    
+    openeeg = openEDF(DATAPATH)
+    openeeg2 = openEDF(WRITEPATH)
+
+    #read data in steps of 5 million samples
+    starts = np.arange(0, openeeg.shape[-1], int(5e6))
+    stops = starts + int(5e6)
+    for start, stop in zip(starts, stops):
+        arr = openeeg.read(start, stop, channels=[0,3])
+        other = openeeg2.read(start, stop)
+        assert np.allclose(arr, other)
+
 
 
 

@@ -1,5 +1,52 @@
-import numpy as np
+"""Tools for reading and writing EDF headers and data.
 
+This module contains the following classes:
+
+    Header:
+        An extended dict (inherits from bases.Header) for reading and storing
+        all header information from an EDF file.
+
+        Typical usage example:
+
+        header = Header(<*.edf>)
+        #As an extended dict, attrs can be accessed with dot notation.
+        header.names
+
+    Reader:
+        A context manager for reading the header and data records from an
+        edf file. Inherits from bases.Reader.
+
+        Typical usage examples:
+
+        #Without context management
+        reader = Reader(<*.edf>)
+        #read samples 10 to 332 for channels 0 and 2
+        arr = reader.read(start=10, stop=332, channels=[0,2])
+        reader.close()
+
+        #Opened as context manager
+        with Reader(<*.edf>) as infile:
+            arr = infile.read(10, 332, channels=[0,2]
+
+    Writer:
+        A context manager for writing EDF headers and data to an edf file.
+        Inherits from bases.Writer
+
+        Typical usage example:
+
+        #create an EDF reader to an edf file stored on disk 
+        data = Readers.EDF(<*.edf path>)
+
+        #select a subset of channels
+        chs = [0,3]
+
+        #write a new EDF file to path containing a subset of original chs
+        with EDF(<save path>) as outfile:
+            outfile.write(header, data, channels=chs)
+"""
+
+import numpy as np
+import copy
 from openseize.io import bases
 
 
@@ -91,7 +138,7 @@ class Header(bases.Header):
         instance = cls(path=None)
         instance.update(dic)
         # validate dic contains all bytemap keys
-        if set(dic) == set(self.bytemap(1)):
+        if set(dic) == set(instance.bytemap(1)):
             return instance
         else:
             msg='Missing keys required to create a header of type {}.'
@@ -585,7 +632,7 @@ class Writer(bases.Writer):
                 status update as each record is written.
         """
 
-        header = headers.EDFHeader.from_dict(header)
+        header = Header.from_dict(header)
         header = header.filter(channels)
         self._validate(header, data)
 
