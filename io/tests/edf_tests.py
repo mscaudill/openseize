@@ -1,20 +1,71 @@
-"""A series of tests comparing the openseize EDF reader against the pyedf
-reader. The repository for this code can be found here:
+"""A module for testing the reading and writing of edf files. The tests are
+compared against the pyedf library results. This library can be found here:
 
 https://github.com/bids-standard/pyedf/tree/py3k
 
 Typical usage example:
-    !pytest test.py::<TEST_NAME>
+    !pytest edf_tests.py::<TEST_NAME>
 """
 
 import pytest
 import numpy as np
-from openseize.io.readers.tests.pyedf.EDF import EDFReader as oEDF
-from openseize.io.readers.readers import EDF
+from openseize.io.tests.pyedf.EDF import EDFReader as pyEDF
+from openseize.io.edf import Reader as openEDF
+from openseize.io.edf import Header as openHeader
 
 DATAPATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
 
-def oread(eeg, start, stop, channels=None):
+################
+# HEADER TESTS #
+################
+
+def test_header():
+    """Test if the header values from opensieze match pyedf.
+
+    Unfortunately, pyEDF changes the field namesi and or values from the
+    EDF specification when they internally store the data to the EDFREADER 
+    so to compare with opensiezes EDF compliant Header, we must compare 
+    fields one by one.
+    """
+
+    pyeeg = pyEDF(DATAPATH)
+    openheader = openHeader(DATAPATH)
+    assert(openheader.version == pyeeg.meas_info['file_ver'])
+    assert(openheader.patient == pyeeg.meas_info['subject_id'])
+    assert(openheader.recording == pyeeg.meas_info['recording_id'])
+    #dates & times in pyedf are not compliant with EDF specs
+    pydate = [str(pyeeg.meas_info[x]) for x in ['day', 'month', 'year']]
+    pydate = ['0' + x if len(x) < 2 else x for x in pydate]
+    assert(openheader.start_date == '.'.join(pydate))
+    pytime = [str(pyeeg.meas_info[x]) for x in 'hour minute second'.split()]
+    pytime = ['0' + x if len(x) < 2 else x for x in pytime]
+    assert openheader.start_time == '.'.join(pytime)
+    assert openheader.header_bytes == pyeeg.meas_info['data_offset']
+    # pyedf does not handle reserve section correctly. The 44 bytes of this
+    # section hold the type of edf file. pyedf uses the file extension if
+    # this is empty in the header but this fails to distinguish edf from
+    # edf+. We therefore do not compare this field.
+    assert openheader.num_records == pyeeg.meas_info['n_records']
+    assert openheader.record_duration == pyeeg.meas_info['record_length']
+    assert openheader.num_signals == pyeeg.meas_info['nchan']
+    assert openheader.names == pyeeg.chan_info['ch_names']
+    assert openheader.transducers == pyeeg.chan_info['transducers']
+    assert openheader.physical_dim == pyeeg.chan_info['units']
+    assert np.allclose(openheader.physical_min, 
+                       pyeeg.chan_info['physical_min'])
+    assert np.allclose(openheader.physical_max, 
+                       pyeeg.chan_info['physical_max'])
+    assert np.allclose(openheader.digital_min,
+                       pyeeg.chan_info['digital_min'])
+    assert np.allclose(openheader.digital_max, 
+                       pyeeg.chan_info['digital_max'])
+
+
+################
+# READER TESTS #
+################
+
+def pyread(eeg, start, stop, channels=None):
     """Reads using the pyEDF reader between start and stop samples for each
     channel in channels.
 
@@ -49,61 +100,68 @@ def oread(eeg, start, stop, channels=None):
     return np.array(result)
 
 
-def test_random_reads(fetches=1000):
+def test_random_reads(fetches=100):
     """Compares randomly read arrays from pyEDF and openseize."""
 
-    oeeg = oEDF(DATAPATH)
-    eeg = EDF(DATAPATH)
+    pyeeg = pyEDF(DATAPATH)
+    openeeg = openEDF(DATAPATH)
 
     #build fetch numbers of start and stop sample indices
     starts = np.random.randint(0, 5e8, fetches)
     stops = starts + np.random.randint(0, 5e5)
     
     for start, stop in zip(starts, stops):
-        arr = eeg.read(start, stop)
-        other = oread(oeeg, start, stop)
+        arr = openeeg.read(start, stop)
+        other = pyread(pyeeg, start, stop)
         assert np.allclose(arr, other)
 
-    eeg.close()
-    oeeg.close()
+    openeeg.close()
+    pyeeg.close()
 
-
-def test_random_reads_chs(fetches=1000, channels=[0,2]):
+def test_random_reads_chs(fetches=100, channels=[0,2]):
     """Compares randomly read arrays for a specifc set of channels from
     pyEDF and openseize."""
 
-    oeeg = oEDF(DATAPATH)
-    eeg = EDF(DATAPATH)
+    pyeeg = pyEDF(DATAPATH)
+    openeeg = openEDF(DATAPATH)
 
     #build fetch numbers of start and stop sample indices
     starts = np.random.randint(0, 5e8, fetches)
     stops = starts + np.random.randint(0, 5e5)
     
     for start, stop in zip(starts, stops):
-        arr = eeg.read(start, stop, channels=channels)
-        other = oread(oeeg, start, stop, channels=channels)
+        arr = openeeg.read(start, stop, channels=channels)
+        other = pyread(pyeeg, start, stop, channels=channels)
         assert np.allclose(arr, other)
 
-    eeg.close()
-    oeeg.close()
+    pyeeg.close()
+    openeeg.close()
 
 def test_read_EOF():
     """Test if start sample is at EOF that reader returns an empty array."""
 
-    eeg = EDF(DATAPATH)
-    start = max(eeg.header.samples) + 1
-    arr = eeg.read(start, start+100)
+    openeeg = openEDF(DATAPATH)
+    start = max(openeeg.header.samples) + 1
+    arr = openeeg.read(start, start+100)
     assert arr.size == 0
 
+    openeeg.close()
 
 def test_read_EOF2():
     """Test if array from slice on and off end of EDF has correct shape."""
 
-    edf = EDF(DATAPATH)
+    openeeg = openEDF(DATAPATH)
     #read 200 samples starting from 100 samples before EOF
-    start = max(edf.header.samples) - 100
-    arr = edf.read(start, start + 200)
+    start = max(openeeg.header.samples) - 100
+    arr = openeeg.read(start, start + 200)
     assert arr.shape[-1] == 100
+
+    openeeg.close()
+
+################
+# WRITER TESTS #
+################
+
 
 
 

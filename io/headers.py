@@ -20,10 +20,7 @@ of metadata used to construct format specific Headers.
 """
 
 import numpy as np
-import pprint
 import copy
-from inspect import getmembers
-from pathlib import Path
 
 from openseize.io.headers import bytemaps
 

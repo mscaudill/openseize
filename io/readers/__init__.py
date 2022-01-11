@@ -1,1 +1,0 @@
-from .readers import EDFReader
