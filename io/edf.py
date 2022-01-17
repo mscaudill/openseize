@@ -1,4 +1,4 @@
-"""Tools for reading and writing EDF headers and data.
+"""Tools for reading, writing and splitting EDF headers and data.
 
 This module contains the following classes:
 
@@ -43,10 +43,21 @@ This module contains the following classes:
         #write a new EDF file to path containing a subset of original chs
         with EDF(<save path>) as outfile:
             outfile.write(header, data, channels=chs)
+
+    splitter:
+        A function for splitting an EDF's header and data sections into
+        multiple files.
+
+        Typical usage example:
+        
+        #split an edf into two files with fil0.edf containing channels 0,1,2
+        #and file1.edf containing channels 3,4 and 5.
+        splitter(<*.edf>, {'file0': [0,1,2], 'file1':[3,4,5]})
 """
 
 import numpy as np
 import copy
+from pathlib import Path
 from openseize.io import bases
 
 
@@ -646,3 +657,31 @@ class Writer(bases.Writer):
             self._fobj.write(byte_str)
             if verbose:
                 self._progress(idx)
+
+
+def splitter(path, mapping, outdir=None):
+    """Splits an multichannel EDF file into multiple EDF files. 
+
+    EDF files may have multiple subjects stored to a single file. This tool can
+    be used to partition these files into single subject EDF files.
+
+    Args:
+        path: str or Path instance
+            Path to an EDF file to be split
+        mapping: dict
+            A dictionary of filenames and channel indices one per edf file
+            to be written.
+        outdir: str or Path instance
+            Directory where each file in mapping should be written. Default
+            (None) uses the directory of the unsplit edf path.
+    """
+
+    
+    reader = Reader(path)
+    outdir = outdir if outdir else reader.path.parent
+    for fname, indices in mapping.items():
+        target = outdir.joinpath(Path(fname).with_suffix('.edf'))
+        with Writer(target) as outfile:
+            outfile.write(reader.header, reader, indices)
+    reader.close()
+
