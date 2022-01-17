@@ -16,6 +16,7 @@ from openseize.io.edf import Writer as openWriter
 
 DATAPATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
 WRITEPATH = '/home/matt/python/nri/data/openseize/test.edf'
+IRREGULARPATH = '/home/matt/python/nri/data/openseize/irregular.edf'
 
 ################
 # HEADER TESTS #
@@ -195,6 +196,108 @@ def test_write_data():
         arr = openeeg.read(start, stop, channels=[0,3])
         other = openeeg2.read(start, stop)
         assert np.allclose(arr, other)
+
+#################################
+# IRREGULAR DATA READ AND WRITE #
+#################################
+
+def data(nrecords, samples_per_record, padval, seed):
+    """Creates an array of random values to write to an EDF.
+
+    Makes a channels x samples array of random values. Channels
+    that run out of samples (due to lower sampling rates) will be filled
+    with padvalue.
+
+    Args:
+        nrecords: int
+            Number of records to be written to test file.
+        samples_per_record: sequence
+            Number of samples that will be written for each channel to
+            a single record. 
+        padval: float
+            Value to pad to channels that run out of samples due to lower
+            sampling rate than other channels.
+        seed: int
+            Random number seeding for reproducible results.
+
+    Returns: 2-D array
+        A len(samples_per_record) x samples_per_record array.
+    """
+
+    rng = np.random.default_rng(seed)
+    num_chs = len(samples_per_record)
+    # create random data array
+    x = padval * np.ones((num_chs, max(samples_per_record) * nrecords))
+    for ch in range(num_chs):
+        stop = samples_per_record[ch] * nrecords
+        x[ch, :stop] = 1000 * rng.random(samples_per_record[ch] * nrecords)
+    return x
+
+def irregular_write(nrecords=200, 
+                    samples_per_record=[50000, 10000, 20000, 50000], 
+                    pad_val=np.NaN, seed=0):
+    """Writes an EDF file of random data with different sample rates across
+    the channels.
+
+    Please see data for futher details.
+    """
+
+    arr = data(nrecords, samples_per_record, pad_val, seed)
+    #build a header using a prebuilt header
+    header = openEDF(path=DATAPATH).header
+    header = header.filter(list(range(len(samples_per_record))))
+    header['num_records'] = nrecords
+    header['samples_per_record'] = samples_per_record
+    #write header and data to irregular path
+    chs = list(range(len(samples_per_record)))
+    with openWriter(IRREGULARPATH) as outfile:
+        outfile.write(header, arr, channels=chs)
+
+def test_irr_read():
+    """Test if irregular data returned by reader matches written irregular
+    data."""
+
+    oarr = data(200, [50000, 10000, 20000, 50000], padval=np.NAN, seed=0)
+    reader = openEDF(IRREGULARPATH)
+    read_arr = reader.read(start=0)
+    #imprecision due to 2-byte conversion so tolerance set to 1 unit
+    assert np.allclose(oarr, read_arr, equal_nan=True, atol=1)
+    reader.close()
+
+def test_irr_randomread(fetches=1000):
+    """Test if each random fetch from an irregular EDF matches the written
+    EDF."""
+
+    oarr = data(200, [50000, 10000, 20000, 50000], padval=np.NAN, seed=0)
+    reader = openEDF(IRREGULARPATH)
+    starts = np.random.randint(0, 9e6, fetches)
+    stops = starts + np.random.randint(0, 1e6)
+    for start, stop in zip(starts, stops):
+        x = reader.read(start, stop, padvalue=np.NAN)
+        assert np.allclose(x, oarr[:, start:stop], equal_nan=True, atol=1)
+    reader.close()
+
+def test_irr_random_chread(fetches=1000, channels=[1,3]):
+    """Test if each random fetch from an irregular EDF matches the written
+    EDF for a specific set of channels."""
+
+    oarr = data(200, [50000, 10000, 20000, 50000], padval=np.NAN, seed=0)
+    oarr = oarr[channels]
+    reader = openEDF(IRREGULARPATH)
+    starts = np.random.randint(0, 9e6, fetches)
+    stops = starts + np.random.randint(0, 1e6)
+    for start, stop in zip(starts, stops):
+        x = reader.read(start, stop, channels=channels, padvalue=np.NAN)
+        assert np.allclose(x, oarr[:, start:stop], equal_nan=True, atol=1)
+    reader.close()
+
+##################
+# SPLITTER TESTS #
+##################
+
+
+
+
 
 
 
