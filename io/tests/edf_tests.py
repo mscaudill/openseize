@@ -9,10 +9,12 @@ Typical usage example:
 
 import pytest
 import numpy as np
+from pathlib import Path
 from openseize.io.tests.pyedf.EDF import EDFReader as pyEDF
 from openseize.io.edf import Reader as openEDF
 from openseize.io.edf import Header as openHeader
 from openseize.io.edf import Writer as openWriter
+from openseize.io.edf import splitter
 
 DATAPATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
 WRITEPATH = '/home/matt/python/nri/data/openseize/test.edf'
@@ -235,7 +237,7 @@ def data(nrecords, samples_per_record, padval, seed):
 
 def irregular_write(nrecords=200, 
                     samples_per_record=[50000, 10000, 20000, 50000], 
-                    pad_val=np.NaN, seed=0):
+                    pad_val=np.NaN, seed=0, path=IRREGULARPATH):
     """Writes an EDF file of random data with different sample rates across
     the channels.
 
@@ -250,7 +252,7 @@ def irregular_write(nrecords=200,
     header['samples_per_record'] = samples_per_record
     #write header and data to irregular path
     chs = list(range(len(samples_per_record)))
-    with openWriter(IRREGULARPATH) as outfile:
+    with openWriter(path) as outfile:
         outfile.write(header, arr, channels=chs)
 
 def test_irr_read():
@@ -295,15 +297,39 @@ def test_irr_random_chread(fetches=1000, channels=[1,3]):
 # SPLITTER TESTS #
 ##################
 
+def test_header_split():
+    """Opens an edf, splits the file, and checks that each split header
+    contains the correct metadata."""
+    
+    mapping={'file0':[0,1], 'file1':[2,3]}
+    splitter(IRREGULARPATH, mapping=mapping)
 
+    #get unsplit header
+    with openEDF(IRREGULARPATH) as infile:
+        unsplit_header = infile.header
 
+    #test each split header
+    for fname, indices in mapping.items():
+        loc = Path(IRREGULARPATH).parent.joinpath(fname).with_suffix('.edf')
+        with openEDF(loc) as infile:
+            header = infile.header
+        probe = unsplit_header.filter(indices)
+        assert header == probe
 
+def test_data_split():
+    """Opens split files (see test_header_split) and test that the data in
+    each split file matches the data in the original unsplit file."""
 
+    
+    with openEDF(IRREGULARPATH) as infile:
+        unsplit_data = infile.read(start=0)
 
-
-
-
-
-
-
+    mapping={'file0':[0,1], 'file1':[2,3]}
+    dirname = Path(IRREGULARPATH).parent
+    locs = [dirname.joinpath(f).with_suffix('.edf') for f in mapping]
+    for fp, indices in zip(locs, mapping.values()):
+        with openEDF(fp) as infile:
+            arr = infile.read(start=0)
+        assert np.allclose(arr, unsplit_data[indices,:], equal_nan=True)    
+    
 
