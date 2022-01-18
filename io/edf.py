@@ -651,7 +651,7 @@ class Writer(bases.Writer):
         self._fobj.seek(header.header_bytes)
         for idx, record in enumerate(self._records(data, channels)):
             samples = self._encipher(record) # floats to '<i2'
-            samples = np.concatenate(samples)
+            samples = np.concatenate(samples, axis=1)
             #concatenate data bytes to str and write
             byte_str = samples.tobytes()
             self._fobj.write(byte_str)
@@ -675,7 +675,6 @@ def splitter(path, mapping, outdir=None):
             Directory where each file in mapping should be written. Default
             (None) uses the directory of the unsplit edf path.
     """
-
     
     reader = Reader(path)
     outdir = outdir if outdir else reader.path.parent
