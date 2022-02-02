@@ -1,19 +1,21 @@
-"""A collection of base classes for reading and writing EEG data. 
+"""A collection of base classes for reading & writing EEG data & annotations
 
 The abstract base classes of this module define interfaces for reading and
-writing EEG data. Inheritors of these classes must supply all abstract
-methods to create a fully instantiale object.
+writing EEG data and associated annotations. Inheritors of these classes 
+must supply all abstract methods to create a fully instantiable object.
 
 Typical usage example:
 
-These classes are not part of the public interface and are abstract meaning
-they can not be instantiated as stand-alones.
+These abstract classes are not part of the public interface and can not
+be instantiated.
 """
 
 import abc
 import pprint
 from inspect import getmembers
 from pathlib import Path
+from dataclass import dataclass
+from typping import Any
 from openseize.core import mixins
 
 
@@ -218,3 +220,111 @@ class Writer(abc.ABC, mixins.ViewInstance):
         """Close this instance's opened file object."""
 
         self._fobj.close()
+
+
+@dataclass(frozen=True)
+class Annotation:
+    """An immutable object for storing annotation data.
+
+    Attributes:
+        label: str
+            The string name of this annotation.
+        time: float
+            The time this annotation was made in seconds relative to the
+            recording start.
+        duration: float
+            The duration of this annotation in seconds.
+        channel: Any
+            The string name or integer index of the channel this annotation.
+    """
+    
+    label: str
+    time: float
+    duration: float
+    channel: Any
+
+
+class Annotations(abc.ABC):
+    """Base class for reading annotation data.
+
+    Annotation data may be stored in a variety of formats; csv files,
+    pickled objects, etc. This ABC defines the interface expected of all
+    annotation readers. Specifically, all Annotations are context managers
+    and all inheritors must supply abstract methods.
+    """
+
+    def __init__(self, path, *args, **kwargs):
+        """Initialize this Annotations reader.
+
+        Args:
+            path: str or Path instance
+                A path where edf file will be written to.
+            *args: sequence
+                A sequence of positional args provided to this Annotations 
+                open method required to open file at path.
+            **kwargs: dict
+                Keyword args provided to Annotations open method for opening
+                file at path
+        """
+
+        self.path = path
+        self._fobj, self._reader = self.open(**kwargs)
+
+    @abc.abstractmethod
+    def open(self, *args, **kwargs):
+        """Opens a file at path returning a file handle & row iterator."""
+
+    @abc.abstractmethod
+    def label(self, row):
+        """Reads the annotation label at row in this file."""
+        
+    @abc.abstractmethod
+    def time(self, row):
+        """Reads annotation time in secs from recording start at row in this
+        file."""
+
+    @abc.abstractmethod
+    def duration(self, row):
+        """Returns the duration of the annotated event in secs."""
+
+    @abc.abstractmethod
+    def channel(self, row):
+        """Retrurns the sensor this annotated event was detected on."""
+
+
+    def read(self, labels):
+        """Reads annotations with labels to a list of Annotation instances.
+
+        Args:
+            labels: sequence
+                A sequence of annotation string labels for which Annotation
+                instances will be returned. If None, return all.
+
+        Returns:
+            A list of Annotation dataclass instances (see Annotation).
+        """
+        
+        results = []
+        for row in self._reader:
+
+
+
+    def __enter__(self):
+        """Return this instance as target variable of this context."""
+
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Closes this instance's file obj. & propagate errors by returning
+        None."""
+
+        self.close()
+
+    def close(self):
+        """Closes this instance's opened file object."""
+
+        self._fobj.close()
+
+
+
+
