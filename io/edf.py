@@ -1,6 +1,6 @@
 """Tools for reading, writing and splitting EDF headers and data.
 
-This module contains the following classes:
+This module contains the following classes and functions:
 
     Header:
         An extended dict (inherits from bases.Header) for reading and storing
