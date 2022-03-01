@@ -14,8 +14,8 @@ import abc
 import pprint
 from inspect import getmembers
 from pathlib import Path
-from dataclass import dataclass
-from typping import Any
+from dataclasses import dataclass
+from typing import Any
 from openseize.core import mixins
 
 
@@ -222,18 +222,28 @@ class Writer(abc.ABC, mixins.ViewInstance):
         self._fobj.close()
 
 
+@dataclass
 class Annotation:
-    """A mutable object for storing annotation data.
-
-    To allow for variable number of attributes for an annotation, we use
-    a object with a dict instance (not slots). This will incur a memory 
-    performance hit if the number of annoations becomes large (> 1e6).
+    """An object for storing a predefined set of annotation attributes that
+    can be updated with user defined attributes after object creation.
+    
+    Attributes:
+        label: str
+            The string name of this annotation.
+        time: float
+            The time this annotation was made in seconds relative to the
+            recording start.
+        duration: float
+            The duration of this annotation in seconds.
+        channel: Any
+            The string name or integer index of the channel this annotation
+            created from.
     """
 
-    def __init__(self, **kwargs):
-        """Initialize this container."""
-
-        self.__dict__.update(kwargs)
+    label: str
+    time: float
+    duration: float
+    channel: Any
 
 
 class Annotations(abc.ABC):
@@ -245,56 +255,40 @@ class Annotations(abc.ABC):
     and all inheritors must supply abstract methods.
     """
 
-    def __init__(self, path, *args, **kwargs):
+    def __init__(self, path, **kwargs):
         """Initialize this Annotations reader.
 
         Args:
             path: str or Path instance
-                A path where edf file will be written to.
-            *args: sequence
-                A sequence of positional args provided to this Annotations 
-                open method required to open file at path.
+                A path location to an annotation file.
             **kwargs: dict
                 Keyword args provided to Annotations open method for opening
                 file at path
         """
 
-        self.path = path
-        self._fobj, self._reader = self.open(**kwargs)
-        self._registered = set()
+        self._fobj, self._reader = self.open(path, **kwargs)
     
-    def register(self, method):
-        """Registers a method to a set of methods used to build a single
-        Annotation instance."""
-
-        self._registered = set(self._registered.append(method))
-        return method
-
     @abc.abstractmethod
-    def open(self, *args, **kwargs):
+    def open(self, path, **kwargs):
         """Opens a file at path returning a file handle & row iterator."""
 
     @abc.abstractmethod
-    @registered
     def label(self, row):
         """Reads the annotation label at row in this file."""
         
     @abc.abstractmethod
-    @registered
     def time(self, row):
         """Reads annotation time in secs from recording start at row."""
 
     @abc.abstractmethod
-    @registered
     def duration(self, row):
         """Returns the duration of the annotated event in secs."""
 
     @abc.abstractmethod
-    @registered
     def channel(self, row):
         """Retrurns the sensor this annotated event was detected on."""
 
-    def read(self, labels):
+    def read(self, labels=None):
         """Reads annotations with labels to a list of Annotation instances.
 
         Args:
@@ -306,11 +300,15 @@ class Annotations(abc.ABC):
             A list of Annotation dataclass instances (see Annotation).
         """
         
-        annotations = []
+        result = []
+        names = ['label', 'time', 'duration', 'channel']
         for row in self._reader:
-             data = {f.__name__, f(self, row) for f in self.registered}
-             annotations.append(Annotation(**data))
-        return [annote for annote in annotations if annote.label = label]
+            ann = Annotation(*[getattr(self, name)(row) for name in names])
+            if labels is None:
+                result.append(ann)
+            else:
+                result.append(ann) if ann.label in labels else None
+        return result
 
     def __enter__(self):
         """Return this instance as target variable of this context."""
@@ -328,43 +326,3 @@ class Annotations(abc.ABC):
 
         self._fobj.close()
 
-
-
-if __name__ == '__main__':
-
-    class Pinnacle(Annotations):
-        """ """
-
-        def open(self, mode, start_row=0, **kwargs):
-            """ """
-
-            fobj = open(path, mode)
-            [next(fobj) for _ in range(start_row)]
-            reader = csv.DictReader(fobj, **kwargs)
-            return fobj, reader
-
-        def label(self, row):
-            """Returns the annotation label of this row in the file."""
-           
-            return row['Annotation']
-
-        def time(self, row):
-            """Returns annotation time in secs of this row in the file."""
-
-            return float(row['Time From Start'])
-
-        def duration(self, row):
-            """Returns annotation duration in secs of this row in the file."""
-
-            #create a format for datetime objs
-            fmt = '%m/%d/%y %H:%M:%S.%f'
-            start = datetime.strptime(row['Start Time'], fmt)
-            stop = datetime.strptime(row['End Time'], fmt)
-            return (stop - start).total_seconds()
-
-        def channel(self, row):
-            """Returns the annotation channels of this row in the file."""
-
-            return row['Channel']
-
-#here we will test reading of Pinnacle

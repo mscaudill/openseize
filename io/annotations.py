@@ -1,154 +1,224 @@
-"""
+"""Tools for reading EEG annotations files and creating boolean arrays for
+masking EEG data producers.
 
-"""
+This module contains the following classes and functions:
 
-import abc
-from dataclasses import dataclass
-from typing import Any
+    Pinnacle:
+        A Pinnacle Technoologies© annotation file reader.
+
+        Typical usage example:
+        with Pinnacle(<*.txt>, start=6) as infile:
+            annotations = infile.read(labels=['rest', 'exploring'])
+
+        returns a sequence of Annotation instances from file which contain
+        either the 'rest' or 'exploring' label.
+
+    as_mask:
+        A function that converts a sequence of annotations into a boolean
+        array for masking a producer of data values.
+"""
+# FIXME This file contains some specific readers that should be moved to
+# a project specific directory for SWD detection/classification at a later
+# date. Each of these readers is marked with a FIXME.
+
+
+import csv
+import numpy as np
+from datetime import datetime
 from pathlib import Path
+from openseize.io.bases import Annotations
+from openseize.core import arraytools
 
-@dataclass(frozen=True)
-class Annotation:
-    """An immutable object for storing annotation data.
 
-    Attributes:
-        label: str
-            The string name of this annotation.
-        time: float
-            The time this annotation was made in seconds relative to the
-            recording start.
-        duration: float
-            The duration of this annotation in seconds.
-        channel: Any
-            The string name or integer index of the channel this annotation
-            created from.
+class Pinnacle(Annotations):
+    """A Pinnacle Technologies© annotations file reader.
+
+    Pinnacle files store annotation data to a plain text file. This
+    reader reads each row of this file extracting and storing annotation
+    data to a sequence Annotation objects one per annotation (row) in the
+    file.
     """
+
+    def open(self, path, start=0, delimiter='\t', **kwargs):
+        """Opens a file returning a file handle and row iterator.
     
-    label: str
-    time: float
-    duration: float
-    channel: Any
-
-
-def to_bool(annotations, size, fs, include=True):
-    """ """
-
-    pass
-
-
-class AnnotationReader(abc.ABC):
-    """ """
-
-    # FIXME Move to BASES
-    def __init__(self, path, mode='r', **kwargs):
-        """Initialize this Reader."""
-
-        self.path = Path(path)
-        self.open(mode, **kwargs)
-        self._fobj, self._reader = self.open()
-
-    @abc.abstractmethod
-    def open(self, mode, **kwargs):
-        """Returns an iterable over rows  """
-
-    def __enter__(self):
-        """Return this instance as target variable of this context."""
-
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """Closes this instance's file obj. & propagate errors by returning
-        None."""
-
-        self.close()
-
-    def close(self):
-        """Close this reader instance's opened file object."""
-
-        self._fobj.close()
-
-    @abc.abstractmethod
-    def label(self, row):
-        """Returns an annotation name for a row in a csv file."""
-        
-    @abc.abstractmethod
-    def time(self, row):
-        """Returns annotation time in secs relative to recording start."""
-
-    @abc.abstractmethod
-    def duration(self, row):
-        """Returns the duration of the annotated event in secs."""
-
-    @abc.abstractmethod
-    def channel(self, row):
-        """Retrurns the sensor this annotated event was detected on."""
-    
-    def read(self, labels=None):
-        """Returns a list of Annotation objects for this CSV.
-
         Args:
-            labels (list):      seq of annotation labels to constrain 
-                                which annotations will be returned. If None,
-                                return all annotated events (Default = None)
+            path: str or Path instance
+                A annotation file path location.
+            start: int
+                The row number of the column headers in the file.
+            **kwargs: A valid keyword argument for CSV.DictReader builtin.
         """
 
-        result = []
-        for row in self._reader:
-            attrs = [getattr(self, attr)(row) for attr in 
-                     ['label','event_time', 'duration', 'channel']]
-            result.append(Annotation(*attrs))
-        if labels:
-            result = [ann for ann in result if ann.label in labels]
-        return Annotations(result)
-
-
-class Pinnacle(AnnotationReader):
-    """ """
-
-    def open(self, mode, start_row=0, **kwargs):
-        """ """
-
-        fobj = open(path, mode)
-        [next(fobj) for _ in range(start_row)]
-        reader = csv.DictReader(fobj, **kwargs)
-        return fobj, reader
+        fobj = open(Path(path))
+        #advance to start row and return a reader
+        [next(fobj) for _ in range(start)]
+        return fobj, csv.DictReader(fobj, delimiter=delimiter, **kwargs)
 
     def label(self, row):
-        """Returns the annotation label of this row in the file."""
-       
+        """Extracts the annotation label for a row in this file."""
+
         return row['Annotation']
 
-    def event_time(self, row):
-        """Returns annotation time in secs of this row in the file."""
+    def time(self, row):
+        """Extracts the annotation time of a row of this file."""
 
         return float(row['Time From Start'])
 
     def duration(self, row):
-        """Returns annotation duration in secs of this row in the file."""
+        """Measures the duration of an annotation for a row in this file."""
 
-        #create a format for datetime objs
+        #compute time difference from start and stop datetime objs
         fmt = '%m/%d/%y %H:%M:%S.%f'
         start = datetime.strptime(row['Start Time'], fmt)
         stop = datetime.strptime(row['End Time'], fmt)
         return (stop - start).total_seconds()
 
     def channel(self, row):
-        """Returns the annotation channels of this row in the file."""
+        """Extracts the annotation channel for a row in this file."""
 
         return row['Channel']
 
 
+def as_mask(annotations, size, fs, include=True):
+    """Convert a sequence of annotation objects into a 1-D boolean array. 
+
+    Args:
+        annotations: list
+            A sequence of annotation objects to convert to a mask.
+        size: int
+            The length of the boolean array to return.
+        fs: int
+            The sampling rate in Hz of the recorded EEG.
+        include: bool
+            A boolean to determine if annotations should be set to True or
+            False in the returned array. Default is True, meaning all values
+            are False in the returned array expect for samples where the
+            annotations are located.
+
+    Returns:
+        A 1-D boolean array of length size.
+    """
+
+    epochs = [(ann.time, ann.time + ann.duration) for ann in annotations]
+    samples = np.round(np.array(epochs) * fs).astype(int)
+    slices = [slice(*pts) for pts in samples]
+    result = arraytools.filter1D(size, slices)
+    return result if include else ~result
 
 
-class MAT(AnnotationReader):
-    pass
+# FIXME Move to project specific package later
+import scipy.io as sio
+class XueMat(Annotations):
+    """A Xue lab MAT file annotations reader.
+
+    The MAT file storing annotated events in the Xue lab contains the start
+    and stop times. No channel or label data is present so we will set the
+    labels to be 'SWD' and the channel to 'ALL'
+    """
+
+    def open(self, path, name='DEL_ts'):
+        """Opens a MAT file containing an array of times.
+
+        Args:
+            path: str or Path instance
+                A annotation file path location.
+            name: str
+                Name of the stored array of times in the MAT file. Defaults
+                to 'DEL_ts'
+        """
+
+        fobj = open(Path(path))
+        return fobj, sio.loadmat(path)[name]
+
+    def label(self, row):
+        """Extracts the annotation label for a row in this array."""
+
+        return 'SWD'
+
+    def time(self, row):
+        """Extracts the annotation time of a row of this array."""
+
+        return np.around(row[0], decimals=3)
+
+    def duration(self, row):
+        """Return the annotation duration in secs for this row of array."""
+
+        return np.around(row[1] - row[0], decimals=3)
+
+    def channel(self, row):
+        """Extracts the annotation channel for a row in this file."""
+
+        return 'ALL'
+
+# FIXME Move to project specific package later
+class Frankel(Annotations):
+    """A Frankel lab CSV Annotations file reader."""
+
+    def open(self, path, start=0, delimiter=',', **kwargs):
+        """Opens a file returning a file handle and row iterator.
+    
+        Args:
+            path: str or Path instance
+                A annotation file path location.
+            start: int
+                The row number of the column headers in the file.
+            **kwargs: A valid keyword argument for CSV.DictReader builtin.
+        """
+
+        fobj = open(Path(path))
+        #advance to start row and return a reader
+        [next(fobj) for _ in range(start)]
+        return fobj, csv.DictReader(fobj, delimiter=delimiter, **kwargs)
+
+    def rate(self, row):
+        """Computes the sample rate of recording for a Frankel EEG.
+
+        The Frankel lab store annotations at samples instead of secs so we
+        use the recording length and duration in seconds to compute the
+        sample rate to convert samples to time.
+        """
+
+        return float(row['Sample Length']) /  float(row['Duration (s)'])
+
+    def label(self, row):
+        """Return the label of this rows annotation."""
+
+        return row['Analyzed Event']
+
+    def time(self, row):
+        """Return the annotation time in secs from this row of reader."""
+
+        return float(row['Start Sample']) / self.rate(row)
+
+    def duration(self, row):
+        """Returns annotation duration in secs from this row of reader."""
+
+        return float(row['Duration (s)'])
+
+    def channel(self, row):
+        """Returns channel of this annotation from this row of reader."""
+
+        return row['Channel Index']
 
 
-
+# FIXME REMOVE TO TESTING CODE
 if __name__ == '__main__':
 
-    a = Annotation(label='artifact', time=30.2, duration=2.3, channel=0)
+    fp = ('/home/matt/python/nri/data/rett_eeg/dbs_treated/annotations/'
+          '5872_Left_group A-D.txt')
+    with Pinnacle(fp, start=6, delimiter='\t') as p:
+        annotations0 = p.read(labels='exploring')
 
+
+    fp2 = '/home/matt/python/nri/data/openseize/CW0101_P227.mat'
+    with XueMat(fp2) as f:
+        annotations1 = f.read()
+
+    fp3 = ('/home/matt/python/nri/data/frankel_lab/annotations/'
+           'Scn8a_Gria4x2_Gabrg2_M1_14242.csv')
+    with Frankel(fp3, start=2) as fp:
+        annotations2 = fp.read()
 
 
 
