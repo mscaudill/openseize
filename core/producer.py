@@ -63,6 +63,11 @@ def producer(obj, chunksize, axis, shape=None, mask=None, **kwargs):
         result = ReaderProducer(obj, chunksize, axis, **kwargs)
 
     elif inspect.isgeneratorfunction(obj):
+        # TODO state limitation of arg passing here. When building
+        # a producer using this constructor, only kwargs are passed to
+        # generating function. This is due to positional arg collisions that
+        # can occur between parameters needed for obj and parameters needed
+        # for GenProducer (e.g. axis may be needed by both)
         result = GenProducer(obj, chunksize, axis, shape, **kwargs)
 
     elif isinstance(obj, np.ndarray):
