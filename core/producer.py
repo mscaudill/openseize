@@ -1,5 +1,33 @@
-"""
+"""Tools for creating iterables of ndarrays from numpy arrays, sequences,
+binary file readers, and generating functions.
 
+This module contains the following classes and functions:
+
+    producer:
+        A function that transforms data from an ndarray, sequence, file
+        reader or generating function of ndarrays into an iterable of
+        ndarrays.
+
+        Typical usage example:
+        pro = producer(data, chunksize=1000, axis=-1)
+        #returns an iterable yielding ndarrays of size 1000 along last axis
+        from a data source. Data may be an array, a sequence, a file reader
+        or a generating function yielding ndarrays.
+
+    as_producer:
+        A higher-order function for decorating generating functions to
+        convert them into producers.
+
+        Typical usage example:
+        @as_producer
+        def gen_function(pro, *args, **kwargs):
+            for arr in pro:
+                yield np.fft(arr, axis=-1)
+        #converts the generator function into  a producer for  other
+        functions to consume.
+
+    All other classes and functions of this module are not part of the 
+    public API.
 """
 
 import abc
