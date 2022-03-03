@@ -1,1 +1,1 @@
-from .core.producer import producer, as_producer
+from .core.producer import producer
