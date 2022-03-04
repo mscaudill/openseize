@@ -275,6 +275,10 @@ class GenProducer(Producer):
     def __init__(self, data, chunksize, axis, shape, **kwargs):
         """Initialize this producer with additional required shape."""
 
+        if shape is None:
+            msg = 'A {} from a generating function requires a shape.'
+            raise ValueError(msg.format('Producer'))
+
         super().__init__(data, chunksize, axis, **kwargs)
         self._shape = shape
 
