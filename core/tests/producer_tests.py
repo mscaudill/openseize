@@ -76,9 +76,9 @@ def test_fromgenedge():
     """Verify that a producer from a generator yields the correct subarrays
     when the chunksize and generator size equal."""
 
-    #FIXME LEFT OFF HERE NO EQUALITY
+    size = 6000
 
-    def g(chs=4, samples=500000, segsize=9000):
+    def g(chs=4, samples=500000, segsize=size):
         """A generator of constant sized arrays of segsize along axis=-1.
 
         chs: int
@@ -90,18 +90,17 @@ def test_fromgenedge():
             this generating function.
         """
 
-        np.random.seed(0)
+        rng = np.random.default_rng(seed=21)
         starts = range(0, samples, segsize)
         segments = zip_longest(starts, starts[1:], fillvalue=samples)
         for start, stop in segments:
-            arr = np.random.random((chs, stop-start))
+            arr = rng.random((chs, stop-start))
             yield arr
     
     #build a producer
-    pro = producer(g, chunksize=9000, axis=-1, shape=(4,500000))
+    pro = producer(g, chunksize=size, axis=-1, shape=(4,500000))
     #test equality
-    for gen_arr, pro_arr in zip(g(), pro):
-        print(gen_arr, pro_arr)
+    for idx, (gen_arr, pro_arr) in enumerate(zip(g(), pro)):
         assert np.allclose(gen_arr, pro_arr)
 
 if __name__ == '__main__':
