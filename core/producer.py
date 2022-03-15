@@ -268,6 +268,10 @@ class GenProducer(Producer):
 
     Attrs:
         see Producer
+        shape: tuple 
+            The combined shape of all arrays in data generating function.
+        kwargs: dict
+            Any valid keyword argument for the data generating function.
 
     The data attribute in this Producer is a generating function
     """
@@ -334,7 +338,7 @@ class MaskedProducer(Producer):
         """Initialize this Producer with a boolean array mask."""
 
         super().__init__(pro, chunksize, axis, **kwargs)
-        self.mask = producer(mask, chunksize, axis=0, *kwargs)
+        self.mask = producer(mask, chunksize, axis=0)
 
     @property
     def shape(self):
@@ -342,9 +346,10 @@ class MaskedProducer(Producer):
 
         result = list(self.data.shape[axis])
         #iteration stops when producer or mask runs out
+        # FIXME VERIFY
         result[self.axis] = min(self.data.shape[axis], 
-                                np.count_nonzero(self.mask))
-        return tuple(shape)
+                                self.mask.shape[axis])
+        return tuple(result)
 
     @property
     def chunksize(self):
@@ -362,10 +367,34 @@ class MaskedProducer(Producer):
     def __iter__(self):
         """Returns an iterator of boolean masked numpy arrays along axis."""
 
+        """
         for (arr, marr) in zip(self.data, self.mask):
             indices = np.flatnonzero(marr)
             yield np.take(arr, indices, axis=self.axis)
+        """
 
+        # FIXME need to hold a mask overage too!
+        #collect arrays and overage amt until chunksize reached
+        collected, size = list(), 0
+        for subarr, mask in zip(self.data, self.mask):
+            #filter the subarr
+            indices = np.flatnonzero(mask)
+            filt = np.take(subarr, indices, axis=self.axis)
+            collected.append(filt)
+            size += filt.shape(self.axis)
+            if size >= self.chunksize:
+                # split the collected storing overage for next round
+                y = np.concatenate(collected, axis=self.axis)
+                y, overage = np.split(y, [self.chunksize], axis=self.axis)
+                yield y
+            #reset collected and size and carry overage to next round
+            collected = []
+            collected.append(overage)
+            size = overage.shape[self.axis]
+        else:
+            yield np.concatenate(collected, axis=self.axis)
+
+            
 
 if __name__ == '__main__':
 

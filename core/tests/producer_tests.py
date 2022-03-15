@@ -62,7 +62,7 @@ def test_fromgenerator():
 
     chunksize=10000
     #create a producer from the generator func g passing in arrs as kwargs
-    pro = producer(g, chunksize=chunksize, axis=0, shape=arr.shape[0],
+    pro = producer(g, chunksize=chunksize, axis=0, shape=arr.shape,
                    arrs=arrs)
     #test equality
     starts = range(0, arr.shape[0], chunksize)
@@ -72,13 +72,22 @@ def test_fromgenerator():
         slicer[0] = slice(start, stop)
         assert np.allclose(arr[tuple(slicer)], pro_arr)
 
-def test_fromgenedge():
-    """Verify that a producer from a generator yields the correct subarrays
-    when the chunksize and generator size equal."""
+def test_fromgen_boundary():
+    """Test if a producer with a chunksize that is a multiple of the array
+    size (along chunk axis) yielded by a generator yields the correct 
+    subarrays on each iteration.
+    """
 
-    size = 6000
+    #set size of data created by generator
+    chs = 7
+    samples = 501000
+    gensize = 10000 #number of samples in each yielded array
 
-    def g(chs=4, samples=500000, segsize=size):
+    #set the chunksize multiple of the gensize that will be produced
+    multiple = 3
+    chunksize = multiple * gensize
+
+    def g(chs=chs, samples=samples, segsize=gensize):
         """A generator of constant sized arrays of segsize along axis=-1.
 
         chs: int
@@ -90,20 +99,51 @@ def test_fromgenedge():
             this generating function.
         """
 
-        rng = np.random.default_rng(seed=21)
+        rng = np.random.default_rng(seed=1)
         starts = range(0, samples, segsize)
         segments = zip_longest(starts, starts[1:], fillvalue=samples)
         for start, stop in segments:
             arr = rng.random((chs, stop-start))
             yield arr
-    
+
     #build a producer
-    pro = producer(g, chunksize=size, axis=-1, shape=(4,500000))
+    pro = producer(g, chunksize=chunksize, axis=-1, 
+                   shape=(chs, samples))
+    #combine all the arrays from the generator for easy testing
+    arr = np.concatenate([x for x in g()], axis=-1)
     #test equality
-    for idx, (gen_arr, pro_arr) in enumerate(zip(g(), pro)):
-        assert np.allclose(gen_arr, pro_arr)
+    starts = range(0, arr.shape[-1], chunksize)
+    segments = zip_longest(starts, starts[1:], fillvalue=arr.shape[-1])
+    for (start, stop), pro_arr in zip(segments, pro):
+        slicer = [slice(None)] * arr.ndim #slice obj to slice arr
+        slicer[-1] = slice(start, stop)
+        assert np.allclose(arr[tuple(slicer)], pro_arr)
+
+def test_masked_array():
+    """Test if a producer from arrays with a mask produces correct subarrays
+    on each iteration."""
+
+    #create a reproducible random array and mask
+    rng = np.random.default_rng(seed=0)
+    arr = rng.random((17, 12, 52010))
+    mask = rng.choice([True, False], size=arr.shape[-1], p=[.2, .8])
+    #mask the array
+    masked = arr[:,:, mask]
+    #build a masked producer
+    chunksize = 10000
+    pro = producer(arr, chunksize=chunksize, axis=-1, mask=mask)
+
+    #test equality
+    starts = range(0, masked.shape[-1], chunksize)
+    segments = zip_longest(starts, starts[1:], fillvalue=masked.shape[-1])
+    for (start, stop), pro_arr in zip(segments, pro):
+        slicer = [slice(None)] * masked.ndim #slice obj to slice arr
+        slicer[-1] = slice(start, stop)
+        assert np.allclose(masked[tuple(slicer)], pro_arr)
+
+
 
 if __name__ == '__main__':
 
-    test_fromgenedge()
+    test_masked_array()
 
