@@ -295,6 +295,19 @@ class GenProducer(Producer):
     def __iter__(self):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
 
+        collector = FIFOArray(self.chunksize, self.axis)
+        for subarr in self.data(**self.kwargs):
+            collector.put(subarr)
+            while collector.full():
+                yield collector.get()
+        else:
+            # yield anything left in collector queue
+            yield collector.get()
+
+    # FIXME TEST THEN REMOVE
+    def depr__iter__(self):
+        """Returns an iterator yielding ndarrays of chunksize along axis."""
+
         #collect arrays and overage amt until chunksize reached
         collected, size = list(), 0
         for subarr in self.data(**self.kwargs):
@@ -346,7 +359,6 @@ class MaskedProducer(Producer):
 
         result = list(self.data.shape[axis])
         #iteration stops when producer or mask runs out
-        # FIXME VERIFY
         result[self.axis] = min(self.data.shape[axis], 
                                 self.mask.shape[axis])
         return tuple(result)
@@ -367,34 +379,76 @@ class MaskedProducer(Producer):
     def __iter__(self):
         """Returns an iterator of boolean masked numpy arrays along axis."""
 
-        """
-        for (arr, marr) in zip(self.data, self.mask):
-            indices = np.flatnonzero(marr)
-            yield np.take(arr, indices, axis=self.axis)
-        """
-
-        # FIXME need to hold a mask overage too!
-        #collect arrays and overage amt until chunksize reached
-        collected, size = list(), 0
-        for subarr, mask in zip(self.data, self.mask):
-            #filter the subarr
-            indices = np.flatnonzero(mask)
-            filt = np.take(subarr, indices, axis=self.axis)
-            collected.append(filt)
-            size += filt.shape(self.axis)
-            if size >= self.chunksize:
-                # split the collected storing overage for next round
-                y = np.concatenate(collected, axis=self.axis)
-                y, overage = np.split(y, [self.chunksize], axis=self.axis)
-                yield y
-            #reset collected and size and carry overage to next round
-            collected = []
-            collected.append(overage)
-            size = overage.shape[self.axis]
+        collector = FIFOArray(self.chunksize, self.axis)
+        for arr, maskarr in zip(self.data, self.mask):
+            filtered = np.take(arr, np.flatnonzero(maskarr), axis=self.axis)
+            collector.put(filtered)
+            while collector.full():
+                yield collector.get()
         else:
-            yield np.concatenate(collected, axis=self.axis)
+            # yield anything left in collector queue
+            yield collector.get()
 
-            
+
+class FIFOArray:
+    """A first-in-first-out queue-like data structure for collecting 
+    ndarrays into chunksize subarrays.
+
+    Attrs:
+        queue: ndarray
+            An ndarray formed by the concatenation of arrays supplied by the
+            'put' method along axis.
+        chunksize: int
+            The size of each ndarray to be dequeued by the 'get' method.
+        axis: int
+            The axis along which ndarrays will be collected. This is usually
+            the sample axis of the putted ndarrays.
+    """
+
+    def __init__(self, chunksize, axis):
+        """Initialize this FIFOArray with an empty queue."""
+
+        self.queue = np.array([])
+        self.chunksize = chunksize
+        self.axis = axis
+
+    def qsize(self):
+        """Returns the shape of the queue along axis."""
+
+        return 0 if self.empty() else self.queue.shape[self.axis]
+
+    def empty(self):
+        """Returns True if the queue is empty and False otherwise."""
+
+        return True if self.queue.size == 0 else False
+
+    def full(self):
+        """Returns True if the size of the queue is at least chunksize."""
+
+        return True if self.qsize() >= self.chunksize else False
+
+    def put(self, x):
+        """Appends an ndarray to this queue.
+
+        Args:
+            x: ndarray
+                If the queue is not empty, this array must have the same
+                dimensions as the queue on all axes except axis.
+        """
+
+        if self.empty():
+            self.queue = x
+        else:
+            self.queue = np.concatenate((self.queue, x), axis=self.axis)
+
+    def get(self):
+        """Pops an array of size chunksize along axis from this queue."""
+
+        result, self.queue = np.split(self.queue, [self.chunksize],
+                                      axis=self.axis)
+        return result
+
+
 
 if __name__ == '__main__':
 
@@ -410,9 +464,26 @@ if __name__ == '__main__':
     pro = producer(gfunc, chunksize=10, axis=-1, shape=(4, 7*10), count=4)
     """
 
+    """
     fp = ('/home/matt/python/nri/data/rett_eeg/dbs_treated/edf/'
           '5872_Left_group A-D.edf')
     from openseize.io.edf import Reader
     reader = Reader(fp)
     pro = producer(reader, chunksize=10000, axis=-1, channels=[0,2])
+    """
  
+    arrs = [np.random.random((4,200)) for _ in range(20)]
+
+    result = []
+    fa = FIFOArray(5000, axis=-1)
+    for arr in arrs:
+        fa.put(arr)
+        while fa.full():
+            result.append(fa.get())
+    else:
+        result.append(fa.get())
+
+    arr = np.concatenate(arrs, axis=-1)
+    res = np.concatenate(result, axis=-1)
+    print(np.allclose(arr, res))
+
