@@ -16,6 +16,8 @@ from openseize.io.edf import Header as openHeader
 from openseize.io.edf import Writer as openWriter
 from openseize.io.edf import splitter
 
+# FIXME I NEED TO PROVIDE OR GENERATE TEST DATA AND THESE FILES ARE TOO
+# LARGE!
 DATAPATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
 WRITEPATH = '/home/matt/python/nri/data/openseize/test.edf'
 IRREGULARPATH = '/home/matt/python/nri/data/openseize/irregular.edf'
