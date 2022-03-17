@@ -5,8 +5,10 @@
 import pytest
 import numpy as np
 from itertools import zip_longest
+from pathlib import Path
 
 from openseize.core.producer import producer, as_producer
+from openseize.io.edf import Reader
 
 def test_fromarray():
     """Verify that a producer built from an array produces the correct
@@ -225,5 +227,51 @@ def test_frommaskedgenerator1():
         slicer = [slice(None)] * arr.ndim #slice obj to slice arr
         slicer[-1] = slice(start, stop)
         assert np.allclose(masked[tuple(slicer)], pro_arr)
+
+def test_fromreader():
+    """Verifies that a producer from an EDF file reader produces the correct
+    subarrays in each iteration."""
+
+    fp = Path('.').cwd().joinpath('data/5872_Left_group_A.edf')
+    reader = Reader(fp)
+    # read all the data of this small file
+    arr = reader.read(0)
+
+    #build a producer and test equality
+    chunksize=10023
+    pro = producer(reader, chunksize=chunksize, axis=-1)
+    starts = range(0, arr.shape[-1], chunksize)
+    segments = zip_longest(starts, starts[1:], fillvalue=arr.shape[-1])
+    for (start, stop), pro_arr in zip(segments, pro):
+        slicer = [slice(None)] * arr.ndim #slice obj to slice arr
+        slicer[-1] = slice(start, stop)
+        assert np.allclose(arr[tuple(slicer)], pro_arr)
+
+def test_frommaskedreader():
+    """Verify that a producer from an EDF file reader with a mask produces
+    the correct subarrays in each iteration."""
+
+    fp = Path('.').cwd().joinpath('data/5872_Left_group_A.edf')
+    reader = Reader(fp)
+    # read all the data of this small file
+    arr = reader.read(0)
+
+    #build a mask and apply it to the array
+    rng = np.random.default_rng(seed=0)
+    mask = mask = rng.choice([True, False], size=arr.shape[-1], p=[.8, .2])
+    masked = arr[:, mask]
+
+    #build a producer and test equality
+    chunksize=20000
+    pro = producer(reader, chunksize=chunksize, axis=-1, mask=mask)
+    starts = range(0, masked.shape[-1], chunksize)
+    segments = zip_longest(starts, starts[1:], fillvalue=masked.shape[-1])
+    for (start, stop), pro_arr in zip(segments, pro):
+        slicer = [slice(None)] * arr.ndim #slice obj to slice arr
+        slicer[-1] = slice(start, stop)
+        assert np.allclose(masked[tuple(slicer)], pro_arr)
+
+
+
 
 
