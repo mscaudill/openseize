@@ -27,7 +27,7 @@ This module contains the following classes and functions:
         functions to consume.
 
     All other classes and functions of this module are not part of the 
-    public API.
+    openseize public API.
 """
 
 import abc
@@ -106,7 +106,7 @@ def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
         msg = 'unproducible type: {}'
         raise TypeError(msg.format(type(data)))
 
-    #apply mask if passed
+    # apply mask if passed
     if mask is None:
         return result
     else:
@@ -212,12 +212,12 @@ class ReaderProducer(Producer):
     def __iter__(self):
         """Builds an iterator yielding channels x chunksize shape arrays."""
 
-        #make generators of start, stop samples & exhaust reader
+        # make generators of start, stop samples & exhaust reader
         starts = itertools.count(start=0, step=self.chunksize)
         stops = itertools.count(start=self.chunksize, step=self.chunksize)
         for start, stop in zip(starts, stops): 
             arr = self.data.read(start, stop=stop, **self.kwargs)
-            #if exhausted close reader and exit
+            # if exhausted close reader and exit
             if arr.size == 0:
                 break
             yield arr
@@ -303,34 +303,6 @@ class GenProducer(Producer):
         else:
             # yield anything left in collector queue
             yield collector.get()
-
-    # FIXME TEST THEN REMOVE
-    def depr__iter__(self):
-        """Returns an iterator yielding ndarrays of chunksize along axis."""
-
-        #collect arrays and overage amt until chunksize reached
-        collected, size = list(), 0
-        for subarr in self.data(**self.kwargs):
-            collected.append(subarr)
-            #check if chunksize has been reached
-            size += subarr.shape[self.axis]
-            if size >= self.chunksize:
-                # split the collected storing overage for next round
-                y = np.concatenate(collected, axis=self.axis)
-                y, overage = np.split(y, [self.chunksize], axis=self.axis)
-                yield y
-                # exhaust overage while its size > chunksize
-                while overage.shape[self.axis] >= self.chunksize:
-                    y, overage = np.split(overage, [self.chunksize],
-                                          axis=self.axis)
-                    yield y
-                #reset collected and size, and carry overage to next round
-                collected = []
-                collected.append(overage)
-                size = overage.shape[self.axis]
-        else:
-            #yield everything that is left
-            yield np.concatenate(collected, axis=self.axis)
 
 
 class MaskedProducer(Producer):
@@ -447,43 +419,4 @@ class FIFOArray:
         result, self.queue = np.split(self.queue, [self.chunksize],
                                       axis=self.axis)
         return result
-
-
-
-if __name__ == '__main__':
-
-    """
-    def gfunc(count):
-        #A generating function to play with.
-        
-        np.random.seed(0)
-        arrs = [np.random.random((4, 7)) for _ in range(count)]
-        for arr in arrs:
-            yield arr
-
-    pro = producer(gfunc, chunksize=10, axis=-1, shape=(4, 7*10), count=4)
-    """
-
-    """
-    fp = ('/home/matt/python/nri/data/rett_eeg/dbs_treated/edf/'
-          '5872_Left_group A-D.edf')
-    from openseize.io.edf import Reader
-    reader = Reader(fp)
-    pro = producer(reader, chunksize=10000, axis=-1, channels=[0,2])
-    """
- 
-    arrs = [np.random.random((4,200)) for _ in range(20)]
-
-    result = []
-    fa = FIFOArray(5000, axis=-1)
-    for arr in arrs:
-        fa.put(arr)
-        while fa.full():
-            result.append(fa.get())
-    else:
-        result.append(fa.get())
-
-    arr = np.concatenate(arrs, axis=-1)
-    res = np.concatenate(result, axis=-1)
-    print(np.allclose(arr, res))
 
