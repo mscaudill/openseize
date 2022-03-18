@@ -173,7 +173,6 @@ class Producer(Iterable, mixins.ViewInstance):
         self._chunksize = int(chunksize)
         self.axis = axis
         self.kwargs = kwargs
-        self.__class__.__name__ = 'Producer'
 
     @property
     def chunksize(self):
