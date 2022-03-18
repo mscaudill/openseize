@@ -1,5 +1,8 @@
-"""
+"""A module for testing Producer instances built from arrays, sequences,
+generators, file Readers with and without boolean masks.
 
+Typical usage example:
+    !pytest producer_tests::<TEST_NAME>
 """
 
 import pytest
@@ -7,8 +10,9 @@ import numpy as np
 from itertools import zip_longest
 from pathlib import Path
 
-from openseize.core.producer import producer, as_producer
+from openseize.core.producer import producer, as_producer, Producer
 from openseize.io.edf import Reader
+from openseize import demos
 
 def test_fromarray():
     """Verify that a producer built from an array produces the correct
@@ -232,7 +236,7 @@ def test_fromreader():
     """Verifies that a producer from an EDF file reader produces the correct
     subarrays in each iteration."""
 
-    fp = Path('.').cwd().joinpath('data/5872_Left_group_A.edf')
+    fp = demos.paths['M5872_Left_group_A.edf']
     reader = Reader(fp)
     # read all the data of this small file
     arr = reader.read(0)
@@ -251,7 +255,7 @@ def test_frommaskedreader():
     """Verify that a producer from an EDF file reader with a mask produces
     the correct subarrays in each iteration."""
 
-    fp = Path('.').cwd().joinpath('data/5872_Left_group_A.edf')
+    fp = demos.paths['M5872_Left_group_A.edf']
     reader = Reader(fp)
     # read all the data of this small file
     arr = reader.read(0)
@@ -270,6 +274,68 @@ def test_frommaskedreader():
         slicer = [slice(None)] * arr.ndim #slice obj to slice arr
         slicer[-1] = slice(start, stop)
         assert np.allclose(masked[tuple(slicer)], pro_arr)
+
+def test_asproducer0():
+    """Verify that the as_producer decorator correctly decorates
+    a generating function converting it into a producer type."""
+
+    # build random test arrays and concatenate for testing
+    lens = np.random.randint(21100, high=80092, size=101)
+    arrs = [np.random.random((l, 4, 9)) for l in lens]
+
+    pro = producer(arrs, chunksize=10000, axis=0)
+
+    @as_producer
+    def my_gen(pro):
+        """A generating function yielding ndarrays."""
+
+        for arr in pro:
+            yield arr**2
+
+    assert isinstance(my_gen(pro), Producer)
+
+def test_asproducer1():
+    """Verify's that arrays from a generating function converted to
+    a producer yield the correct subarrays on each iteration."""
+
+    # build random test arrays and concatenate for testing
+    lens = np.random.randint(21100, high=80092, size=68)
+    arrs = [np.random.random((l, 4, 9)) for l in lens]
+    arr = np.concatenate(arrs, axis=0)
+
+    pro = producer(arrs, chunksize=10000, axis=0)
+
+    @as_producer
+    def avg_gen(pro):
+        """An averager that averages every 400 samples of the produced
+        values."""
+        
+        # temporarily change the chunksize and average
+        pro.chunksize = 400
+        for arr in pro:
+            yield np.mean(arr, axis=0, keepdims=True)
+
+    # Build the ground truth array where we have averaged every 400-samples
+    mstarts = range(0, arr.shape[0], 400)
+    msegments = zip_longest(mstarts, mstarts[1:], fillvalue=arr.shape[0])
+    means = []
+    for start, stop in msegments:
+        means.append(np.mean(arr[start:stop,:,:], axis=0, keepdims=True))
+    meaned = np.concatenate(means, axis=0)
+
+    # test equality of meaned with producer for each iteration
+    # The as_producer decorator will set the chunksize back to the
+    # producers original chunksize (i.e. 10000). This allows gen. functions
+    # to change the chunksize for algorithmic efficiency but supply chunks
+    # back to callers at the original requested size.
+    starts = range(0, meaned.shape[0], 10000)
+    segments = zip_longest(starts, starts[1:], fillvalue=meaned.shape[0])
+    for (start, stop), pro_arr in zip(segments, my_gen(pro)):
+        slicer = [slice(None)] * arr.ndim #slice obj to slice arr
+        slicer[0] = slice(start, stop)
+        assert np.allclose(meaned[tuple(slicer)], pro_arr)
+
+
 
 
 
