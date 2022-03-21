@@ -8,6 +8,7 @@ from openseize.core.producer import producer
 from openseize.core import numerical as onum
 from openseize.filtering.viewer import FilterViewer
 
+#FIXME MOVE TO A BASE MODULE
 class IIRBase(abc.ABC, mixins.ViewInstance, FilterViewer):
     """Abstract Infinite Impulse Response Filter defining required and common
     methods used by all IIR subclasses.
@@ -84,7 +85,9 @@ class IIRBase(abc.ABC, mixins.ViewInstance, FilterViewer):
             result = np.concatenate([arr for arr in res], axis=axis)
         return result
 
-
+# FIXME Better to be EXPLICIT and create a butter, cheby1, cheby2, ellip
+# This will require repeating the _order method but will be clearer
+# Also the DOCS need to state the viewer methods inherited
 class IIR(IIRBase):
     """A Digital Infinite Impulse Response filter.
 
@@ -128,6 +131,9 @@ class IIR(IIRBase):
     signal.iirdesign functions.
     """
 
+
+    # FIXME This should be placed into BASE and inherited by butter, chebys
+    # and ellip
     def __init__(self, cutoff, width, fs, btype='lowpass', ftype='butter',
                  pass_ripple=0.005, stop_db=40, fmt='sos'):
         """Build a standard scipy IIR filter."""
@@ -151,6 +157,9 @@ class IIR(IIRBase):
         #call build
         self.coeffs = self._build()
 
+
+    # FIXME This should be in the base and inherited for butter, chebys and
+    # ellip filters
     def _bands(self):
         """Returns the pass and stop bands for a filter of btype and
         transition width.
@@ -179,6 +188,7 @@ class IIR(IIRBase):
                     'Valid band types are {}')
             raise ValueError(msg.format(btype, widths.keys()))
 
+    # FIXME This should be placed into each of butter, chebys and ellip
     def _order(self):
         """Determines the lowest order filter of ftype to meet the pass &
         stop band attenuation criteria."""
@@ -194,6 +204,8 @@ class IIR(IIRBase):
                     'Valid filter types are {}')
             raise ValueError(msg.format(self.ftype, forders.keys()))
 
+    # FIXME This should be placed into BASE and inherited by butter chebys
+    # and ellip filters
     def _build(self):
         """Build this digital filter using this filter's fmt."""
 
