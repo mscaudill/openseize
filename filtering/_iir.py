@@ -88,7 +88,7 @@ class IIRBase(abc.ABC, mixins.ViewInstance, FilterViewer):
 # FIXME Better to be EXPLICIT and create a butter, cheby1, cheby2, ellip
 # This will require repeating the _order method but will be clearer
 # Also the DOCS need to state the viewer methods inherited
-class IIR(IIRBase):
+class IIR(IIRBase): #RENAME BUTTER, CHEBY1 or 2 and ELLIPTICAL
     """A Digital Infinite Impulse Response filter.
 
     IIR can create and apply filters of type; Butterworth, ChebyshevI,
