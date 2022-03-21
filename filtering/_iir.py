@@ -139,7 +139,12 @@ class IIR(IIRBase):
         #add the pass and stop bands
         self._wp, self._ws = self._bands()
         #compute the max ripple and min attenuation in dB
+
+        
+        #FIXME should pass_ripple just be in dB to be consistent?
         self._gpass = -20 * np.log10(1-pass_ripple)
+        
+
         self._gstop = stop_db
         #compute the order needed to meet width, pass & stop criteria
         self.order = self._order()
