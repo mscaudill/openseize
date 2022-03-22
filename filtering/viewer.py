@@ -121,6 +121,7 @@ class FilterViewer:
         ax.axhline(y=-self.stop_db, color=stopcolor, linestyle='--',
                    alpha=stopalpha)
         #create a twin axis for the phase response
+        """
         ax2 = ax.twinx()
         #obtain the angles and plot
         angles = np.unwrap(np.angle(h))
@@ -128,6 +129,7 @@ class FilterViewer:
                     transalpha, cutcolor, cutalpha, gridalpha, 
                     color=anglecolor, alpha=anglealpha, **kwargs)
         ax2.set_ylabel('Angle ($^\circ$)', color=anglecolor)
+        """
         return ax
 
     def _amp_response(self, ax, transcolor, transalpha, cutcolor, cutalpha,
@@ -149,9 +151,12 @@ class FilterViewer:
         ax = self._plot_response(ax, freqs, resp, transcolor, transalpha,
                                  cutcolor, cutalpha, gridalpha, **kwargs)
         #compute the ripple bounds of the passband & plot
+        # FIXME pass ripple is now pass db
+        """
         rbounds = [1 - self.pass_ripple, 1 + self.pass_ripple]
         [ax.axhline(y=rp, color=ripplecolor, linestyle='--',
                     alpha=ripplealpha) for rp in rbounds]
+        """
         ax.set_xlabel('Frequency (Hz)')
         ax.set_ylabel('Gain')
         return ax
