@@ -5,6 +5,8 @@ import scipy.signal as sps
 from openseize.core import mixins
 from openseize.core.producer import producer
 from openseize.core import numerical as nm
+
+# TODO DEPRECATE once viewer is in base
 from openseize.filtering.viewer import FilterViewer
 
 
@@ -33,8 +35,9 @@ class IIR(abc.ABC, mixins.ViewInstance, FilterViewer):
                 'bandpass' or 'bandstop'. If specifying a band filter cutoff
                 must be a 2-el sequence.
             pass_db: float
-                The maximum amplitude loss in the passband. Default is -40
-                dB corresponding to a max amplitude loss of 1%.
+                The maximum amplitude loss in the passband. Default is 1 dB
+                corresponding to a max amplitude loss of 1%.
+        if depahse:
             stop_db: float
                 The minimum attenuation in the stop band. Default is 40 dB
                 corresponding to an amplitude attenuation of 100.
@@ -55,18 +58,18 @@ class IIR(abc.ABC, mixins.ViewInstance, FilterViewer):
         self.pass_db = pass_db
         self.stop_db = stop_db
         self.fmt = fmt
-        # get the pass and stop band edge frequencies
-        self._wp, self._ws = self.edges()
         # on subclass init build the filter
-        self._build()
+        self.coeffs = self._build()
         
-    @abc.abstractproperty
+    @property
     def ftype(self):
         """Returns the scipy name of this IIR filter.
 
         Please see scipy.signal.iirfilter ftype arg for full listing of
         available scipy filters.
         """
+
+        return type(self).__name__.lower()
 
     @abc.abstractproperty
     def order(self):
@@ -76,13 +79,14 @@ class IIR(abc.ABC, mixins.ViewInstance, FilterViewer):
     def edges(self):
         """Returns the pass & stop band edge frequencies of this filter."""
 
+        # FIXME I need to verify this is correct
         w = self.width
         widths = {'lowpass': w/2, 
                   'highpass': -w/2, 
                   'bandpass': np.array([-w, w])/2, 
                   'bandstop': np.array([w, -w])/2}
-        
-        return self.cutoff + widths[self.btype]
+       
+        return self.cutoff, self.cutoff + widths[self.btype]
 
     def _build(self):
         """Designs a digital filter of a given order that meets pass and
@@ -94,5 +98,71 @@ class IIR(abc.ABC, mixins.ViewInstance, FilterViewer):
 
         return sps.iirfilter(self.order, self.cutoff, rp=self.pass_db,
                 btype=self.btype, ftype=self.ftype, output=self.fmt,
-                fs=self.fs) 
+                fs=self.fs)
+
+    def apply(self, data, chunksize, axis, dephase=True, zi=None, **kwargs):
+        """Apply this filter to an ndarray or producer of ndarrays.
+
+        Args:
+            data: ndarray or producer of ndarrays
+                The data to be filtered.
+            chunksize: int
+                The number of samples to hold in memory during filtering.
+            axis: int
+                The axis of data along which to apply the filter. If data is
+                multidimensional, the filter will be independently applied
+                along all slices along axis.
+            dephase: bool
+                If True the phase delay introduced by this filter will be
+                removed by applying the filter in the forwards and backwards
+                direction along data axis. If False, the filtered output  
+                will be delayed relative to data.
+            zi: ndarray
+                An array of initial conditions (i.e. steady-state responses)
+                whose shape depends on the filter coeffecient format. For 
+                'sos' format, zi has shape nsections x (...,2,...) where 
+                (...,2,...) has the same shape as data but with 2 along 
+                axis. This shape is because each section of the sos has a 
+                delay of 2 along axis. For more information see lfilter_zi 
+                and sosfilt_zi in scipy's signal module. This argument is 
+                ignored if dephase is True. 
+            kwargs: dict
+                Any valid keyword argument for the producer constructor.
+                Please type help(openseize.producer) for more details.
+
+        Returns:
+            An ndarray of filtered data or a producer of ndarrays of
+            filtered data. The output type will match the input data type.
+        """
+
+        pro = producer(x, chunksize, axis, **kwargs)
+
+        # scipy does not provide a filter for zpk fmt so convert to sos
+        if self.fmt == 'zpk':
+            self.coeffs = sps.zpk2sos(self.coeffs)
+            self.fmt = 'sos'
+        
+        if self.fmt == 'sos':
+            if depahse:
+                filtfunc = nm.sosfiltfilt
+            else:
+                filtfunc = nm.sosfilt
+
+        if self.fmt == 'ba':
+            if dephase:
+                filtfunc = nm.filtfilt
+            else:
+                filtfunc = nm.lfilter
+        
+        result = filtfunc(pro, self.coeffs, chunksize, axis)
+        
+        if isinstance(x, np.ndarray):
+            # if data is an ndarray return an ndarray
+            result = np.concatenate([arr for arr in result], axis=axis)
+
+        return result
+
+
+
+
 
