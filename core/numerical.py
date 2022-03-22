@@ -111,7 +111,7 @@ def oaconvolve(pro, win, axis, mode):
     #on iteration completion reset producer chunksize
     pro.chunksize = isize
 
-
+# FIXME Improve docs around zi please see iir apply method
 @as_producer  
 def sosfilt(pro, sos, chunksize, axis, zi=None):
     """Batch applies a second-order-section fmt filter to a producer.
@@ -180,6 +180,9 @@ def sosfiltfilt(pro, sos, chunksize, axis):
         revfilt, z = sps.sosfilt(sos, flipped, axis=axis, zi=zi*y0)
         yield np.flip(revfilt, axis=axis)
 
+# FIXME
+# IMPLEMENT filtfilt for transfer function format filters
+# IMPLEMENT lfilter for transfer function format filters
 
 def welch(pro, fs, nperseg, window, axis, csize=100, **kwargs):
     """Iteratively estimates the power spectral density of data from
