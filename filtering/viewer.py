@@ -7,6 +7,7 @@ from matplotlib.patches import Rectangle
 class FilterViewer:
     """Mixin for plotting impulse response, frequency responses"""
 
+    # FIXME use isinstance(self, IIR/FIR) 
     @property
     def kind(self):
         """Returns the type name of this filter."""
@@ -79,7 +80,7 @@ class FilterViewer:
 
         ax.plot(freqs, response, **kwargs)
         #get left edges, top and bottom of transition bands
-        edges = self.cutoff - 0.5 * self.width
+        edges = self.cutoff #- 0.5 * self.width FIXME
         bottom, top = ax.get_ylim()
         height = top - bottom
         #create tranisition band rectanles
@@ -113,7 +114,8 @@ class FilterViewer:
         #compute the frequency response
         freqs, h = self._freqz(worN)
         #convert the gain to dB and plot
-        resp = 20 * np.log10(np.maximum(np.abs(h), 1e-5))
+        #resp = 20 * np.log10(np.maximum(np.abs(h), 1e-6))
+        resp = 20 * np.log10(np.abs(h))
         ax = self._plot_response(ax, freqs, resp, transcolor, transalpha,
                                  cutcolor, cutalpha, gridalpha, **kwargs)
         ax.set_ylabel('Gain (dB)', color='tab:blue')

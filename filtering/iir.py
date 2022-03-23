@@ -6,7 +6,7 @@ from openseize.filtering.bases import IIR
 class Butter(IIR):
     """ """
 
-    def __init__(self, cutoff, width, fs, btype='lowpass', pass_db=0.5,
+    def __init__(self, cutoff, width, fs, btype='lowpass', pass_db=1.5,
                  stop_db=40, fmt='sos'):
         """ """
 
@@ -18,8 +18,9 @@ class Butter(IIR):
 
         wp, ws = self.edges()
         n, wn =  sps.buttord(wp, ws, self.pass_db, self.stop_db, fs=self.fs)
-        print(wn)
-        return n
+        print(wp, ws)
+        print(n, wn)
+        return n, wn
 
 if __name__ == '__main__':
 
@@ -35,5 +36,5 @@ if __name__ == '__main__':
 
     arr = np.stack((x, y))
 
-    butter = Butter(cutoff=20, width=6, fs=fs)
+    butter = Butter(cutoff=500, width=20, fs=fs)
 
