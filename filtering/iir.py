@@ -6,19 +6,17 @@ from openseize.filtering.bases import IIR
 class Butter(IIR):
     """ """
 
-    def __init__(self, cutoff, width, fs, btype='lowpass', pass_db=1.5,
-                 stop_db=40, fmt='sos'):
+    def __init__(self, fpass, fstop, fs, gpass=1.5, gstop=40, fmt='sos'):
         """ """
 
-        super().__init__(cutoff, width, fs, btype, pass_db, stop_db, fmt=fmt)
+        super().__init__(fpass, fstop, gpass, gstop, fs, fmt)
 
     @property
     def order(self):
         """ """
 
-        wp, ws = self.edges()
-        n, wn =  sps.buttord(wp, ws, self.pass_db, self.stop_db, fs=self.fs)
-        print(wp, ws)
+        n, wn =  sps.buttord(self.fpass, self.fstop, self.gpass, self.gstop, 
+                             fs=self.fs)
         print(n, wn)
         return n, wn
 
@@ -36,5 +34,7 @@ if __name__ == '__main__':
 
     arr = np.stack((x, y))
 
-    butter = Butter(cutoff=500, width=20, fs=fs)
+    butter = Butter(fpass=[400], fstop=[500], fs=fs) #lowpass
+    #butter = Butter(fpass=[500], fstop=[400], fs=fs) #highpass
+    #butter = Butter(fpass=[500, 700], fstop=[400, 800], fs=fs) #bandpass
 
