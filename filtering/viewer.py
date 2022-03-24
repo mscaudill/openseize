@@ -80,16 +80,22 @@ class FilterViewer:
 
         ax.plot(freqs, response, **kwargs)
         #get left edges, top and bottom of transition bands
-        edges = self.cutoff #- 0.5 * self.width FIXME
+        edges = self.fpass #- 0.5 * self.width FIXME
         bottom, top = ax.get_ylim()
         height = top - bottom
         #create tranisition band rectanles
-        rects = [Rectangle((e, bottom), self.width, height, 
+        #FIXME if fpass and fpass are floats
+        if len(self.fpass) < 2:
+            width = self.fstop - self.fpass
+        else:
+            #this wont always work
+            width = self.fstop[1] - self.fpass[0]
+        rects = [Rectangle((e, bottom), width, height, 
                  facecolor=transcolor, alpha=transalpha) for e in edges]
         [ax.add_patch(rect) for rect in rects]
         #add transition cutoffs
         [ax.axvline(x=c, color=cutcolor, alpha=cutalpha) 
-                for c in self.cutoff]
+                for c in self.fpass]
         ax.grid(alpha=gridalpha)
         return ax
 
@@ -120,7 +126,7 @@ class FilterViewer:
                                  cutcolor, cutalpha, gridalpha, **kwargs)
         ax.set_ylabel('Gain (dB)', color='tab:blue')
         #add horizontal line for min stop attenuation
-        ax.axhline(y=-self.stop_db, color=stopcolor, linestyle='--',
+        ax.axhline(y=-self.gstop, color=stopcolor, linestyle='--',
                    alpha=stopalpha)
         #create a twin axis for the phase response
         """
