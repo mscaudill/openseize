@@ -5,10 +5,10 @@ import scipy.signal as sps
 from openseize.core import mixins
 from openseize.core.producer import producer
 from openseize.core import numerical as nm
-from openseize.filtering.mixins import IIRViewer
+from openseize.filtering.mixins import IIRDesign
 
 
-class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
+class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
     """Base class for infinite impulse response filters.
 
     This base class designs an IIR filter using pass and stop band edge 
