@@ -70,7 +70,7 @@ class IIRDesign:
         imp_response = self.impulse_response()
         ax.plot(time, imp_response, **kwargs)
         order, wn = self.order
-        ax.text(.76, .6, 'Filter Order = {}'.format(order), 
+        ax.text(.70, .6, 'Filter Order = {}'.format(order), 
                 transform=ax.transAxes, fontweight='bold', color='tab:blue')
 
     def _band_coords(self, ax, scale):
@@ -189,42 +189,42 @@ class IIRDesign:
         fig, axarr = plt.subplots(3, 1, figsize=size)
         axarr[1].get_shared_x_axes().join(axarr[1], axarr[2])
         
-        # Impulse response
+        # Plot impulse response and configure axis
         self._plot_impulse(axarr[0], color='tab:blue')
         axarr[0].set_xlabel('Time (s)', fontweight='bold')
-        axarr[0].set_ylabel('Amplitude (au)', color='k',
-                            fontweight='bold')
- 
-        # Frequency response in dB
-        freqs, gain_dB, scale = self.frequency_response(scale='dB')
-        self._plot_response(axarr[1], freqs, gain_dB, scale,
-                color='tab:blue')
-        axarr[1].set_ylabel('Gain (dB)', color='tab:blue',
-                            fontweight='bold')
-        axarr[1].xaxis.set_ticklabels([])
-
-        # Phase response of this filter
-        ax2 = axarr[1].twinx()
-        freqs, gainz, scale = self.frequency_response(scale='complex')
-        angles = np.unwrap(np.angle(gainz, deg=True))
-        ax2.plot(freqs, angles, color='tab:orange', alpha=0.5)
-        ax2.spines['top'].set_visible(False)
-        ax2.set_ylabel('Phase ($^\circ$)', color='tab:orange',
-                        fontweight='bold')
-        
-        # Frequency response in relative magnitude
-        freqs, gain_abs, scale = self.frequency_response(scale='abs')
-        self._plot_response(axarr[2], freqs, gain_abs, scale, color='tab:blue')
-        axarr[2].set_xlabel('Frequency (Hz)', fontweight='bold')
-        axarr[2].set_ylabel('Gain (au)', color='k', fontweight='bold')
-
-        # Axes configurations
-        [ax.grid(alpha=gridalpha) for ax in axarr]
+        axarr[0].set_ylabel('Amplitude (au)', color='k', weight='bold')
         axarr[0].spines['right'].set_visible(False)
         axarr[0].spines['top'].set_visible(False)
+
+ 
+        # Plot frequency response in dB and configure axis
+        freqs, g_dB, scale = self.frequency_response(scale='dB')
+        color = 'tab:blue'
+        self._plot_response(axarr[1], freqs, g_dB, scale, color=color)
+        axarr[1].set_ylabel('Gain (dB)', color=color, weight='bold')
+        axarr[1].xaxis.set_ticklabels([])
         axarr[1].spines['top'].set_visible(False)
+
+        # Plot phase response of this filter to twin axis
+        ax2 = axarr[1].twinx()
+        freqs, g_z, scale = self.frequency_response(scale='complex')
+        angles = np.unwrap(np.angle(g_z, deg=True))
+        color = 'tab:orange'
+        ax2.plot(freqs, angles, color=color, alpha=0.5)
+        ax2.spines['top'].set_visible(False)
+        ax2.set_ylabel('Phase ($^\circ$)', color=color, weight='bold')
         axarr[2].spines['right'].set_visible(False)
         axarr[2].spines['top'].set_visible(False)
+        
+        # Plot frequency response in relative magnitude and configure axis
+        freqs, g_abs, scale = self.frequency_response(scale='abs')
+        color = 'tab:blue'
+        self._plot_response(axarr[2], freqs, g_abs, scale, color=color)
+        axarr[2].set_xlabel('Frequency (Hz)', weight='bold')
+        axarr[2].set_ylabel('Gain (au)', color='k', weight='bold')
+
+        # Configure axes grids
+        [ax.grid(alpha=gridalpha) for ax in axarr]
         
         plt.tight_layout()
         plt.show()

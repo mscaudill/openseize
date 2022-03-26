@@ -103,7 +103,7 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
                              btype=self.btype, ftype=self.ftype, 
                              output=self.fmt, fs=self.fs)
 
-    def apply(self, data, chunksize, axis, dephase=True, zi=None, **kwargs):
+    def call(self, data, chunksize, axis, dephase=True, zi=None, **kwargs):
         """Apply this filter to an ndarray or producer of ndarrays.
 
         Args:
