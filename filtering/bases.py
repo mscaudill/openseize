@@ -161,6 +161,103 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
         return result
 
 
+class FIR(abc.ABC, mixins.ViewInstance):
+    """ """
+
+    def __init__(self, bands, gains, gpass, gstop, fs, **kwargs):
+        """ """
+
+        # gpass and gstop should be min and max of all bands
+        #
+        self.bands = bands
+        self.gains = gains
+        self.gpass = gpass
+        self.gstop = gstop
+        self.fs = fs
+        self.nyq = fs / 2
+        # FIXME where to put and simplify?
+        starts = np.flatnonzero(np.diff(gains))
+        self.width = np.min(bands[starts+1] - bands[starts])
+
+        self.coeffs = self._build(**kwargs)
+
+    @abc.abstractproperty
+    def num_taps(self):
+        """Returns the Bellanger estimate of this FIR filter's length needed
+        to meet the pass and stop band attenuation criteria.
+
+        Scipy does not have a method for estimating the number of taps
+        needed for a FIR to meet pass and stop band criteria. This function
+        estimates the number or taps using the Bellanger estimate. It is
+        important to plot the filter using this estimate to ensure that the
+        tap number is sufficient to meet the design criteria.
+
+        Returns:
+            The number of taps needed to meet the pass, stop and transition
+            criteria. The returned number will always be odd to ensure no
+            phase shift and integer number of samples group delay 
+            (i.e. Type I FIR).
+
+        References:
+            Ballenger (2000). Digital Processing of signals: Theory and 
+            Practice 3rd ed. Wiley
+        """
+
+        delta1 = 10**(-self.gpass / 20) # pass ripple
+        delta2 = 10**(-self.gstop / 20) # stop attenuation
+        cnt = -2/3 * np.log10(10 * delta1 * delta2) * self.fs / self.width
+        # odd taps ensure integer group delay and no phase shift (Type I)
+        return cnt if cnt % 2 == 1 else cnt + 1
+
+    @abc.abstractmethod
+    def _build(self, **kwargs):
+        """Returns this FIR filter's coeffecients."""
+
+    def __call__(self, data, chunksize, axis, mode='same', **kwargs):
+        """Apply this filter to an ndarray or producer of ndarrays.
+
+        Args:
+            data: ndarray or producer of ndarrays
+                The data to be filtered.
+            chunksize: int
+                The number of samples to hold in memory during filtering.
+            axis: int
+                The axis of data along which to apply the filter. If data is
+                multidimensional, the filter will be independently applied
+                along all slices along axis.
+            mode: str
+                A numpy convolve mode; one of 'full', 'same', 'valid'.
+                    Full:
+                        This mode includes all points of the convolution of
+                        the filter window and data. This mode does not 
+                        compensate for the delay introduced by the filter.
+                    Same:
+                        This mode (Default) returns data of the same size
+                        as the input. This mode adjust for the delay
+                        introduced by the filter.
+                    Valid: 
+                        This mode returns values only when the filter and
+                        data completely overlap. The result using this mode
+                        is to shift the data (num_taps - 1) / 2 samples to
+                        the left of the input data. 
+            kwargs: dict
+                Any valid keyword argument for the producer constructor.
+                Please type help(openseize.producer) for more details.
+
+        Returns:
+            An ndarray of filtered data or a producer of ndarrays of
+            filtered data. The output type will match the input data type.
+        """
+
+        pro = producer(x, chunksize, axis, **kwargs)
+        # convolve to get a new producer
+        result = onum.oaconvolve(pro, self.coeffs, axis, mode)
+        
+        # return array if input data is array
+        if isinstance(x, np.ndarray):
+            result = np.concantenate([arr for arr in result], axis=axis)
+        
+        return result
 
 
 
