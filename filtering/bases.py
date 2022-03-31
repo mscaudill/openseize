@@ -164,22 +164,42 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
 class FIR(abc.ABC, mixins.ViewInstance):
     """ """
 
-    def __init__(self, bands, gains, gpass, gstop, fs, **kwargs):
+    def __init__(self, fpass, fstop, gpass, gstop, fs, **kwargs):
         """ """
 
-        # gpass and gstop should be min and max of all bands
-        #
-        self.bands = bands
-        self.gains = gains
+        self.fpass = np.atleast_1d(fpass)
+        self.fstop = np.atleast_1d(fstop)
+
+        #validate lens of bands
+        if len(self.fpass) != len(self.fstop):
+            msg = 'fpass and fstop must have the same shape, got {} and {}'
+            raise ValueError(msg.format(fpass.shape, fstop.shape))
+
         self.gpass = gpass
         self.gstop = gstop
         self.fs = fs
         self.nyq = fs / 2
-        # FIXME where to put and simplify?
-        starts = np.flatnonzero(np.diff(gains))
-        self.width = np.min(bands[starts+1] - bands[starts])
-
+        # get narrowest transition width
+        self.width = np.min(np.abs(self.fstop - self.fpass))
+        # build the filter on initialization
         self.coeffs = self._build(**kwargs)
+
+    @property
+    def btype(self):
+        """Returns the band type from the pass & stop edge frequencies."""
+       
+        fp, fs = self.fpass, self.fstop
+        if len(fp) < 2:
+            btype = 'lowpass' if fp < fs else 'highpass'
+        else:
+            btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
+        return btype
+
+    @property
+    def ftype(self):
+        """Returns the name of this FIR filter."""
+
+        return type(self).__name__.lower()
 
     @abc.abstractproperty
     def num_taps(self):
