@@ -1,4 +1,4 @@
-"""A collection of Infinite Impulse Response filters.
+"""A collection of callable Infinite Impulse Response filters.
 
 The collection includes Butterworth, Chebyshev Type I, Chebyshev Type II and 
 Elliptical filters. Each filter inherits the ability to plot itself and be
