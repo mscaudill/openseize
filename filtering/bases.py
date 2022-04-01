@@ -5,7 +5,7 @@ import scipy.signal as sps
 from openseize.core import mixins
 from openseize.core.producer import producer
 from openseize.core import numerical as nm
-from openseize.filtering.mixins import IIRDesign
+from openseize.filtering.mixins import IIRDesign, FIRDesign
 
 
 class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
@@ -161,7 +161,7 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
         return result
 
 
-class FIR(abc.ABC, mixins.ViewInstance):
+class FIR(abc.ABC, mixins.ViewInstance, FIRDesign):
     """Base class for finite impulse response filters.
 
     This base class designs an FIR filter using pass and stop band edge 

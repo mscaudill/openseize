@@ -228,3 +228,67 @@ class IIRDesign:
         
         plt.tight_layout()
         plt.show()
+
+
+class FIRDesign(IIRDesign):
+    """ """
+
+    def impulse_response(self):
+        """Returns the impulse response of this FIR filter."""
+
+        # 1-s array with unit pulse at 0th sample
+        pulse = sps.unit_impulse(self.fs)
+        resp = np.convolve(self.coeffs, pulse, mode='full')
+        resp = resp[0:len(pulse)]
+        
+        return resp
+
+    def frequency_response(self, scale='dB', worN=512, rope=-100):
+        """Returns the frequency response of this IIR filter.
+
+        Args:
+            scale: str
+                String in ('dB', 'abs', 'complex') that determines if
+                returned response should be in decibels, magnitude, 
+                or left as a complex number containing phase.
+            worN: int
+                The number of frequencies in [0, Nyquist) to evaluate
+                response over. Default is 512.
+            rope: float
+                For plotting, all values below this region of pratical
+                equivalence will be set to this value. Default is -100
+                dB. Any filter response smaller than this will be set to
+                -100 for plotting.
+
+        Returns: array of frequencies (1 x worN) and an array of responses
+        """
+
+        freqs, h = sps.freqz(self.coeffs, fs=self.fs, worN=worN)
+
+        if scale == 'dB':
+            gain = 20 * np.log10(np.maximum(np.abs(h), 10**(rope/20)))
+        elif scale == 'abs':
+            gain = abs(h)
+        elif scale == 'complex':
+            gain = h
+
+        return freqs, gain, scale
+
+    def _plot_impulse(self, ax, **kwargs):
+        """Plots this filters impulse response to a matplolib axis.
+
+        Args:
+            ax: matplotlib axis
+                The axis instance where the plot will be displayed on.
+            **kwargs: dict
+                Any valid kwarg for matplotlib plot.
+        """
+
+        time = np.linspace(0, 1, self.fs)
+        imp_response = self.impulse_response()
+        ax.plot(time, imp_response, **kwargs)
+        ntaps = self.numtaps
+        ax.text(.70, .6, 'Num. Taps = {}'.format(ntaps), 
+                transform=ax.transAxes, fontweight='bold', color='tab:blue')
+
+
