@@ -12,10 +12,10 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
     """Base class for infinite impulse response filters.
 
     This base class designs an IIR filter using pass and stop band edge 
-    frequencies and gains. It defines the common and expected methods of all
-    concrete IIR filters in the openseize.filtering.iir module. Inheritors
-    in that module must overide abstract methods and properties of this base
-    to be instantiable.
+    frequencies and attenuations. It defines the common & expected methods 
+    of all concrete IIR filters in the openseize.filtering.iir module. 
+    Inheritors in that module must overide abstract methods & properties of
+    this base to be instantiable.
     """
 
     def __init__(self, fpass, fstop, gpass, gstop, fs, fmt):
@@ -34,7 +34,7 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
             gstop: float
                 The minimum attenuation in the stop band (dB).
             fs: int
-                The sapling rate of the signal to be filtered.
+                The sampling rate of the signal to be filtered.
             fmt: str
                 A scipy filter format str. specifying the format of this
                 filters coeffecients. Must be one of 'ba', 'zpk', or 'sos'.
@@ -62,17 +62,6 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
         self.coeffs = self._build()
 
     @property
-    def btype(self):
-        """Returns the band type from the pass & stop edge frequencies."""
-       
-        fp, fs = self.fpass, self.fstop
-        if len(fp) < 2:
-            btype = 'lowpass' if fp < fs else 'highpass'
-        else:
-            btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
-        return btype
-        
-    @property
     def ftype(self):
         """Returns the scipy name of this IIR filter.
 
@@ -82,6 +71,17 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
 
         return type(self).__name__.lower()
 
+    @property
+    def btype(self):
+        """Returns the band type from the pass & stop edge frequencies."""
+       
+        fp, fs = self.fpass, self.fstop
+        if len(fp) < 2:
+            btype = 'lowpass' if fp < fs else 'highpass'
+        else:
+            btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
+        return btype
+    
     @abc.abstractproperty
     def order(self):
         """Returns the filter order & 3dB frequency for this filter.
@@ -162,10 +162,35 @@ class IIR(abc.ABC, IIRDesign, mixins.ViewInstance):
 
 
 class FIR(abc.ABC, mixins.ViewInstance):
-    """ """
+    """Base class for finite impulse response filters.
+
+    This base class designs an FIR filter using pass and stop band edge 
+    frequencies and attenuations. It defines the common and expected 
+    methods of all concrete FIR filters in the openseize.filtering.fir 
+    module. Inheritors in that module must overide abstract methods &
+    properties of this base to be instantiable.
+    """
 
     def __init__(self, fpass, fstop, gpass, gstop, fs, **kwargs):
-        """ """
+        """Initialize this FIR.
+
+        Args:
+            fpass, fstop: float or 2-el sequence
+                Pass and stop band edge frequencies in units of Hz.
+                For example:
+                - Lowpass: fpass = 1000, fstop = 1100
+                - Highpass: fpass = 2000, fstop = 1800 
+                - Bandpass: fpass = [400, 800], fstop = [300, 900]
+                - Bandstop: fpass = [100, 200], fstop = [120, 180]
+            gpass: float
+                The maximum loss in the passband (dB).
+            gstop: float
+                The minimum attenuation in the stop band (dB).
+            fs: int
+                The sampling rate of the signal to be filtered.
+            kwargs: dict
+                These are currently unused.
+        """
 
         self.fpass = np.atleast_1d(fpass)
         self.fstop = np.atleast_1d(fstop)
@@ -179,10 +204,15 @@ class FIR(abc.ABC, mixins.ViewInstance):
         self.gstop = gstop
         self.fs = fs
         self.nyq = fs / 2
-        # get narrowest transition width
         self.width = np.min(np.abs(self.fstop - self.fpass))
-        # build the filter on initialization
+        # on subclass init build this filter
         self.coeffs = self._build(**kwargs)
+
+    @property
+    def ftype(self):
+        """Returns the name of this FIR filter."""
+
+        return type(self).__name__.lower()
 
     @property
     def btype(self):
@@ -196,43 +226,48 @@ class FIR(abc.ABC, mixins.ViewInstance):
         return btype
 
     @property
-    def ftype(self):
-        """Returns the name of this FIR filter."""
+    def pass_attenuation(self):
+        """Returns the pass band attenuation in dB.
 
-        return type(self).__name__.lower()
+        The gpass attr of this FIR is the maximum loss in the passband. 
+        This function converts this loss to a pass band attenuation.
+        """
+        
+        return -20 * np.log10(1 - 10 ** (-self.gpass / 20))
+    
+    @property
+    def cutoff(self):
+        """Returns the -6 dB point at the center of each transition band."""
 
-    @abc.abstractproperty
-    def num_taps(self):
-        """Returns the Bellanger estimate of this FIR filter's length needed
-        to meet the pass and stop band attenuation criteria.
+        delta = abs(self.fstop - self.fpass) / 2
+        return delta + np.min(np.stack((self.fpass, self.fstop)), axis=0)
 
-        Scipy does not have a method for estimating the number of taps
-        needed for a FIR to meet pass and stop band criteria. This function
-        estimates the number or taps using the Bellanger estimate. It is
-        important to plot the filter using this estimate to ensure that the
-        tap number is sufficient to meet the design criteria.
+    @property
+    def window_params(self):
+        """Returns parameters needed to specify the window of this FIR.
 
-        Returns:
-            The number of taps needed to meet the pass, stop and transition
-            criteria. The returned number will always be odd to ensure no
-            phase shift and integer number of samples group delay 
-            (i.e. Type I FIR).
-
-        References:
-            Ballenger (2000). Digital Processing of signals: Theory and 
-            Practice 3rd ed. Wiley
+        Some of the windows used to truncate this FIRs coeffecients may
+        require more than just the number of taps. For these parameterized
+        windows, subclasses should override this method and return the
+        additional parameters as a sequence. 
         """
 
-        delta1 = 10**(-self.gpass / 20) # pass ripple
-        delta2 = 10**(-self.gstop / 20) # stop attenuation
-        cnt = -2/3 * np.log10(10 * delta1 * delta2) * self.fs / self.width
-        # odd taps ensure integer group delay and no phase shift (Type I)
-        return cnt if cnt % 2 == 1 else cnt + 1
+        return tuple()
 
-    @abc.abstractmethod
+    @abc.abstractproperty
+    def numtaps(self):
+        """Returns the number of taps needed to meet this FIR filters pass
+        and stop band attenuation criteria within the transition width."""
+    
     def _build(self, **kwargs):
         """Returns this FIR filter's coeffecients."""
 
+        # get the window from this FIRs name and ask for add. params
+        window = (self.ftype, *self.window_params)
+        return sps.firwin(self.numtaps, cutoff=self.cutoff, width=None,
+                          window=window, pass_zero=self.btype,
+                          scale=True, fs=self.fs)
+ 
     def __call__(self, data, chunksize, axis, mode='same', **kwargs):
         """Apply this filter to an ndarray or producer of ndarrays.
 
@@ -271,7 +306,7 @@ class FIR(abc.ABC, mixins.ViewInstance):
 
         pro = producer(x, chunksize, axis, **kwargs)
         # convolve to get a new producer
-        result = onum.oaconvolve(pro, self.coeffs, axis, mode)
+        result = nm.oaconvolve(pro, self.coeffs, axis, mode)
         
         # return array if input data is array
         if isinstance(x, np.ndarray):
