@@ -74,7 +74,8 @@ class Kaiser(FIR):
         
         ripple = max(self.pass_attenuation, self.gstop)
         ntaps, _ = sps.kaiserord(ripple, self.width/self.nyq)
-        return ntaps
+        # odd tap number to ensure group delay is integer samples
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
     @property
     def window_params(self):
@@ -89,11 +90,22 @@ if __name__ == '__main__':
     
     import matplotlib.pyplot as plt
 
-    fpass = [400, 800]
-    fstop = [300, 900]
+    #fpass = [400]
+    #fstop = [500]
 
+    fpass = [500]
+    fstop = [400]
+    
+    #fpass = [400, 800]
+    #fstop = [300, 900]
+    
+    #fpass = [400, 900]
+    #fstop = [450, 850]
+    
     kfir = Kaiser(fpass=fpass, fstop=fstop, gpass=1, gstop=40, fs=5000)
+    kfir.plot(worN=2048)
 
+    """
     w, h = sps.freqz(kfir.coeffs, fs=5000, worN=2000)
     fig, axarr = plt.subplots(2,1)
     axarr[0].plot(w, 20*np.log10(np.abs(h)))
@@ -105,6 +117,7 @@ if __name__ == '__main__':
     [axarr[1].axvline([c], color='pink') for c in kfir.cutoff]
     plt.ion()
     plt.show()
+    """
 
 
 
