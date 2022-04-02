@@ -53,6 +53,10 @@ class Kaiser(FIR):
             The minimum attenuation in the stop band (dB). The default is 40
             dB which is an amplitude loss of 99%
 
+    References:
+        1. Ifeachor E.C. and Jervis, B.W. (2002). Digital Signal Processing:
+           A Practical Approach. Prentice Hall
+        2. Oppenheim, Schafer, "Discrete-Time Signal Processing".
     """
 
     def __init__(self, fpass, fstop, fs, gpass=1.0, gstop=40, **kwargs):
@@ -70,6 +74,10 @@ class Kaiser(FIR):
         the attenuation in the passband and compare against the attenuation
         in the stop band. The largest attenuation is then used to compute
         the minimum number of taps.
+
+        References:
+            Oppenheim, Schafer, "Discrete-Time Signal Processing", 
+            pp.475-476.
         """
         
         ripple = max(self.pass_attenuation, self.gstop)
