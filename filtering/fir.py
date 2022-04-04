@@ -94,15 +94,246 @@ class Kaiser(FIR):
         return [sps.kaiser_beta(ripple)]
 
 
+class Rectangular(FIR):
+    """A callable type I FIR using a rectangular window.
+
+    Attrs:
+        fpass, fstop: float or 1-D array
+            Pass and stop band edge frequencies (Hz).
+            For example:
+                - Lowpass: fpass = 1000, fstop = 1100
+                - Highpass: fpass = 2000, fstop = 1800 
+                - Bandpass: fpass = [400, 800], fstop = [300, 900]
+                - Bandstop: fpass = [100, 200], fstop = [120, 180]
+        fs: int
+            The sampling rate of the data to be filtered.
+
+    This FIR is an exapmple of a non-parameteric generalized cosine window.
+    As such the tap number controls the width of the transition  but has no
+    effect on the pass and stop band error specs (i.e. ripple). These
+    features are controlled by the inherent window shape and are therefore
+    not tunable. The shape characteristics are:
+
+    main lobe width (MLW) = 4 pi / len(taps) 
+    side lobe height (SLH) = -13.3 dB
+    side lobe roll-off rate (SLRR) = -6 dB/octave
+    approximate peak error (APE) = -21 dB
+        
+    It has large spectral leakage and its primary use case is for working with
+    periodic signals whose frequencies are multiples of the window length.
+    """
+
+    def __init__(self, fpass, fstop, fs):
+        """Initialize this Rectangular Windowed FIR."""
+        
+        # for plotting, provide a gpass calculated from the peak error
+        peak_err = -21
+        gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
+        super().__init__(fpass, fstop, gpass=gpass, gstop=peak_err, fs=fs)
+
+    @property
+    def numtaps(self):
+        """Return the number of taps to meet the transition width."""
+        
+        ntaps = int(4 / (self.width / self.nyq))
+        # odd tap number to ensure group delay is integer samples
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
+
+
+class Hanning(FIR):
+    """A callable type I FIR using a Hann window.
+
+    Attrs:
+        fpass, fstop: float or 1-D array
+            Pass and stop band edge frequencies (Hz).
+            For example:
+                - Lowpass: fpass = 1000, fstop = 1100
+                - Highpass: fpass = 2000, fstop = 1800 
+                - Bandpass: fpass = [400, 800], fstop = [300, 900]
+                - Bandstop: fpass = [100, 200], fstop = [120, 180]
+        fs: int
+            The sampling rate of the data to be filtered.
+
+    This FIR is an exapmple of a non-parameteric generalized cosine window.
+    As such the tap number controls the width of the transition  but has no
+    effect on the pass and stop band error specs (i.e. ripple). These
+    features are controlled by the inherent window shape and are therefore
+    not tunable. The shape characteristics are:
+
+    main lobe width (MLW) = 8 pi / len(taps) 
+    side lobe height (SLH) = -31.5 dB
+    side lobe roll-off rate (SLRR) = -18 dB/octave
+    approximate peak error (APE) = -44 dB
+        
+    The Hann window is a good general purpose window with reduced spectral
+    leakage.
+    """
+
+    def __init__(self, fpass, fstop, fs):
+        """Initialize this Rectangular Windowed FIR."""
+        
+        # for plotting, provide a gpass calculated from the peak error
+        peak_err = -44
+        gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
+        super().__init__(fpass, fstop, gpass=gpass, gstop=peak_err, fs=fs)
+
+    @property
+    def numtaps(self):
+        """Return the number of taps to meet the transition width."""
+        
+        ntaps = int(8 / (self.width / self.nyq))
+        # odd tap number to ensure group delay is integer samples
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
+  
+
+class Hamming(FIR):
+    """A callable type I FIR using a Hamming window.
+
+    Attrs:
+        fpass, fstop: float or 1-D array
+            Pass and stop band edge frequencies (Hz).
+            For example:
+                - Lowpass: fpass = 1000, fstop = 1100
+                - Highpass: fpass = 2000, fstop = 1800 
+                - Bandpass: fpass = [400, 800], fstop = [300, 900]
+                - Bandstop: fpass = [100, 200], fstop = [120, 180]
+        fs: int
+            The sampling rate of the data to be filtered.
+
+    This FIR is an exapmple of a non-parameteric generalized cosine window.
+    As such the tap number controls the width of the transition  but has no
+    effect on the pass and stop band error specs (i.e. ripple). These
+    features are controlled by the inherent window shape and are therefore
+    not tunable. The shape characteristics are:
+
+    main lobe width (MLW) = 8 pi / len(taps) 
+    side lobe height (SLH) = -43.8 dB
+    side lobe roll-off rate (SLRR) = -6 dB/octave
+    approximate peak error (APE) = -53 dB
+        
+    The Hamming window is a good general purpose window with stronger
+    attenuation in the pass and stop bands than a Hann window.
+    """
+
+    def __init__(self, fpass, fstop, fs):
+        """Initialize this Rectangular Windowed FIR."""
+        
+        # for plotting, provide a gpass calculated from the peak error
+        peak_err = -53
+        gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
+        super().__init__(fpass, fstop, gpass=gpass, gstop=peak_err, fs=fs)
+
+    @property
+    def numtaps(self):
+        """Return the number of taps to meet the transition width."""
+        
+        ntaps = int(8 / (self.width / self.nyq))
+        # odd tap number to ensure group delay is integer samples
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
+
+
+class Bartlett(FIR):
+    """A callable type I FIR using a Bartlett (triangular) window.
+
+    Attrs:
+        fpass, fstop: float or 1-D array
+            Pass and stop band edge frequencies (Hz).
+            For example:
+                - Lowpass: fpass = 1000, fstop = 1100
+                - Highpass: fpass = 2000, fstop = 1800 
+                - Bandpass: fpass = [400, 800], fstop = [300, 900]
+                - Bandstop: fpass = [100, 200], fstop = [120, 180]
+        fs: int
+            The sampling rate of the data to be filtered.
+
+    This FIR is an exapmple of a non-parameteric generalized cosine window.
+    As such the tap number controls the width of the transition  but has no
+    effect on the pass and stop band error specs (i.e. ripple). These
+    features are controlled by the inherent window shape and are therefore
+    not tunable. The shape characteristics are:
+
+    main lobe width (MLW) = 8 pi / len(taps) 
+    side lobe height (SLH) = -26.5 dB
+    side lobe roll-off rate (SLRR) = -12 dB/octave
+    approximate peak error (APE) = -25 dB
+        
+    The Bartlett window has a narrow main lobe but higher side lobes and
+    thus leakage.
+    """
+
+    def __init__(self, fpass, fstop, fs):
+        """Initialize this Rectangular Windowed FIR."""
+        
+        # for plotting, provide a gpass calculated from the peak error
+        peak_err = -25
+        gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
+        super().__init__(fpass, fstop, gpass=gpass, gstop=peak_err, fs=fs)
+
+    @property
+    def numtaps(self):
+        """Return the number of taps to meet the transition width."""
+        
+        ntaps = int(8 / (self.width / self.nyq))
+        # odd tap number to ensure group delay is integer samples
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
+
+
+class Blackman(FIR):
+    """A callable type I FIR using a Blackman window.
+
+    Attrs:
+        fpass, fstop: float or 1-D array
+            Pass and stop band edge frequencies (Hz).
+            For example:
+                - Lowpass: fpass = 1000, fstop = 1100
+                - Highpass: fpass = 2000, fstop = 1800 
+                - Bandpass: fpass = [400, 800], fstop = [300, 900]
+                - Bandstop: fpass = [100, 200], fstop = [120, 180]
+        fs: int
+            The sampling rate of the data to be filtered.
+
+    This FIR is an exapmple of a non-parameteric generalized cosine window.
+    As such the tap number controls the width of the transition  but has no
+    effect on the pass and stop band error specs (i.e. ripple). These
+    features are controlled by the inherent window shape and are therefore
+    not tunable. The shape characteristics are:
+
+    main lobe width (MLW) = 12 pi / len(taps) 
+    side lobe height (SLH) = -58.2 dB
+    side lobe roll-off rate (SLRR) = -18 dB/octave
+    approximate peak error (APE) = -74 dB
+        
+    The Blackman window has a wider main lobe but greater attenuation in the
+    pass and stop bands with a good roll-off.
+    """
+
+    def __init__(self, fpass, fstop, fs):
+        """Initialize this Rectangular Windowed FIR."""
+        
+        # for plotting, provide a gpass calculated from the peak error
+        peak_err = -74
+        gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
+        super().__init__(fpass, fstop, gpass=gpass, gstop=peak_err, fs=fs)
+
+    @property
+    def numtaps(self):
+        """Return the number of taps to meet the transition width."""
+        
+        ntaps = int(12 / (self.width / self.nyq))
+        # odd tap number to ensure group delay is integer samples
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
+
+
+
 if __name__ == '__main__':
-    
+   
     import matplotlib.pyplot as plt
 
-    #fpass = [400]
-    #fstop = [500]
+    fpass = [400]
+    fstop = [500]
 
-    fpass = [500]
-    fstop = [400]
+    #fpass = [500]
+    #fstop = [400]
     
     #fpass = [400, 800]
     #fstop = [300, 900]
@@ -112,6 +343,8 @@ if __name__ == '__main__':
     
     kfir = Kaiser(fpass=fpass, fstop=fstop, gpass=1, gstop=40, fs=5000)
     kfir.plot(worN=2048)
+
+    filt = Hanning(fpass=fpass, fstop=fstop, fs=5000)
 
     """
     w, h = sps.freqz(kfir.coeffs, fs=5000, worN=2000)
