@@ -6,6 +6,16 @@ to plot itself and can be called on an ndarray or a producer of ndarrays.
 Please see the FIR base class in openseize.filtering.bases for inherited
 properties and methods.
 
+The Kaiser windows can be designed to meet the stricter of the pass and stop
+band attenuation criteria within the specified transition width. The general
+cosine windows (GCW) FIRS (Rectangular, Hanning, Hamming, Bartlett & 
+Blackman) do not allow for tuning of the attenuation as these are inherent 
+to the window shape. Thus to use the GCWs it is necessary to pick a specific
+GCW that meets the peak error spec. These are provided in the documentation
+for each windowed FIR. As such the Kaiser FIR is the simpler choice for
+general filtering unless some specific need (such as fast roll-offs) is 
+required.
+
 Typical usage example:
     
     # build a lowpass Kaiser FIR with and edge frequencies of 500 and 600 Hz
@@ -108,16 +118,11 @@ class Rectangular(FIR):
         fs: int
             The sampling rate of the data to be filtered.
 
-    This FIR is an exapmple of a non-parameteric generalized cosine window.
-    As such the tap number controls the width of the transition  but has no
-    effect on the pass and stop band error specs (i.e. ripple). These
-    features are controlled by the inherent window shape and are therefore
-    not tunable. The shape characteristics are:
-
-    main lobe width (MLW) = 4 pi / len(taps) 
-    side lobe height (SLH) = -13.3 dB
-    side lobe roll-off rate (SLRR) = -6 dB/octave
-    approximate peak error (APE) = -21 dB
+    Characteristics:
+        main lobe width (MLW) = 4 pi / len(taps) 
+        side lobe height (SLH) = -13.3 dB
+        side lobe roll-off rate (SLRR) = -6 dB/octave
+        approximate peak error (APE) = -21 dB
         
     It has large spectral leakage and its primary use case is for working with
     periodic signals whose frequencies are multiples of the window length.
@@ -154,16 +159,11 @@ class Hanning(FIR):
         fs: int
             The sampling rate of the data to be filtered.
 
-    This FIR is an exapmple of a non-parameteric generalized cosine window.
-    As such the tap number controls the width of the transition  but has no
-    effect on the pass and stop band error specs (i.e. ripple). These
-    features are controlled by the inherent window shape and are therefore
-    not tunable. The shape characteristics are:
-
-    main lobe width (MLW) = 8 pi / len(taps) 
-    side lobe height (SLH) = -31.5 dB
-    side lobe roll-off rate (SLRR) = -18 dB/octave
-    approximate peak error (APE) = -44 dB
+    Characteristics:
+        main lobe width (MLW) = 8 pi / len(taps) 
+        side lobe height (SLH) = -31.5 dB
+        side lobe roll-off rate (SLRR) = -18 dB/octave
+        approximate peak error (APE) = -44 dB
         
     The Hann window is a good general purpose window with reduced spectral
     leakage.
@@ -200,19 +200,14 @@ class Hamming(FIR):
         fs: int
             The sampling rate of the data to be filtered.
 
-    This FIR is an exapmple of a non-parameteric generalized cosine window.
-    As such the tap number controls the width of the transition  but has no
-    effect on the pass and stop band error specs (i.e. ripple). These
-    features are controlled by the inherent window shape and are therefore
-    not tunable. The shape characteristics are:
-
-    main lobe width (MLW) = 8 pi / len(taps) 
-    side lobe height (SLH) = -43.8 dB
-    side lobe roll-off rate (SLRR) = -6 dB/octave
-    approximate peak error (APE) = -53 dB
+    Characteristics:
+        main lobe width (MLW) = 8 pi / len(taps) 
+        side lobe height (SLH) = -43.8 dB
+        side lobe roll-off rate (SLRR) = -6 dB/octave
+        approximate peak error (APE) = -53 dB
         
-    The Hamming window is a good general purpose window with stronger
-    attenuation in the pass and stop bands than a Hann window.
+    The Hamming window is a good general purpose window with strong
+    attenuation in the pass and stop bands.
     """
 
     def __init__(self, fpass, fstop, fs):
@@ -246,16 +241,11 @@ class Bartlett(FIR):
         fs: int
             The sampling rate of the data to be filtered.
 
-    This FIR is an exapmple of a non-parameteric generalized cosine window.
-    As such the tap number controls the width of the transition  but has no
-    effect on the pass and stop band error specs (i.e. ripple). These
-    features are controlled by the inherent window shape and are therefore
-    not tunable. The shape characteristics are:
-
-    main lobe width (MLW) = 8 pi / len(taps) 
-    side lobe height (SLH) = -26.5 dB
-    side lobe roll-off rate (SLRR) = -12 dB/octave
-    approximate peak error (APE) = -25 dB
+    Characteristics:
+        main lobe width (MLW) = 8 pi / len(taps) 
+        side lobe height (SLH) = -26.5 dB
+        side lobe roll-off rate (SLRR) = -12 dB/octave
+        approximate peak error (APE) = -25 dB
         
     The Bartlett window has a narrow main lobe but higher side lobes and
     thus leakage.
@@ -292,16 +282,11 @@ class Blackman(FIR):
         fs: int
             The sampling rate of the data to be filtered.
 
-    This FIR is an exapmple of a non-parameteric generalized cosine window.
-    As such the tap number controls the width of the transition  but has no
-    effect on the pass and stop band error specs (i.e. ripple). These
-    features are controlled by the inherent window shape and are therefore
-    not tunable. The shape characteristics are:
-
-    main lobe width (MLW) = 12 pi / len(taps) 
-    side lobe height (SLH) = -58.2 dB
-    side lobe roll-off rate (SLRR) = -18 dB/octave
-    approximate peak error (APE) = -74 dB
+    Characteristics:
+        main lobe width (MLW) = 12 pi / len(taps) 
+        side lobe height (SLH) = -58.2 dB
+        side lobe roll-off rate (SLRR) = -18 dB/octave
+        approximate peak error (APE) = -74 dB
         
     The Blackman window has a wider main lobe but greater attenuation in the
     pass and stop bands with a good roll-off.
