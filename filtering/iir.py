@@ -230,6 +230,51 @@ class Ellip(IIR):
                              fs=self.fs)
 
 
+class Notch(IIR):
+    """A callable second order digital Notch IIR filter.
+
+    Designs a second order notch filter with a -3 dB width around the stop
+    frequency.
+
+    Attrs:
+        fstop: float
+            The frequency (Hz) to reject.
+        width: float
+            The width of the transition band centered on fstop. At the band
+            edges the gain drops to -3dB ~ 30% loss.
+        fs: int
+            The sampling rate of the data to be filtered.
+
+    This filter is callable meaning after initialization it can be called
+    like a function to apply the filter to data. For additional details 
+    about call arguments type help(Notch.call)
+    """
+   
+    def __init__(self, fstop, width, fs):
+        """Initialize this Second Order Notch IIR."""
+
+        fpass = np.array([fstop - width/2, fstop + width/2])
+        fstop = np.array([fstop, fstop])
+        self.width = width
+        # gpass is 3dB, gstop is determined by width
+        super().__init__(fpass, fstop, gpass=3, gstop=None, fs=fs, fmt='ba')
+
+    @property
+    def order(self):
+        """Returns the order (always 2) & the 3dB frequency of this IIR."""
+       
+        return len(self.coeffs[0]) - 1, self.fstop[0] - self.width/2
+
+    def _build(self):
+        """Designs a second order notch filter that reaches -3 dB at the
+        stop band edges.
+
+        see scipy.signal.iirnotch
+        """
+
+        f0 = self.fstop[0]
+        return sps.iirnotch(f0, f0/self.width, fs=self.fs)
+
 
 if __name__ == '__main__':
 
@@ -254,4 +299,6 @@ if __name__ == '__main__':
     #ellip = Ellip(fpass=[500], fstop=[400], fs=fs) #highpass
     #ellip = Ellip(fpass=[500, 700], fstop=[400, 800], fs=fs) #bandpass
     #ellip = Ellip(fpass=[400, 800], fstop=[500, 700], fs=fs) #bandstop
+
+    notch = Notch(60, width=6, fs=5000)
 
