@@ -40,6 +40,7 @@ import scipy.signal as sps
 
 from openseize.filtering.bases import FIR
 
+# FIXME determine if kaiser should support multiple bands
 class Kaiser(FIR):
     """A callable Type I FIR Filter using a Kaiser window. 
 
@@ -54,6 +55,10 @@ class Kaiser(FIR):
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
+            If the length of fpass and fstop is greater than 2, then
+            multiple bandpass or multiple bandstop bands will be created.
+            Band types may not be mixed. For a general FIR that can combine
+            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
         gpass: float
@@ -115,6 +120,10 @@ class Rectangular(FIR):
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
+            If the length of fpass and fstop is greater than 2, then
+            multiple bandpass or multiple bandstop bands will be created.
+            Band types may not be mixed. For a general FIR that can combine
+            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -156,6 +165,10 @@ class Hanning(FIR):
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
+            If the length of fpass and fstop is greater than 2, then
+            multiple bandpass or multiple bandstop bands will be created.
+            Band types may not be mixed. For a general FIR that can combine
+            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -197,6 +210,10 @@ class Hamming(FIR):
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
+            If the length of fpass and fstop is greater than 2, then
+            multiple bandpass or multiple bandstop bands will be created.
+            Band types may not be mixed. For a general FIR that can combine
+            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -238,6 +255,10 @@ class Bartlett(FIR):
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
+            If the length of fpass and fstop is greater than 2, then
+            multiple bandpass or multiple bandstop bands will be created.
+            Band types may not be mixed. For a general FIR that can combine
+            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -279,6 +300,10 @@ class Blackman(FIR):
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
+            If the length of fpass and fstop is greater than 2, then
+            multiple bandpass or multiple bandstop bands will be created.
+            Band types may not be mixed. For a general FIR that can combine
+            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -309,6 +334,79 @@ class Blackman(FIR):
         return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
 
+class MiniMax():
+    """ """
+
+    # FIXME is it better to pass the frequencies and gains just like remez
+    #
+    def __init__(self, fpass, fstop, gpass, gstop, fs, **kwargs):
+        """
+
+        fpass = [(0, 200), (600,900)]
+        fstop = [(300, 500), (1000, NYQ)]
+        
+        fpass = [(300, 350)]
+        fstop = [(280, 370)]
+
+        gpass = [.002, .003] #will use stricter
+        gstop = [.001, .004] #will use stricter
+        kwargs passed to remez in build
+        """
+
+        fpass = np.atleast_2d(fpass)
+        fstop = np.atleast_2d(fstop)
+
+        gains = np.zeros((fpass.shape[0] + fstop.shape[0], 1))
+        gains[:len(fpass)] = 1
+        
+        bands = np.concatenate((fpass, fstop))
+        bands = np.concatenate((bands, gains), axis=1)
+        print(bands)
+
+        idxs = np.argsort(bands[:,0])
+        bands = bands[idxs,:]
+        print(bands)
+            
+        bands, desired = np.split(bands, [2], axis=1)
+        print(bands.flatten(), desired.flatten())
+    
+
+    """
+
+    def __init__(self, bands, desired, gains, fs, ntaps=None, 
+                 grid_density=16, maxiter=25):
+        
+        #PLOT ISSUES
+        #fpass, fstop, gpass, gstop, btype, cutoffs
+
+        self.bands = np.array(bands)
+        self.desired = np.array(desired)
+        self.gains = np.array(gains)
+        self.fs = fs
+        self.nyq = fs / 2
+        self.grid_density = grid_density
+        self.maxiter = maxiter
+        self.width = np.min(np.diff(self.bands))
+        self.numtaps = ntaps if ntaps else self.count_taps()
+        self.coeffs = self._build()
+
+    def count_taps(self):
+
+        deltas = np.stack((self.desired, self.gains), axis=0) 
+        deltap = np.min(deltas[:, deltas[0] == 1][1])
+        deltas = np.max(deltas[:, deltas[0] < 1][1])
+        
+        n = -2/3 * np.log10(10*deltap*deltas) * self.fs/ self.width
+        ntaps = int(np.ceil(n))
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
+
+    def _build(self):
+
+        return sps.remez(self.numtaps, self.bands.flatten(), 
+                         self.desired, 1/self.gains, fs=self.fs)
+
+    """
+
 
 if __name__ == '__main__':
    
@@ -325,22 +423,40 @@ if __name__ == '__main__':
     
     #fpass = [400, 900]
     #fstop = [450, 850]
-    
-    kfir = Kaiser(fpass=fpass, fstop=fstop, gpass=1, gstop=40, fs=5000)
-    kfir.plot(worN=2048)
 
-    filt = Hanning(fpass=fpass, fstop=fstop, fs=5000)
+    #fpass = [400, 500, 800, 900]
+    #fstop = [300, 600, 700, 1000]
+
+    #kfir = Kaiser(fpass=fpass, fstop=fstop, gpass=1, gstop=40, fs=5000)
+    #kfir.plot(worN=2048)
+
+    #filt = Hanning(fpass=fpass, fstop=fstop, fs=5000)
+
+    fpass = [180]
+    fstop = [210]
+
+    #filt = MiniMax([0, 180, 210, 500], [1,0], [.002, .005], fs=1000)
+    
+    filt = MiniMax(fpass=[(300, 350)], fstop=[(0, 280), (370,500)], 
+            gpass=None, gstop=None,
+                   fs=1000)
 
     """
-    w, h = sps.freqz(kfir.coeffs, fs=5000, worN=2000)
+    w, h = sps.freqz(filt.coeffs, fs=1000, worN=2000)
     fig, axarr = plt.subplots(2,1)
     axarr[0].plot(w, 20*np.log10(np.abs(h)))
     axarr[1].plot(w, np.abs(h))
     [ax.grid(alpha=0.5) for ax in axarr]
     [ax.axvline(fp, color='red') for fp in fpass for ax in axarr]
     [ax.axvline(fs, color='red') for fs in fstop for ax in axarr]
-    [axarr[0].axvline([c], color='pink') for c in kfir.cutoff]
-    [axarr[1].axvline([c], color='pink') for c in kfir.cutoff]
+    """
+
+    """
+    [axarr[0].axvline([c], color='pink') for c in filt.cutoff]
+    [axarr[1].axvline([c], color='pink') for c in filt.cutoff]
+    """
+
+    """
     plt.ion()
     plt.show()
     """
