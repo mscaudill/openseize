@@ -221,8 +221,10 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         fp, fs = self.fpass, self.fstop
         if len(fp) < 2:
             btype = 'lowpass' if fp < fs else 'highpass'
-        else:
+        elif len(fp) == 2:
             btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
+        else:
+            btype = 'multiband'
         return btype
 
     @property
