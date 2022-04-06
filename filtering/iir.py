@@ -35,7 +35,7 @@ class Butter(IIR):
     stop band attenuation criteria.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or 2-el sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
@@ -86,7 +86,7 @@ class Cheby1(IIR):
     band.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or 2-el sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
@@ -137,7 +137,7 @@ class Cheby2(IIR):
     band.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or 2-el sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
@@ -188,7 +188,7 @@ class Ellip(IIR):
     pass and stop bands.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or 2-el sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
@@ -282,7 +282,7 @@ if __name__ == '__main__':
 
     #butter = Butter(fpass=[400], fstop=[500], fs=fs) #lowpass
     #butter = Butter(fpass=[500], fstop=[400], fs=fs) #highpass
-    butter = Butter(fpass=[500, 700], fstop=[400, 800], fs=fs) #bandpass
+    #butter = Butter(fpass=[500, 700], fstop=[400, 800], fs=fs) #bandpass
     #butter = Butter(fpass=[400, 800], fstop=[500, 700], fs=fs) #bandstop
 
     #cheby1 = Cheby1(fpass=[400], fstop=[500], fs=fs) #lowpass
