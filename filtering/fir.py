@@ -40,7 +40,6 @@ import scipy.signal as sps
 
 from openseize.filtering.bases import FIR
 
-# FIXME determine if kaiser should support multiple bands
 class Kaiser(FIR):
     """A callable Type I FIR Filter using a Kaiser window. 
 
@@ -334,78 +333,65 @@ class Blackman(FIR):
         return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
 
-class MiniMax():
+class MiniMax(FIR):
     """ """
 
-    # FIXME is it better to pass the frequencies and gains just like remez
-    #
-    def __init__(self, fpass, fstop, gpass, gstop, fs, **kwargs):
-        """
-
-        fpass = [(0, 200), (600,900)]
-        fstop = [(300, 500), (1000, NYQ)]
-        
-        fpass = [(300, 350)]
-        fstop = [(280, 370)]
-
-        gpass = [.002, .003] #will use stricter
-        gstop = [.001, .004] #will use stricter
-        kwargs passed to remez in build
-        """
-
-        fpass = np.atleast_2d(fpass)
-        fstop = np.atleast_2d(fstop)
-
-        gains = np.zeros((fpass.shape[0] + fstop.shape[0], 1))
-        gains[:len(fpass)] = 1
-        
-        bands = np.concatenate((fpass, fstop))
-        bands = np.concatenate((bands, gains), axis=1)
-        print(bands)
-
-        idxs = np.argsort(bands[:,0])
-        bands = bands[idxs,:]
-        print(bands)
-            
-        bands, desired = np.split(bands, [2], axis=1)
-        print(bands.flatten(), desired.flatten())
-    
-
-    """
-
-    def __init__(self, bands, desired, gains, fs, ntaps=None, 
-                 grid_density=16, maxiter=25):
+    def __init__(self, bands, desired, gpass, gstop, fs, **kwargs):
         
         #PLOT ISSUES
-        #fpass, fstop, gpass, gstop, btype, cutoffs
+        #cutoffs
 
-        self.bands = np.array(bands)
-        self.desired = np.array(desired)
-        self.gains = np.array(gains)
+        self.bands = np.array(bands).reshape(-1,2)
+        self.desired = np.array(desired, dtype=bool)
+        self.fpass = self.bands[np.where(self.desired)[0]].flatten()
+        self.fstop = self.bands[np.where(~self.desired)[0]].flatten()
+
+        print(self.fpass)
+        print(self.fstop)
+
+        self.gpass = gpass 
+        self.gstop = gstop
+        self.deltap = 1-10 ** (-self.gpass / 20)
+        self.deltas = 10 ** (-self.gstop / 20)
+        self.delta = np.array([self.deltap if d else self.deltas 
+                               for d in self.desired])
+        
         self.fs = fs
         self.nyq = fs / 2
-        self.grid_density = grid_density
-        self.maxiter = maxiter
-        self.width = np.min(np.diff(self.bands))
-        self.numtaps = ntaps if ntaps else self.count_taps()
-        self.coeffs = self._build()
+        self.width = np.min(self.bands[1:,0]-self.bands[:-1,1])
+        # on subclass init build this filter
+        self.coeffs = self._build(**kwargs)
 
-    def count_taps(self):
+    @property
+    def btype(self):
+        # FIXME THIS NEEDS TO RETURN CORRECT BAND TYPE IF 0 AND NYQ ARE
+        # PROVIDED. THEN THIS MAY BE INTEGRATED INTO BASE
+        # low pass fmts are
+        # 1. fpass = [400] fstop = [450]
+        # 2. fpass = [0, 400], fstop=[450, Nyq]
+        # highpass are similar
+        # bandpass fmts are
+        # 1. fpass = [300, 500], fstop = [200, 600]
+        # 2. fpass = [300, 500], fstop = [0, 200, 600, NYQ] This one fails
+        #    because the pass and stop are not the same length
+        #    WHAT WE MUST HAVE IS A WAY TO UNIFY THESE FMTS
+        return 'multiband'
 
-        deltas = np.stack((self.desired, self.gains), axis=0) 
-        deltap = np.min(deltas[:, deltas[0] == 1][1])
-        deltas = np.max(deltas[:, deltas[0] < 1][1])
-        
-        n = -2/3 * np.log10(10*deltap*deltas) * self.fs/ self.width
+    @property
+    def numtaps(self):
+
+        n = -2/3 * np.log10(10 * self.deltap * self.deltas) * self.fs / self.width
         ntaps = int(np.ceil(n))
         return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
-    def _build(self):
+    def _build(self, **kwargs):
 
-        return sps.remez(self.numtaps, self.bands.flatten(), 
-                         self.desired, 1/self.gains, fs=self.fs)
+        #feed in grid density and max_iter
+        ntaps = self.numtaps #this will need to be adjustable
+        weight = 1 / self.delta
+        return sps.remez(ntaps, self.bands.flatten(), 
+                         self.desired, weight=weight, fs=self.fs)
 
-    """
 
 
 if __name__ == '__main__':
@@ -432,15 +418,21 @@ if __name__ == '__main__':
 
     #filt = Hanning(fpass=fpass, fstop=fstop, fs=5000)
 
-    fpass = [180]
-    fstop = [210]
-
-    #filt = MiniMax([0, 180, 210, 500], [1,0], [.002, .005], fs=1000)
+    #bands = [0, 40, 50, 60, 70, 200, 210, 500]
+    #desired = [1, 0, 1, 0]
     
-    filt = MiniMax(fpass=[(300, 350)], fstop=[(0, 280), (370,500)], 
-            gpass=None, gstop=None,
-                   fs=1000)
+    #bands = [0, 20, 30, 40, 50, 60, 70, 500]
+    #desired = [0, 1, 0, 1]
+    
+    #bands = [0, 180, 210, 500]
+    #desired = [0, 1]
 
+    bands = [0, 200, 300, 500, 600, 1000]
+    desired = [0, 1, 0]
+    filt = MiniMax(bands, desired, gpass=.05, gstop=40, fs=2000)
+
+    filt.plot()
+   
     """
     w, h = sps.freqz(filt.coeffs, fs=1000, worN=2000)
     fig, axarr = plt.subplots(2,1)
@@ -449,14 +441,10 @@ if __name__ == '__main__':
     [ax.grid(alpha=0.5) for ax in axarr]
     [ax.axvline(fp, color='red') for fp in fpass for ax in axarr]
     [ax.axvline(fs, color='red') for fs in fstop for ax in axarr]
-    """
 
-    """
-    [axarr[0].axvline([c], color='pink') for c in filt.cutoff]
-    [axarr[1].axvline([c], color='pink') for c in filt.cutoff]
-    """
+    #[axarr[0].axvline([c], color='pink') for c in filt.cutoff]
+    #[axarr[1].axvline([c], color='pink') for c in filt.cutoff]
 
-    """
     plt.ion()
     plt.show()
     """

@@ -84,7 +84,8 @@ class Viewer:
         bands = np.stack((self.fpass, self.fstop), axis=0)
         trans_bands = np.stack((np.min(bands, axis=0), 
                                 np.max(bands, axis=0))).T
-        
+       
+        #FIXME THIS NEEDS TO WORK FOR BANDS THAT INCLUDE 0 AND NYQ
         if self.btype == 'lowpass':
             pass_bands = np.array([[0, self.fpass[0]]])
         
@@ -98,11 +99,11 @@ class Viewer:
             pass_bands = np.array([[0, self.fpass[0]], 
                                   [self.fpass[1], self.nyq]])
 
-        else: # Multiband case TODO VERIFY WITH REMEZ
-            bands = self.bands.reshape(-1, 2)
-            pass_bands = bands * self.desired.reshape(-1, 1) 
-            pass_bands = pass_bands[np.all(pass_bands > 0, axis=1)]
-
+        else: # Multiband case
+            pass_bands = self.fpass.reshape(-1,2)
+            trans_bands = np.stack((self.bands[:-1,1], 
+                                    self.bands[1:, 0]), axis=1)
+        
         # Get bottom and top of pass and trans bands
         b = ax.get_ylim()[0]
         top = 0 if scale=='dB' else 1
