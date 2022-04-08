@@ -224,7 +224,8 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         elif len(fp) == 2:
             btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
         else:
-            btype = 'multiband'
+            msg = '{} supports only lowpass, highpass, bandpass & bandstop.'
+            raise ValueError(msg.format(type(self)))
         return btype
 
     @property
