@@ -47,17 +47,13 @@ class Kaiser(FIR):
     stop band attenuation criteria.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or length 2 sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
-            If the length of fpass and fstop is greater than 2, then
-            multiple bandpass or multiple bandstop bands will be created.
-            Band types may not be mixed. For a general FIR that can combine
-            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
         gpass: float
@@ -112,17 +108,13 @@ class Rectangular(FIR):
     """A callable type I FIR using a rectangular window.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or length 2 sequence.
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
-            If the length of fpass and fstop is greater than 2, then
-            multiple bandpass or multiple bandstop bands will be created.
-            Band types may not be mixed. For a general FIR that can combine
-            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -157,17 +149,13 @@ class Hanning(FIR):
     """A callable type I FIR using a Hann window.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or length 2 sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
-            If the length of fpass and fstop is greater than 2, then
-            multiple bandpass or multiple bandstop bands will be created.
-            Band types may not be mixed. For a general FIR that can combine
-            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -202,17 +190,13 @@ class Hamming(FIR):
     """A callable type I FIR using a Hamming window.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or length 2 sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
-            If the length of fpass and fstop is greater than 2, then
-            multiple bandpass or multiple bandstop bands will be created.
-            Band types may not be mixed. For a general FIR that can combine
-            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -247,17 +231,13 @@ class Bartlett(FIR):
     """A callable type I FIR using a Bartlett (triangular) window.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or length 2 sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
-            If the length of fpass and fstop is greater than 2, then
-            multiple bandpass or multiple bandstop bands will be created.
-            Band types may not be mixed. For a general FIR that can combine
-            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -292,17 +272,13 @@ class Blackman(FIR):
     """A callable type I FIR using a Blackman window.
 
     Attrs:
-        fpass, fstop: float or 1-D array
+        fpass, fstop: float or length 2 sequence
             Pass and stop band edge frequencies (Hz).
             For example:
                 - Lowpass: fpass = 1000, fstop = 1100
                 - Highpass: fpass = 2000, fstop = 1800 
                 - Bandpass: fpass = [400, 800], fstop = [300, 900]
                 - Bandstop: fpass = [100, 200], fstop = [120, 180]
-            If the length of fpass and fstop is greater than 2, then
-            multiple bandpass or multiple bandstop bands will be created.
-            Band types may not be mixed. For a general FIR that can combine
-            band types please see MiniMax FIR.
         fs: int
             The sampling rate of the data to be filtered.
 
@@ -333,64 +309,65 @@ class Blackman(FIR):
         return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
 
-class MiniMax(FIR):
+class Remez(FIR):
     """ """
 
     def __init__(self, bands, desired, gpass, gstop, fs, **kwargs):
+        """ """
         
-        #PLOT ISSUES
-        #cutoffs
 
         self.bands = np.array(bands).reshape(-1,2)
         self.desired = np.array(desired, dtype=bool)
-        self.fpass = self.bands[np.where(self.desired)[0]].flatten()
-        self.fstop = self.bands[np.where(~self.desired)[0]].flatten()
-
-        print(self.fpass)
-        print(self.fstop)
-
-        self.gpass = gpass 
-        self.gstop = gstop
-        self.deltap = 1-10 ** (-self.gpass / 20)
-        self.deltas = 10 ** (-self.gstop / 20)
-        self.delta = np.array([self.deltap if d else self.deltas 
-                               for d in self.desired])
         
-        self.fs = fs
-        self.nyq = fs / 2
-        self.width = np.min(self.bands[1:,0]-self.bands[:-1,1])
-        # on subclass init build this filter
-        self.coeffs = self._build(**kwargs)
+        # construct fpass and fstop from bands for plotting
+        fp = self.bands[self.desired].flatten()
+        fpass = fp[np.logical_and(fp > 0, fp < fs / 2)]
+        fst = self.bands[~self.desired].flatten()
+        fstop = fst[np.logical_and(fst > 0, fst < fs / 2)]
+
+        # transform gpass and gstop to amplitudes
+        self.delta_pass = 1 - 10 ** (-gpass / 20)
+        self.delta_stop = 10 ** (-gstop / 20)
+        self.delta = (self.delta_pass * self.desired + 
+                      self.delta_stop * (1 - self.desired))
+
+        super().__init__(fpass, fstop, gpass, gstop, fs, **kwargs)
 
     @property
     def btype(self):
-        # FIXME THIS NEEDS TO RETURN CORRECT BAND TYPE IF 0 AND NYQ ARE
-        # PROVIDED. THEN THIS MAY BE INTEGRATED INTO BASE
-        # low pass fmts are
-        # 1. fpass = [400] fstop = [450]
-        # 2. fpass = [0, 400], fstop=[450, Nyq]
-        # highpass are similar
-        # bandpass fmts are
-        # 1. fpass = [300, 500], fstop = [200, 600]
-        # 2. fpass = [300, 500], fstop = [0, 200, 600, NYQ] This one fails
-        #    because the pass and stop are not the same length
-        #    WHAT WE MUST HAVE IS A WAY TO UNIFY THESE FMTS
-        return 'multiband'
+        """Remez supports multiple bands so override base class btype with
+        its single band restriction."""
+
+        fp, fs = self.fpass, self.fstop
+        if len(fp) < 2:
+            btype = 'lowpass' if fp < fs else 'highpass'
+        elif len(fp) == 2:
+            btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
+        else:
+            btype = 'multiband'
+        return btype
 
     @property
     def numtaps(self):
+        """ """
 
-        n = -2/3 * np.log10(10 * self.deltap * self.deltas) * self.fs / self.width
+        dp, ds = self.delta_pass, self.delta_stop
+        n = -2/3 * np.log10(10 * dp * ds) * self.fs / self.width
         ntaps = int(np.ceil(n))
         return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
     def _build(self, **kwargs):
+        """ """
 
-        #feed in grid density and max_iter
-        ntaps = self.numtaps #this will need to be adjustable
-        weight = 1 / self.delta
+        # Get kwargs or use defaults to pass to scipy remez
+        ntaps = kwargs.pop('numtaps', self.numtaps)
+        weight = kwargs.pop('weight', 1/ self.delta)
+        maxiter = kwargs.pop('maxiter', 25)
+        grid_density = kwargs.pop('grid_density', 16)
+
         return sps.remez(ntaps, self.bands.flatten(), 
-                         self.desired, weight=weight, fs=self.fs)
+                         self.desired, weight=weight, maxiter=maxiter,
+                         grid_density=grid_density, fs=self.fs)
 
 
 
@@ -398,38 +375,42 @@ if __name__ == '__main__':
    
     import matplotlib.pyplot as plt
 
-    fpass = [400]
-    fstop = [500]
+    fpass = [500]
+    fstop = [700]
+    bands = [0, 500, 700, 2500]
+    desired = [1, 0]
 
     #fpass = [500]
     #fstop = [400]
+    #bands = [0, 400, 500, 2500]
+    #desired = [0, 1]
     
     #fpass = [400, 800]
     #fstop = [300, 900]
+    #bands = [0, 300, 400, 800, 900, 2500]
+    #desired = [0, 1, 0]
     
     #fpass = [400, 900]
     #fstop = [450, 850]
+    #bands = [0, 400, 450, 850, 900, 2500]
+    #desired = [1, 0, 1]
 
+    # Should raise exception for kaiser but not Minimax
     #fpass = [400, 500, 800, 900]
     #fstop = [300, 600, 700, 1000]
+    #bands = [0, 300, 400, 500, 600, 700, 800, 900, 1000, 2500]
+    #desired = [0, 1, 0, 1, 0]
 
-    #kfir = Kaiser(fpass=fpass, fstop=fstop, gpass=1, gstop=40, fs=5000)
-    #kfir.plot(worN=2048)
+    kfir = Kaiser(fpass=fpass, fstop=fstop, gpass=.1, gstop=40, fs=5000)
+    kfir.plot(worN=2048)
 
     #filt = Hanning(fpass=fpass, fstop=fstop, fs=5000)
 
-    #bands = [0, 40, 50, 60, 70, 200, 210, 500]
+    # low pass and band stop mixture
+    #bands = [0, 48, 56, 64, 72, 500, 510, 2500]
     #desired = [1, 0, 1, 0]
-    
-    #bands = [0, 20, 30, 40, 50, 60, 70, 500]
-    #desired = [0, 1, 0, 1]
-    
-    #bands = [0, 180, 210, 500]
-    #desired = [0, 1]
 
-    bands = [0, 200, 300, 500, 600, 1000]
-    desired = [0, 1, 0]
-    filt = MiniMax(bands, desired, gpass=.05, gstop=40, fs=2000)
+    filt = Remez(bands, desired, gpass=.05, gstop=40, fs=5000)
 
     filt.plot()
    
