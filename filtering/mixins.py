@@ -85,7 +85,6 @@ class Viewer:
         trans_bands = np.stack((np.min(bands, axis=0), 
                                 np.max(bands, axis=0))).T
        
-        #FIXME THIS NEEDS TO WORK FOR BANDS THAT INCLUDE 0 AND NYQ
         if self.btype == 'lowpass':
             pass_bands = np.array([[0, self.fpass[0]]])
         
@@ -100,7 +99,7 @@ class Viewer:
                                   [self.fpass[1], self.nyq]])
 
         else: # Multiband case
-            pass_bands = self.fpass.reshape(-1,2)
+            pass_bands = self.bands[np.where(self.desired)[0]]
             trans_bands = np.stack((self.bands[:-1,1], 
                                     self.bands[1:, 0]), axis=1)
         
