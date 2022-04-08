@@ -1,10 +1,10 @@
 """A collection of callable Finite Impulse Response filters.
 
-This collection includes the Kaiser parametric filter and non-parametric 
-general cosine window filters including. Each filter inherits the ability 
-to plot itself and can be called on an ndarray or a producer of ndarrays.
-Please see the FIR base class in openseize.filtering.bases for inherited
-properties and methods.
+This collection includes the Kaiser parametric filter, non-parametric 
+general cosine window filters, and an optimal 'minimax' filter. Each
+filter inherits the ability to plot itself and can be called on an ndarray
+or a producer of ndarrays.Please see the FIR base class in 
+openseize.filtering.bases for inherited properties and methods.
 
 The Kaiser windows can be designed to meet the stricter of the pass and stop
 band attenuation criteria within the specified transition width. The general
@@ -14,7 +14,8 @@ to the window shape. Thus to use the GCWs it is necessary to pick a specific
 GCW that meets the peak error spec. These are provided in the documentation
 for each windowed FIR. As such the Kaiser FIR is the simpler choice for
 general filtering unless some specific need (such as fast roll-offs) is 
-required.
+required. If multibands are required in a single filter desing or if minimal
+number of taps are required Remez may be used. 
 
 Typical usage example:
     
