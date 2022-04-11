@@ -311,12 +311,72 @@ class Blackman(FIR):
 
 
 class Remez(FIR):
-    """ """
+    """The Parks-McClellan optimal filter obtained with the Remez 
+    exchange algorithm.
+    
+    This FIR is designed by minimizing: E(f) = W(f) |A(f) - D(f)|
+    where E(f) is a the weighted difference of the actual frequency 
+    response A(F) from the desired frequency response D(f) for f in 
+    [0, nyquist] (see scipy.signal.remez). As an optimal design method it
+    can result in a FIR with a lower number of taps than the Kaiser method.
+    To construct this filter a sequence of bands and the desired gains D(f) 
+    for each band must supplied. This parameterization allows for the
+    specification of mixed bands (e.g. lowpass with a bandstop) in contrast 
+    to other FIRS such as Kaiser.
 
-    def __init__(self, bands, desired, gpass, gstop, fs, **kwargs):
-        """ """
+    Attrs:
+        bands: 1-D array like
+            A monotonically increasing sequence of pass & stop band edge
+            frequencies than includes the 0 and nyquist frequencies.
+        desired: 1-D array like
+            A sequence containing the desired gains (1 or 0) in each band.
+        fs: int
+           The sampling rate of the data to be filtered. 
+        gpass: float
+            The maximum loss in the pass band (dB). Default is .5 dB which
+            is an amplitude loss of ~ 1.2%. If more than 1 pass band is
+            supplied in bands, the same maximum loss will be applied to all
+            bands.
+        gstop: float
+            The minimum attenuation in the stop band (dB). The default is 40
+            dB which is an amplitude loss of 99%. If more than 1 stop band
+            is supplied in bands, the same minimum attenuation is applied to
+            all stop bands.
+        kwargs: dict
+            Any valid kwarg for scipys remez (see scipy.signal.remez)
+                numtaps: int
+                    The number of taps to build this filter with. Note this
+                    overrides the Bellanger estimate.
+                weight: sequnce
+                    A sequence the same length as desired with weights to
+                    relatively weight each band. This can reduce attenuation
+                    without increasing the tap number. If no value is passed
+                    the weights are the inverse of the percentage loss and
+                    attenuation in the pass and stop bands respectively.
+                maxiter: int
+                    The number of iterations to test for convergence.
+                    Defaults to 25 iterations.
+                grid_density: int
+                    Resolution of the grid remez uses to minimize E(f). If
+                    algorithm converges but has unexpected ripple,
+                    increasing this value can help. The default is 16.
+
+    The Remez FIR is more difficult to construct because the algorithm may
+    fail to converge. It also has more parameters such as the fitting
+    weights W(f) that control how much to weight the gains of each frequency
+    band. It is recommended that any filter designed with Remez be
+    visually inspected before use.
+
+    References:
+        1. J. H. McClellan and T. W. Parks, “A unified approach to the 
+           design of optimum FIR linear phase digital filters”, IEEE Trans. 
+           Circuit Theory, vol. CT-20, pp. 697-701, 1973.
+        2. Remez algorithm: https://en.wikipedia.org/wiki/Remez_algorithm
+    """
+
+    def __init__(self, bands, desired, fs, gpass=.1, gstop=40, **kwargs):
+        """Initialize this Remez FIR."""
         
-
         self.bands = np.array(bands).reshape(-1,2)
         self.desired = np.array(desired, dtype=bool)
         
@@ -336,8 +396,7 @@ class Remez(FIR):
 
     @property
     def btype(self):
-        """Remez supports multiple bands so override base class btype with
-        its single band restriction."""
+        """Overide FIR bandtype to include a 'multiband' option."""
 
         fp, fs = self.fpass, self.fstop
         if len(fp) < 2:
@@ -350,7 +409,19 @@ class Remez(FIR):
 
     @property
     def numtaps(self):
-        """ """
+        """Estimates the number of taps needed to meet this filters pass and
+        stop band specifications.
+
+        This is the Bellanger estimate for the number of taps. Strictly it
+        does not apply to multiband filters as it applies a single pass and
+        a single stop attenuation to each band. As such the frequency
+        response of the filter should be checked to ensure that the pass and
+        stop band criteria are being met.
+
+        References:
+            M. Bellanger, Digital Processing of Signals: Theory and
+            Practice (3rd Edition), Wiley, Hoboken, NJ, 2000.
+        """
 
         dp, ds = self.delta_pass, self.delta_stop
         n = -2/3 * np.log10(10 * dp * ds) * self.fs / self.width
@@ -358,7 +429,7 @@ class Remez(FIR):
         return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
     def _build(self, **kwargs):
-        """ """
+        """Returns the coefficients of this Remez."""
 
         # Get kwargs or use defaults to pass to scipy remez
         ntaps = kwargs.pop('numtaps', self.numtaps)
