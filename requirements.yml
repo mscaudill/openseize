@@ -9,3 +9,4 @@ dependencies:
     - pandas
     - pytest
     - scikit-learn
+    - psutil # only for siftnets support
