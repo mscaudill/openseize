@@ -84,7 +84,7 @@ class AutoCovariance:
         # acvs @ basis == (chs, events, samples) @ (chs, samples, k)
         basis = np.moveaxis(self.basis, 1, -1)
 
-        # This is costly in terms of memory
+        # This is costly in terms of memory -- could be iterative
         features = acv @ basis
         
         # build and train logistic
@@ -99,12 +99,19 @@ class AutoCovariance:
         self._model = logmodel
         return self._model
 
-    def predict(self, eegs, times, **kwargs):
+    def predict(self, data, continuous=False, axis=-1):
         """ """
 
-        # validate that chs match the fitted channels?
-        #
-        pass
+        # 1. build autocovariance
+        # 2. compute features by projection and flatten
+        # 3. call _models' predict method and return
+
+        acv = self._autocovariance(data)
+        basis = np.moveaxis(self.basis, 1, -1)
+        x = acv @ basis
+        x = np.swapaxes(x, 0, 1)
+        x = np.reshape(x, (x.shape[0], -1))
+        return self._model.predict_proba(x)
 
 if __name__ == '__main__':
 
@@ -141,7 +148,7 @@ if __name__ == '__main__':
                 result.append(eeg.read(start, stop, channels))
         return np.array(result)
 
-    def from_archive(channels, lag=2, fs=5000, reduction=[1, 8], seed=0):
+    def from_archive(channels, lag=2, fs=5000, reduction=[1, 1], seed=0):
         """Helper that constructs a training data set from an archive with
         both real (True) and artifact (False) swd events."""
 
@@ -173,25 +180,26 @@ if __name__ == '__main__':
         # to conserve memory we should cut this down so we build a better
         # logistic model. Ideally clients will supply hand marked SWDs and
         # artifacts for training this model.
-        reduced = dict()
-        rng = np.random.default_rng(seed)
-        for name, subdict in data.items():
-            eeg = subdict['reader']
-            labs = subdict['labels']
-            locs = subdict['locs']
-            # get True and False indices
-            pos, negs = np.nonzero(labs)[0], np.nonzero(~labs)[0]
-            # Compute reduced sizes and choose
-            sizes = np.array([len(pos), len(negs)]) / reduction
-            sizes = sizes.astype(int)
-            pos = rng.choice(pos, size=sizes[0], replace=False,
-                             shuffle=False)
-            negs = rng.choice(negs, size=sizes[1], replace=False,
-                              shuffle=False)
-            indices = np.sort(np.concatenate((pos, negs)))
-            red_locs = locs[indices]
-            red_labels = labs[indices]
-            data[name].update({'locs': red_locs, 'labels': red_labels})
+        if (np.array(reduction) > 1).any():
+            reduced = dict()
+            rng = np.random.default_rng(seed)
+            for name, subdict in data.items():
+                eeg = subdict['reader']
+                labs = subdict['labels']
+                locs = subdict['locs']
+                # get True and False indices
+                pos, negs = np.nonzero(labs)[0], np.nonzero(~labs)[0]
+                # Compute reduced sizes and choose
+                sizes = np.array([len(pos), len(negs)]) / reduction
+                sizes = sizes.astype(int)
+                pos = rng.choice(pos, size=sizes[0], replace=False,
+                                 shuffle=False)
+                negs = rng.choice(negs, size=sizes[1], replace=False,
+                                  shuffle=False)
+                indices = np.sort(np.concatenate((pos, negs)))
+                red_locs = locs[indices]
+                red_labels = labs[indices]
+                data[name].update({'locs': red_locs, 'labels': red_labels})
 
         result = [], []
         for subdict in data.values():
@@ -214,5 +222,34 @@ if __name__ == '__main__':
     sigmas, basis  = model.estimate(data, size=6)
 
     # Train logistic classifiers
-    fit_data, fit_labels = from_archive(channels=[0,1,2], reduction=[1, 20])
-    clfs = model.fit(fit_data, fit_labels)
+    data, labels = from_archive(channels=[0,1,2], reduction=[1, 20])
+    clfs = model.fit(data, labels)
+
+    # Make Predictions
+    data, labels = from_archive(channels=[0,1,2], reduction=[1,20])
+    predictions = model.predict(data)
+
+    # codify this
+    x = predictions[:,1] > 0.25
+    comparison =np.stack((x, labels), axis=1)
+    cnt = len(labels)
+    pos, neg = np.count_nonzero(labels), np.count_nonzero(~labels)
+    tp = np.count_nonzero(np.all(comparison, axis=1))
+    tn = np.count_nonzero(np.all(~comparison, axis=1))
+    fp = np.count_nonzero(x) - tp
+    fn = pos + neg - tp - fp - tn
+
+    tpr = tp / pos
+    fpr = fp / neg
+
+    print('pos = {}'.format(pos))
+    print('neg = {}'.format(neg))
+    print('total = []'.format(cnt))
+    print('tp = {}'.format(tp))
+    print('fp = {}'.format(fp))
+    print('tn = {}'.format(tn))
+    print('fn = {}'.format(fn))
+    print('tpr = {}'.format(tpr))
+    print('fpr = {}'.format(fpr))
+
+    print('ACC = {}'.format((tp + tn) / (cnt)))
