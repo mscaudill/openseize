@@ -6,16 +6,32 @@ from openseize.io.dialogs import matched, standard
 
 from sklearn.linear_model import LogisticRegression
 
-# FIXME It is important that we add support for producers and iterative
-# computation of both the autocovariances and their bases from a large
-# number of training files. It would be good to handle ~ 10k training
-# samples
-#
-# TODO I also want to figure out terminology that I can consistently use
-# when developing models and be looking for ways to abstract 
-#
 class AutoCovariance:
     """ """
+
+    # The memory consuption is quite high due to the large fs (5kHz). This
+    # limits the number of events we can use to build a basis and compute
+    # features for training the logistic model. Since SWDs have a waveform
+    # of duration 125 ms if we downsample the data to 500 Hz, we still have
+    # 40 points to represent this waveform. This will allow us to store
+    #    ~ 166K events for training with on 8 Gb of memory. 
+    # PLAN:
+    # 1. build downsampling
+    # 2. downsample data and restest this model
+    # 3. refactor and clean up the autocovariance and estimate methods
+    #    assuming they can directly work on arrays of downsampled events
+    # 4. work out if features need to be computed iteratively since this is
+    #    currently a large 3-D matrix multiplication
+    # 5. refactor predict so it can predict from discrete events or from
+    #    an edf producer producing downsampled lag windows of data
+    # 6. Test this detector in the continuous prediction mode
+    # 7. Build methods to estimate the number of basis needed using scree
+    #    plots
+    # 8. build testing and demo files
+    # 9. move the main functions for fetching events somewhere else for
+    #    safe keeping
+    # 10. make this model an inheritor of a model class for consistent
+    #     building of detectors
 
     def __init__(self):
         """ """
@@ -219,6 +235,8 @@ if __name__ == '__main__':
     
     # Estimate the basis
     data = from_annotations([0,1,2])
+
+    """
     sigmas, basis  = model.estimate(data, size=6)
 
     # Train logistic classifiers
@@ -253,3 +271,4 @@ if __name__ == '__main__':
     print('fpr = {}'.format(fpr))
 
     print('ACC = {}'.format((tp + tn) / (cnt)))
+    """
