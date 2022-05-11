@@ -307,13 +307,13 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
             filtered data. The output type will match the input data type.
         """
 
-        pro = producer(x, chunksize, axis, **kwargs)
+        pro = producer(data, chunksize, axis, **kwargs)
         # convolve to get a new producer
         result = nm.oaconvolve(pro, self.coeffs, axis, mode)
         
         # return array if input data is array
-        if isinstance(x, np.ndarray):
-            result = np.concantenate([arr for arr in result], axis=axis)
+        if isinstance(data, np.ndarray):
+            result = np.concatenate([arr for arr in result], axis=axis)
         
         return result
 
