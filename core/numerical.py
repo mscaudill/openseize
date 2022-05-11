@@ -75,10 +75,15 @@ def oaconvolve(pro, win, axis, mode):
 
     #estimate optimal nfft and transform window
     nfft = optimal_nffts(win)
-    W = fft.fft(win, nfft)
+
+    # faster if we pad upto nfft 5-11-2022
+    w = np.pad(win, [0, nfft - len(win)]) # new to pad window
+
+    #W = fft.fft(win, nfft) original
+    W = fft.fft(w, nfft) #5-11-2022
 
     #set the step size and compute num of segments of step size
-    step = nfft - len(win) -1
+    step = nfft - len(win) + 1
     nsegments = int(np.ceil(pro.shape[axis] / step))
 
     #initialize the overlap with shape (nfft - step) along axis
@@ -89,12 +94,21 @@ def oaconvolve(pro, win, axis, mode):
     #set producer chunksize to step & perform overlap add
     pro.chunksize = step
     for segment_num, subarr in enumerate(pro):
+        print(segment_num, subarr.shape)
+        islast = (segment_num == nsegments - 1)
         #pad the subarr upto nfft
-        x = pad_along_axis(subarr, [0, nfft - step], axis=axis)
+        #x = pad_along_axis(subarr, [0, nfft - step], axis=axis) #original
+        x = pad_along_axis(subarr, [0, len(win) - 1], axis=axis)
+        if islast:
+            print('padding last')
+            pad_amt = step - x.shape[axis] + len(win) -1
+            print(pad_amt)
+            x = pad_along_axis(x, [0, pad_amt], axis=axis)
         #perform circular convolution
         y = fft.ifft(fft.fft(x, nfft, axis=axis) * W, axis=axis).real
         #split filtered segment and overlap
-        y, new_overlap = np.split(y, [step], axis=axis)
+        if not islast:
+            y, new_overlap = np.split(y, [step], axis=axis)
         slices = [slice(None)] * subarr.ndim
         #add previous overlap to convolved
         slices[axis] = slice(0, nfft - step)
@@ -102,12 +116,20 @@ def oaconvolve(pro, win, axis, mode):
         #update overlap for next segment
         overlap = new_overlap
         #last segment may not have step pts, so slice upto 'full' overlap
+        
+        """
         samples = min((subarr.shape[axis]) + len(win) -1, step)
         y = slice_along_axis(y, 0, samples, axis=axis)
+        """
+        
+        print(segment_num, y.shape)
+        """
         #apply the boundary mode to first and last segments
         if segment_num == 0 or segment_num == nsegments-1:
             y = _oa_mode(y, segment_num, len(win), axis, mode)
+        """
         yield y
+
     #on iteration completion reset producer chunksize
     pro.chunksize = isize
 
