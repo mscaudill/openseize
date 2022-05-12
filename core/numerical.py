@@ -41,7 +41,7 @@ def _oa_mode(segment, idx, win_len, axis, mode):
                      slice(None, ns - ((win_len - 1) // 2))],
             'valid': [slice(win_len - 1, None), 
                       slice(None, ns - win_len + 1)]}
-
+    
     #apply slices
     slices = [slice(None)] * segment.ndim
     slices[axis] = cuts[mode][1] if idx > 0 else cuts[mode][0]
@@ -67,7 +67,8 @@ def oaconvolve(pro, win, axis, mode):
     generator of arrays or an iterable of arrays (see producer). 
 
     Returns: a generator of convolved arrays. The length of each array along
-    axis will be (optimal_nffts - len(win) - 1).
+    axis will be (optimal_nffts(win) - len(win) - 1). See optimal_nffts
+    func.
     """
 
     #fetch the producers initial chunksize
@@ -75,59 +76,45 @@ def oaconvolve(pro, win, axis, mode):
 
     #estimate optimal nfft and transform window
     nfft = optimal_nffts(win)
+    M = len(win)
+    H = fft.fft(win, nfft)
 
-    # faster if we pad upto nfft 5-11-2022
-    w = np.pad(win, [0, nfft - len(win)]) # new to pad window
+    #set the step size 'L' and compute num of segments
+    L = nfft - M + 1
+    nsegments = int(np.ceil(pro.shape[axis] / L))
 
-    #W = fft.fft(win, nfft) original
-    W = fft.fft(w, nfft) #5-11-2022
-
-    #set the step size and compute num of segments of step size
-    step = nfft - len(win) + 1
-    nsegments = int(np.ceil(pro.shape[axis] / step))
-
-    #initialize the overlap with shape (nfft - step) along axis
+    #initialize the overlap with shape  along axis
     overlap_shape = list(pro.shape)
-    overlap_shape[axis] = nfft - step
+    overlap_shape[axis] = M - 1
     overlap = np.zeros(overlap_shape)
 
-    #set producer chunksize to step & perform overlap add
-    pro.chunksize = step
+    #set producer chunksize to L & perform overlap add
+    pro.chunksize = L
     for segment_num, subarr in enumerate(pro):
-        print(segment_num, subarr.shape)
-        islast = (segment_num == nsegments - 1)
-        #pad the subarr upto nfft
-        #x = pad_along_axis(subarr, [0, nfft - step], axis=axis) #original
-        x = pad_along_axis(subarr, [0, len(win) - 1], axis=axis)
-        if islast:
-            print('padding last')
-            pad_amt = step - x.shape[axis] + len(win) -1
-            print(pad_amt)
-            x = pad_along_axis(x, [0, pad_amt], axis=axis)
+        # pad the length L segment with M-1 zeros for overlap
+        x = pad_along_axis(subarr, [0, M - 1], axis=axis)
+        
         #perform circular convolution
-        y = fft.ifft(fft.fft(x, nfft, axis=axis) * W, axis=axis).real
+        y = fft.ifft(fft.fft(x, nfft, axis=axis) * H, axis=axis).real
+        
         #split filtered segment and overlap
-        if not islast:
-            y, new_overlap = np.split(y, [step], axis=axis)
+        if segment_num < nsegments - 1:
+            y, new_overlap = np.split(y, [L], axis=axis)
+        else:
+            # last sample for last segment is data + window size
+            last = subarr.shape[axis] + M - 1
+            y = slice_along_axis(y, 0, last, axis=axis)
+        
+        #add previous overlap to convolved and update overlap
         slices = [slice(None)] * subarr.ndim
-        #add previous overlap to convolved
-        slices[axis] = slice(0, nfft - step)
+        slices[axis] = slice(0, M - 1)
         y[tuple(slices)] += overlap
-        #update overlap for next segment
         overlap = new_overlap
-        #last segment may not have step pts, so slice upto 'full' overlap
         
-        """
-        samples = min((subarr.shape[axis]) + len(win) -1, step)
-        y = slice_along_axis(y, 0, samples, axis=axis)
-        """
-        
-        print(segment_num, y.shape)
-        """
         #apply the boundary mode to first and last segments
-        if segment_num == 0 or segment_num == nsegments-1:
+        if segment_num == 0 or segment_num == nsegments - 1:
             y = _oa_mode(y, segment_num, len(win), axis, mode)
-        """
+        
         yield y
 
     #on iteration completion reset producer chunksize
