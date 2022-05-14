@@ -37,6 +37,38 @@ def slice_along_axis(arr, start=None, stop=None, step=None, axis=-1):
     slicer[axis] = slice(start, stop, step)
     return arr[tuple(slicer)]
 
+def expand_along_axis(arr, l, value=0, axis=-1):
+    """Inserts l-1 copies of value between samples in an array along axis.
+
+    Args:
+        arr (ndarray):              an ndarray to expand
+        l (int):                    the expansion factor. l-1 replicates of
+                                    value will be inserted betwee samples
+        value (float):              value to insert between samples
+        axis (int):                 axis along which to expand
+
+    Returns:
+        An ndarray whose size matches arr except along expansion axis. The
+        new size along this axis will be l * arr.shape[axis].
+    """
+
+    # move insertion axis to last axis
+    x = np.swapaxes(arr, axis, -1)
+    init_shape = x.shape
+
+    # perform insertion into flattened x
+    x = x.reshape(-1, 1)
+    inserts = value * np.ones((x.shape[0], l-1))
+    x = np.concatenate((x, inserts), axis=-1)
+    x = x.flatten()
+
+    # reshape back to initial shape but with added samples along -1 axis 
+    x = x.reshape(*init_shape[:-1], -1)
+
+    # move the -1 axis back to its original position
+    x = np.swapaxes(x, -1, axis)
+    return x
+
 def filter1D(size, indices):
     """Returns a 1D array of False values except at indices where values are
     True.
