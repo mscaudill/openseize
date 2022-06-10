@@ -129,17 +129,13 @@ class AutoCovariance:
         x = np.reshape(x, (x.shape[0], -1))
         return self._model.predict_proba(x)
 
-if __name__ == '__main__':
 
-    from pathlib import Path
-    from siftnets.archive.archive import Archive 
-    
-    DATA_DIR = '/media/matt/Zeus/swd/'
-    model = AutoCovariance()
-
-    def from_annotations(channels, lag=2, fs=5000):
+def from_annotations(channels, lag=2, fs=5000):
         """Helper that constructs training data for a model from a selection
         of annotations."""
+
+        DATA_DIR = '/media/matt/Zeus/swd/'
+
 
         # open dialog to fetch files
         paths = matched(titles=['Select EEGs', 'Select Annotations'], 
@@ -164,6 +160,16 @@ if __name__ == '__main__':
                 result.append(eeg.read(start, stop, channels))
         return np.array(result)
 
+
+if __name__ == '__main__':
+
+    from pathlib import Path
+    from siftnets.archive.archive import Archive 
+    
+    DATA_DIR = '/media/matt/Zeus/swd/'
+    model = AutoCovariance()
+
+    
     def from_archive(channels, lag=2, fs=5000, reduction=[1, 1], seed=0):
         """Helper that constructs a training data set from an archive with
         both real (True) and artifact (False) swd events."""
