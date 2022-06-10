@@ -8,6 +8,7 @@ List of demos that need to be built.
     - Producing from producers
     - Producers to arrays
     - Masked Producers
+    - Slicing via Masked Producers
 
 2. Filtering
     - Building and applying FIR filters
