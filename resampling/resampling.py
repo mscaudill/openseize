@@ -7,8 +7,10 @@ import numpy as np
 from scipy import signal as sps
 
 from openseize.core.producer import producer
-from openseize.core.arraytools import pad_along_axis
+from openseize.core.arraytools import pad_along_axis, slice_along_axis
+from openseize.core.numerical import convolve_slicer
 from openseize.filtering.fir import Kaiser
+
 
 def _downsample(arr, fs, M, axis=-1, **kwargs):
     """Polyphase decomposition downsampling of an array by an integer
@@ -42,8 +44,12 @@ def _downsample(arr, fs, M, axis=-1, **kwargs):
     gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
     h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
 
+    print('filter length = ', len(h))
+
     # data subsequences are left shifted upto M-1 so prepad
     y = pad_along_axis(arr, [M-1, 0], axis=axis)
+
+    print('padded signals shape = ', y.shape)
 
     # build filters polyphase components
     p_len = int(np.ceil(len(h) / M))
@@ -51,6 +57,9 @@ def _downsample(arr, fs, M, axis=-1, **kwargs):
     p = pad_along_axis(h, [0, M * p_len - len(h)])
     p = p.reshape((M, p_len), order='F')
 
+    print('polyphase components shape = ', p.shape)
+
+    # TODO WE NEED TO CHECK THESE SEQUENCE LENGTHS !
     # build data subsequences
     u_len = int(np.ceil(y.shape[axis]  / M))
     # ensure all subsequences will have u_len
@@ -61,15 +70,20 @@ def _downsample(arr, fs, M, axis=-1, **kwargs):
     u = u.reshape((u.shape[0], M, u_len), order='F')
     u = np.flip(u, axis=1)
 
+    print('subsequences shape = ', u.shape)
+
     # Each p is very small so it takes longer to use an FFT method
     result = np.zeros((y.shape[0], (u_len + p_len - 1)))
     for idx in range(y.shape[0]):
         for m in range(M):
             result[idx] += np.convolve(p[m], u[idx, m])
+
+    result = convolve_slicer(result, u.shape, p.shape, 'same', -1)
+    print('result shape = ', result.shape)
     
     # no need to return full convolution in a downsample op
 
-    return result
+    return result 
 
 
 def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
@@ -126,15 +140,17 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
     p = pad_along_axis(h, [0, M * p_len - len(h)])
     p = p.reshape((M, p_len), order='F')
 
+    # build cache holding M-1 samples
+    cshape = list(pro.shape)
+    cshape[axis] =  M-1
+    cache = np.zeros(cshape)
+
     for idx, arr in enumerate(pro):
         
         # Build data subsequences u_m
-        if idx < 1:
-            # subsequences are left shifted upto M-1 so prepad
-            arr = pad_along_axis(arr, [M-1, 0], axis=axis)
-        # FIXME all other arrays will need to be padded to but with last
-        # values?
-
+        # data subsequences need to reach back M-1 samples so prepad
+        arr = np.concatenate((cache, arr), axis=axis)
+        
         u_len = int(np.ceil(arr.shape[axis] / M))
         # ensure all subsequences will have u_len
         u = pad_along_axis(arr, [0, M * u_len - arr.shape[axis]], axis=axis)
@@ -144,7 +160,20 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
         u = u.reshape((u.shape[0], M, u_len), order='F')
         u = np.flip(u, axis=1)
 
-        last_arr
+        # Each p is very small so it takes longer to use an FFT method
+        result = np.zeros((arr.shape[0], (u_len + p_len - 1)))
+        for sig_idx in range(arr.shape[0]):
+            for m in range(M):
+                result[sig_idx] += np.convolve(p[m], u[sig_idx, m])
+        
+        if idx > 0:
+            result = convolve_slicer(result, p.shape, u.shape, mode='same',
+                    axis=axis)
+            
+        
+        cache = slice_along_axis(arr, -(M-1), None, axis=axis)
+
+        yield result
 
 
 
@@ -167,24 +196,41 @@ if __name__ == '__main__':
 
     arr = data(edf_path, 0, 30000000)
 
+    
     # polyphase decomposition
     t0 = time.perf_counter()
-    d = downsample(arr, fs=5000, M=10)
+    d = _downsample(arr, fs=5000, M=10)
     print('Polyphase time = {}'.format(time.perf_counter() - t0))
+    
+
+    """
+    t0 = time.perf_counter()
+    res = downsample(arr, M=10, fs=5000, chunksize=100000, axis=-1)
+    d = np.concatenate([x for x in res], axis=-1)
+    print('Polyphase time = {}'.format(time.perf_counter() - t0))
+    """
 
     # Standard method 
     t0 = time.perf_counter()
     filt = Kaiser(fpass=450, fstop=500, fs=5000)
     ground_truth = []
     for signal in arr:
-        x = np.convolve(signal, filt.coeffs, mode='full')
-        ground_truth.append(x[::10])
+        #x = np.convolve(signal, filt.coeffs, mode='full')
+
+        y = np.convolve(signal, filt.coeffs, mode='same')
+
+        #z = convolve_slicer(x, signal.shape, filt.coeffs.shape, axis=-1,
+        #        mode='same')
+        #assert np.allclose(y, z)
+
+        ground_truth.append(y[::10])
     ground_truth = np.array(ground_truth)
     print('Filter-decimate time = {}'.format(time.perf_counter() - t0))
 
-    fig, axarr = plt.subplots(arr.shape[0], 1)
+    fig, axarr = plt.subplots(arr.shape[0], 1, figsize=(4,8))
     for idx, (a, b) in enumerate(zip(d, ground_truth)):
-        axarr[idx].plot(a[100000:200000], color='tab:blue')
-        axarr[idx].plot(b[100000:200000], color='tab:orange', alpha=0.5)
+        axarr[idx].plot(a[0:50000], color='tab:blue')
+        axarr[idx].plot(b[0:50000], color='tab:orange', alpha=0.5)
+    plt.ion()
     plt.show()
 
