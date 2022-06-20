@@ -12,6 +12,47 @@ def optimal_nffts(arr):
 
     return int(8 * 2 ** np.ceil(np.log2(len(arr))))
 
+def convolve_slicer(arr, shape1, shape2, mode, axis):
+    """Applies a boundary mode to slice a convolved array along axis.
+
+    Args:
+        arr: ndarray
+            A convolved ndimensional array.
+        shape1: tuple
+            Shape of the first input used to construct the convolved arr.
+        shape2: tuple
+            Shape of the second input used to construct the convolved arr.
+        mode: str one of 'full', 'same', or 'valid'
+            A string defining the boundary handling mode. These modes
+            are the same as numpy's np.convolve mode argument.
+        axis: int
+            The convolution axis in arr.
+
+    Returns:
+        An ndarray with the convolve mode applied.
+    """
+
+    m, n = shape1[axis], shape2[axis]
+    p, q = max(m,n), min(m,n)
+
+    if mode == 'full':
+
+        # full mode length is m + n - 1
+        return arr
+    
+    if mode == 'same':
+        
+        # same mode length is max(m,  n) centered along axis of arr
+        start = (q - 1) // 2
+        stop = start + p
+        return slice_along_axis(arr, start, stop, axis=axis)
+
+    elif mode == 'valid':
+       
+        # valid mode length is m + n - 1 - 2 * (q-1) centered along axis
+        start= q - 1 
+        stop = (n + m - 1) - (q - 1)
+        return slice_along_axis(arr, start, stop, axis=axis)
 
 def _oa_mode(segment, idx, win_len, axis, mode):
     """Applies the numpy/scipy mode to the first and last segement of the
@@ -28,6 +69,8 @@ def _oa_mode(segment, idx, win_len, axis, mode):
     
     Returns: segment with boundary mode applied
     """
+
+    #FIXME refactor to reuse your convolve slicer
 
     modes = ('full', 'same', 'valid')
     if mode not in modes:
@@ -46,7 +89,6 @@ def _oa_mode(segment, idx, win_len, axis, mode):
     slices = [slice(None)] * segment.ndim
     slices[axis] = cuts[mode][1] if idx > 0 else cuts[mode][0]
     return segment[tuple(slices)]
-
 
 @as_producer
 def oaconvolve(pro, win, axis, mode):
@@ -278,6 +320,8 @@ def welch(pro, fs, nperseg, window, axis, csize=100, **kwargs):
 
 if __name__ == '__main__':
 
+
+    """
     import matplotlib.pyplot as plt
     from openseize.io.readers import EDF
     from openseize.types.producer import producer
@@ -294,16 +338,28 @@ if __name__ == '__main__':
     print('ops welch in {} s'.format(time.perf_counter() - t0))
 
     """
+
+    """
     x = np.concatenate([arr for arr in pro], axis=-1)
     t0 = time.perf_counter()
     sp_f, sp_pxx = sps.welch(x, fs=5000, nperseg=16384, window='hann', axis=-1)
     print('sp welch in {} s'.format(time.perf_counter() - t0))
     """
 
+    """
     plt.plot(f, pxx[0], label='os result')
+    """
+
     """
     plt.plot(f, sp_pxx[0], label='sp result')
     plt.plot(f, (pxx[0] - sp_pxx[0]), label='residual')
     plt.legend()
     plt.show()
     """
+
+    x = np.array(range(7))
+    y = np.array([0, 1, .5, 2, 0])
+    z = np.convolve(x,y)
+    r = convolve_slicer(z, x.shape, y.shape, axis=-1, mode='valid')
+    o = np.convolve(x,y, mode='valid')
+    assert np.allclose(r, o)
