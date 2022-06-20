@@ -1,6 +1,6 @@
 import numpy as np
 
-def pad_along_axis(arr, pad, axis, **kwargs):
+def pad_along_axis(arr, pad, axis=-1, **kwargs):
     """Wrapper for numpy pad allowing before and after padding along
     a single axis.
 
@@ -10,7 +10,8 @@ def pad_along_axis(arr, pad, axis, **kwargs):
                                     and after the last index of array along 
                                     axis. If int, pad number of pads will be 
                                     added to both
-        axis (int):                 axis of arr along which to apply pad
+        axis (int):                 axis of arr along which to apply pad.
+                                    Default pads along last axis.
         **kwargs:                   any valid kwarg for np.pad
     """
     
