@@ -38,6 +38,8 @@ def _downsample(arr, fs, M, axis=-1, **kwargs):
     Returns: An array of antialiased and decimated signals.
     """
 
+    print('arr shape = ', arr.shape)
+
     # build a kaiser antialiasing filter and fetch its coeffs.
     fstop = kwargs.pop('fstop', fs // M)
     fpass = kwargs.pop('fpass', fstop - fstop // 10)
@@ -59,9 +61,10 @@ def _downsample(arr, fs, M, axis=-1, **kwargs):
 
     print('polyphase components shape = ', p.shape)
 
-    # TODO WE NEED TO CHECK THESE SEQUENCE LENGTHS !
     # build data subsequences
     u_len = int(np.ceil(y.shape[axis]  / M))
+    print('u_len = ', u_len)
+    
     # ensure all subsequences will have u_len
     u = pad_along_axis(y, [0, M * u_len - y.shape[axis]], axis=axis)
     
@@ -73,20 +76,25 @@ def _downsample(arr, fs, M, axis=-1, **kwargs):
     print('subsequences shape = ', u.shape)
 
     # Each p is very small so it takes longer to use an FFT method
-    result = np.zeros((y.shape[0], (u_len + p_len - 1)))
+    result = np.zeros((y.shape[0], u_len + p_len - 1))
     for idx in range(y.shape[0]):
         for m in range(M):
             result[idx] += np.convolve(p[m], u[idx, m])
 
-    result = convolve_slicer(result, u.shape, p.shape, 'same', -1)
     print('result shape = ', result.shape)
-    
+
+    # upfirdn matches result but I need to figure out how to slice it
+
     # no need to return full convolution in a downsample op
+    a = (M - 1 + (len(h)-1)//2) // M
+    b = M * u_len - y.shape[axis] + arr.shape[axis] // (
+        M + bool(arr.shape[axis] % M))
+    result = slice_along_axis(result, start=a, stop=b)
 
     return result 
 
 
-def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
+def _downsample2(data, M, fs, chunksize, axis=-1, **kwargs):
     """Downsamples an array or producer of arrays using polyphase 
     decomposition by an integer factor decimation factor.
 
@@ -175,7 +183,84 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
 
         yield result
 
+def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
+    """Downsamples an array or producer of arrays using polyphase 
+    decomposition by an integer factor decimation factor.
 
+    Args:
+        data: ndarray or producer of ndarrays
+            The data to be downsampled.
+        M: int
+            The decimation factor describing which Mth samples of data
+            survive decimation. (E.g. M=10 -> every 10th sample survives)
+        fs: int
+            The sampling rate of data in Hz.
+        chunksize: int
+            The number of samples to hold in memory during downsampling.
+        axis: int
+            The axis of data along which downsampling will occur.
+        kwargs:
+            Any valid keyword for a Kaiser lowpass filter. The default 
+            values for this antialiasing filter are:
+
+                fstop: int
+                    The stop band edge frequency. Defaults to fs // M.
+                fpass: int
+                    The pass band edge frequency. Must be less than fstop.
+                    Defaults to fstop - fstop // 10.
+                gpass: int
+                    The pass band attenuation in dB. Defaults to a max loss
+                    in the passband of 1 dB ~ 11% amplitude loss.
+                gstop: int
+                    The max attenuation in the stop band in dB. Defaults to
+                    40 dB or 99%  amplitude attenuation.
+
+    Returns:
+        An array or producer of arrays with datatype matching data's 
+        datatype.
+
+    References:
+        1. Porat, B. (1997). A Course In Digital Signal Processing. John
+           Wiley & Sons. Chapter 12 "Multirate Signal Processing"
+    """
+
+    pro = producer(data, chunksize, axis)
+
+    # build and get coeffs of the kaiser antialiasing filter
+    fstop = kwargs.pop('fstop', fs // M)
+    fpass = kwargs.pop('fpass', fstop - fstop // 10)
+    gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
+    h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
+
+    # build cache holding M-1 samples
+    cshape = list(pro.shape)
+    # M multiplies of the filter plus M samples to pad
+    q = int(np.ceil(len(h) / M) * M) + M
+    print(q)
+    cshape[axis] = q
+    cache = np.zeros(cshape)
+    print(cache.shape)
+
+    for idx, arr in enumerate(pro):
+       
+        # FIXME could it be that the end of the arrays are not being sliced
+        # is the problem
+        # yes I think this is it. The boundary effects should be there on
+        # both sides of each produced arr that is resampled. We are not
+        # handling the rhs at all. So the filter runs off and includes some
+        # boundary impact for the next arrays cache values. How to fix this
+        #
+        # With resample_poly we can't stop it from applying boundary
+        # conditions 'same' on both sides. It seems like we should use my
+        # downsample or use scipys upfirdn and slice both boundaries out as
+        # in a valid mode maybe?
+        x = np.concatenate((cache, arr), axis=axis)
+        print(x.shape)
+        y = sps.resample_poly(x, up=1, down=M, axis=axis, window=h)
+        result = slice_along_axis(y, start=q//M, stop=None, axis=axis)
+        print(result.shape)
+        cache = slice_along_axis(arr, start=-1*q, stop=None, axis=axis)
+        yield result
 
 
 if __name__ == '__main__':
@@ -196,41 +281,48 @@ if __name__ == '__main__':
 
     arr = data(edf_path, 0, 30000000)
 
-    
+    """
     # polyphase decomposition
     t0 = time.perf_counter()
-    d = _downsample(arr, fs=5000, M=10)
+    pp = _downsample(arr, fs=5000, M=10)
     print('Polyphase time = {}'.format(time.perf_counter() - t0))
+    """
     
 
-    """
+    
     t0 = time.perf_counter()
     res = downsample(arr, M=10, fs=5000, chunksize=100000, axis=-1)
-    d = np.concatenate([x for x in res], axis=-1)
+    pp = np.concatenate([x for x in res], axis=-1)
     print('Polyphase time = {}'.format(time.perf_counter() - t0))
-    """
 
+    """
     # Standard method 
     t0 = time.perf_counter()
     filt = Kaiser(fpass=450, fstop=500, fs=5000)
-    ground_truth = []
+    x = []
     for signal in arr:
-        #x = np.convolve(signal, filt.coeffs, mode='full')
-
-        y = np.convolve(signal, filt.coeffs, mode='same')
-
-        #z = convolve_slicer(x, signal.shape, filt.coeffs.shape, axis=-1,
-        #        mode='same')
-        #assert np.allclose(y, z)
-
-        ground_truth.append(y[::10])
-    ground_truth = np.array(ground_truth)
+        a = np.convolve(signal, filt.coeffs, 'full')
+        x.append(a[::10])
+    x = np.array(x)
+    print('x shape = ', x.shape)
     print('Filter-decimate time = {}'.format(time.perf_counter() - t0))
+    """
+
+    #scipy resample_poly
+    t0 = time.perf_counter()
+    filt = Kaiser(fpass=450, fstop=500, fs=5000)
+    y = sps.resample_poly(arr, 1, 10, axis=-1, window=filt.coeffs)
+    #y = sps.upfirdn(filt.coeffs, arr, up=1, down=10, axis=-1)
+    print('scipy polyphase time = {}'.format(time.perf_counter() - t0))
 
     fig, axarr = plt.subplots(arr.shape[0], 1, figsize=(4,8))
-    for idx, (a, b) in enumerate(zip(d, ground_truth)):
-        axarr[idx].plot(a[0:50000], color='tab:blue')
-        axarr[idx].plot(b[0:50000], color='tab:orange', alpha=0.5)
+    for idx, (a, c) in enumerate(zip(pp, y)):
+        axarr[idx].plot(a[0:50000], color='tab:blue', label='pp')
+        #axarr[idx].plot(b[0:50000], color='tab:green', alpha=0.5,
+        #label='standard')
+        axarr[idx].plot(c[0:50000], color='tab:red', alpha=0.5,
+        label='scipy')
+    plt.legend()
     plt.ion()
     plt.show()
 
