@@ -224,7 +224,9 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
            Wiley & Sons. Chapter 12 "Multirate Signal Processing"
     """
 
-    pro = producer(data, chunksize, axis)
+    x = producer(data, chunksize, axis)
+    y = producer(data, chunksize, axis)
+    z = producer(data, chunksize, axis)
 
     # build and get coeffs of the kaiser antialiasing filter
     fstop = kwargs.pop('fstop', fs // M)
@@ -232,35 +234,83 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
     gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
     h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
 
-    # build cache holding M-1 samples
-    cshape = list(pro.shape)
-    # M multiplies of the filter plus M samples to pad
-    q = int(np.ceil(len(h) / M) * M) + M
+    # additional samples to avoid boundary effects
+    q = int(np.ceil(len(h) / M) * M)
+    q += bool(q % M)
     print(q)
-    cshape[axis] = q
-    cache = np.zeros(cshape)
-    print(cache.shape)
+    boundary_shape = list(x.shape)
+    boundary_shape[axis] = q
+ 
+    ix, iy, iz = (iter(pro) for pro in [x,y,z])
+    #
+    pre_bound = np.zeros(boundary_shape)
+    #
+    next(iz)
+    post_bound = slice_along_axis(next(iz), 0, q)
+    #
+    padded = np.concatenate((pre_bound, next(iy), post_bound), axis=axis)
+    ds = sps.resample_poly(padded, up=1, down=M, axis=axis, window=h)
+    result = slice_along_axis(ds, start=q//M, stop=-q//M, axis=axis)
+    yield result
 
-    for idx, arr in enumerate(pro):
-       
-        # FIXME could it be that the end of the arrays are not being sliced
-        # is the problem
-        # yes I think this is it. The boundary effects should be there on
-        # both sides of each produced arr that is resampled. We are not
-        # handling the rhs at all. So the filter runs off and includes some
-        # boundary impact for the next arrays cache values. How to fix this
-        #
-        # With resample_poly we can't stop it from applying boundary
-        # conditions 'same' on both sides. It seems like we should use my
-        # downsample or use scipys upfirdn and slice both boundaries out as
-        # in a valid mode maybe?
-        x = np.concatenate((cache, arr), axis=axis)
-        print(x.shape)
-        y = sps.resample_poly(x, up=1, down=M, axis=axis, window=h)
-        result = slice_along_axis(y, start=q//M, stop=None, axis=axis)
-        print(result.shape)
-        cache = slice_along_axis(arr, start=-1*q, stop=None, axis=axis)
-        yield result
+    nchunks = y.shape[axis] // y.chunksize + bool(y.shape[axis]
+            % y.chunksize)
+    print(nchunks)
+    for idx, (last_arr, arr, next_arr) in enumerate(zip(ix, iy, iz),1):
+
+            pre_bound = slice_along_axis(last_arr, -q, axis=axis)
+            
+            #if next_arr.shape[axis] < z.chunksize:
+            if idx == nchunks - 2: # TODO UNDERSTAND
+                # we are just before the last chunk
+                arr = np.concatenate((arr, next_arr), axis=axis)
+                padded = np.concatenate((pre_bound, arr), axis=-1)
+                ds = sps.resample_poly(padded, up=1, down=M, axis=axis, 
+                                       window=h)
+                yield slice_along_axis(ds, start=q//M, stop=None,  axis=axis)
+            
+            else:
+
+                post_bound = slice_along_axis(next_arr, 0, q, axis=axis)
+                padded = np.concatenate((pre_bound, arr, post_bound), axis=axis)
+                ds = sps.resample_poly(padded, up=1, down=M, axis=axis, 
+                                       window=h)
+
+                yield slice_along_axis(ds, start=q//M, stop=-q//M,  axis=axis)
+
+
+    """
+    for idx, (last_arr, arr) in enumerate(zip(ix, iy), 1):
+
+        try:
+            print('idx : ', idx)
+            next_arr = next(iz)
+            print ('arr shape = ', arr.shape)
+            print ('next arr shape = ', next_arr.shape)
+            pre_bound = slice_along_axis(last_arr, -q, axis=axis)
+            post_bound = slice_along_axis(next_arr, 0, q, axis=axis)
+            padded = np.concatenate((pre_bound, arr, post_bound), axis=axis)
+
+            ds = sps.resample_poly(padded, up=1, down=M, axis=axis, window=h)
+            print('ds shape = ', ds.shape)
+            result = slice_along_axis(ds, start=q//M, stop=-q//M,  axis=axis)
+            print('result shape = {}'.format(result.shape))
+            yield result
+        
+        except StopIteration:
+            print('last arrays')
+            print(last_arr.shape, arr.shape)
+            pre_bound  = slice_along_axis(last_arr, -q, axis=axis)
+            padded = np.concatenate((pre_bound, arr), axis=axis)
+            print('padded shape', padded.shape)
+            ds = sps.resample_poly(padded, up=1, down=M, axis=axis, window=h)
+            print('ds shape = ', ds.shape)
+            result = slice_along_axis(ds, start=q//M, stop=None,  axis=axis)
+            print(result.shape)
+            yield result
+    """
+
+
 
 
 if __name__ == '__main__':
@@ -279,7 +329,7 @@ if __name__ == '__main__':
         return reader.read(start, stop, channels=channels)
 
 
-    arr = data(edf_path, 0, 30000000)
+    arr = data(edf_path, 0, 3000000)
 
     """
     # polyphase decomposition
@@ -317,10 +367,10 @@ if __name__ == '__main__':
 
     fig, axarr = plt.subplots(arr.shape[0], 1, figsize=(4,8))
     for idx, (a, c) in enumerate(zip(pp, y)):
-        axarr[idx].plot(a[0:50000], color='tab:blue', label='pp')
+        axarr[idx].plot(a[-50000:], color='tab:blue', label='pp')
         #axarr[idx].plot(b[0:50000], color='tab:green', alpha=0.5,
         #label='standard')
-        axarr[idx].plot(c[0:50000], color='tab:red', alpha=0.5,
+        axarr[idx].plot(c[-50000:], color='tab:red', alpha=0.5,
         label='scipy')
     plt.legend()
     plt.ion()
