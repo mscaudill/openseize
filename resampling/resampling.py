@@ -1,9 +1,22 @@
-"""
-Module description and usage
+"""Tools for downsampling, upsampling and resampling data using polyphase
+decomposition methods (see scipy resample_polyphase).
+
+This module contains the following functions:
+
+    downsample:
+        A function that downsamples an array or producer of arrays by an
+        integer decimation factor in conjuction with an antialiasing filter.
+        
+        Typical usage example:
+        pro = downsample(data, M=10, fs=5000, chunksize=10000, axis=-1)
+        #returns a producer or ndarray of M-downsampled data where the
+        downsampling axis is the last axis.
+
+    upsample:
+    resample:
 """
 
 import numpy as np
-
 from scipy import signal as sps
 
 from openseize.core.producer import producer
@@ -11,177 +24,6 @@ from openseize.core.arraytools import pad_along_axis, slice_along_axis
 from openseize.core.numerical import convolve_slicer
 from openseize.filtering.fir import Kaiser
 
-
-def _downsample(arr, fs, M, axis=-1, **kwargs):
-    """Polyphase decomposition downsampling of an array by an integer
-    factor.
-
-    Args:
-        arr: 2D numpy array
-            An array of datapoints to be downsampled along axis.
-        fs: int
-            Sampling frequency of data in arr
-        M: int
-            Integer downsampling factor
-        axis: int
-            Axis along which antialiasing filter and decimation will occur.
-            Default is last axis.
-        kwargs:
-            Any valid arguments for a Kaiser lowpass filter. If none 
-            provided the defaults for this filter are:
-
-                fstop = fs // M
-                fpass = fstop - fstop // 10
-                gpass = 1
-                gstop = 40 dB
-        
-    Returns: An array of antialiased and decimated signals.
-    """
-
-    print('arr shape = ', arr.shape)
-
-    # build a kaiser antialiasing filter and fetch its coeffs.
-    fstop = kwargs.pop('fstop', fs // M)
-    fpass = kwargs.pop('fpass', fstop - fstop // 10)
-    gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
-    h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
-
-    print('filter length = ', len(h))
-
-    # data subsequences are left shifted upto M-1 so prepad
-    y = pad_along_axis(arr, [M-1, 0], axis=axis)
-
-    print('padded signals shape = ', y.shape)
-
-    # build filters polyphase components
-    p_len = int(np.ceil(len(h) / M))
-    # ensure all components will have p_len
-    p = pad_along_axis(h, [0, M * p_len - len(h)])
-    p = p.reshape((M, p_len), order='F')
-
-    print('polyphase components shape = ', p.shape)
-
-    # build data subsequences
-    u_len = int(np.ceil(y.shape[axis]  / M))
-    print('u_len = ', u_len)
-    
-    # ensure all subsequences will have u_len
-    u = pad_along_axis(y, [0, M * u_len - y.shape[axis]], axis=axis)
-    
-    # channels on 0th axis and reshape to (chs, M, u_len)
-    u = u.T if axis == 0 else u
-    u = u.reshape((u.shape[0], M, u_len), order='F')
-    u = np.flip(u, axis=1)
-
-    print('subsequences shape = ', u.shape)
-
-    # Each p is very small so it takes longer to use an FFT method
-    result = np.zeros((y.shape[0], u_len + p_len - 1))
-    for idx in range(y.shape[0]):
-        for m in range(M):
-            result[idx] += np.convolve(p[m], u[idx, m])
-
-    print('result shape = ', result.shape)
-
-    # upfirdn matches result but I need to figure out how to slice it
-
-    # no need to return full convolution in a downsample op
-    a = (M - 1 + (len(h)-1)//2) // M
-    b = M * u_len - y.shape[axis] + arr.shape[axis] // (
-        M + bool(arr.shape[axis] % M))
-    result = slice_along_axis(result, start=a, stop=b)
-
-    return result 
-
-
-def _downsample2(data, M, fs, chunksize, axis=-1, **kwargs):
-    """Downsamples an array or producer of arrays using polyphase 
-    decomposition by an integer factor decimation factor.
-
-    Args:
-        data: ndarray or producer of ndarrays
-            The data to be downsampled.
-        M: int
-            The decimation factor describing which Mth samples of data
-            survive decimation. (E.g. M=10 -> every 10th sample survives)
-        fs: int
-            The sampling rate of data in Hz.
-        chunksize: int
-            The number of samples to hold in memory during downsampling.
-        axis: int
-            The axis of data along which downsampling will occur.
-        kwargs:
-            Any valid keyword for a Kaiser lowpass filter. The default 
-            values for this antialiasing filter are:
-
-                fstop: int
-                    The stop band edge frequency. Defaults to fs // M.
-                fpass: int
-                    The pass band edge frequency. Must be less than fstop.
-                    Defaults to fstop - fstop // 10.
-                gpass: int
-                    The pass band attenuation in dB. Defaults to a max loss
-                    in the passband of 1 dB ~ 11% amplitude loss.
-                gstop: int
-                    The max attenuation in the stop band in dB. Defaults to
-                    40 dB or 99%  amplitude attenuation.
-
-    Returns:
-        An array or producer of arrays with datatype matching data's 
-        datatype.
-
-    References:
-        1. Porat, B. (1997). A Course In Digital Signal Processing. John
-           Wiley & Sons. Chapter 12 "Multirate Signal Processing"
-    """
-
-    pro = producer(data, chunksize, axis)
-
-    # build and get coeffs of the kaiser antialiasing filter
-    fstop = kwargs.pop('fstop', fs // M)
-    fpass = kwargs.pop('fpass', fstop - fstop // 10)
-    gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
-    h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
-
-    # build M polyphase components padding upto max comp. length
-    p_len = int(np.ceil(len(h) / M))
-    p = pad_along_axis(h, [0, M * p_len - len(h)])
-    p = p.reshape((M, p_len), order='F')
-
-    # build cache holding M-1 samples
-    cshape = list(pro.shape)
-    cshape[axis] =  M-1
-    cache = np.zeros(cshape)
-
-    for idx, arr in enumerate(pro):
-        
-        # Build data subsequences u_m
-        # data subsequences need to reach back M-1 samples so prepad
-        arr = np.concatenate((cache, arr), axis=axis)
-        
-        u_len = int(np.ceil(arr.shape[axis] / M))
-        # ensure all subsequences will have u_len
-        u = pad_along_axis(arr, [0, M * u_len - arr.shape[axis]], axis=axis)
-
-        # channels on 0th axis and reshape to (chs, M, u_len)
-        u = u.T if axis == 0 else u
-        u = u.reshape((u.shape[0], M, u_len), order='F')
-        u = np.flip(u, axis=1)
-
-        # Each p is very small so it takes longer to use an FFT method
-        result = np.zeros((arr.shape[0], (u_len + p_len - 1)))
-        for sig_idx in range(arr.shape[0]):
-            for m in range(M):
-                result[sig_idx] += np.convolve(p[m], u[sig_idx, m])
-        
-        if idx > 0:
-            result = convolve_slicer(result, p.shape, u.shape, mode='same',
-                    axis=axis)
-            
-        
-        cache = slice_along_axis(arr, -(M-1), None, axis=axis)
-
-        yield result
 
 def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
     """Downsamples an array or producer of arrays using polyphase 
@@ -197,6 +39,7 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
             The sampling rate of data in Hz.
         chunksize: int
             The number of samples to hold in memory during downsampling.
+            This method will require ~ 3 times chunksize in memory.
         axis: int
             The axis of data along which downsampling will occur.
         kwargs:
@@ -216,101 +59,59 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
                     40 dB or 99%  amplitude attenuation.
 
     Returns:
-        An array or producer of arrays with datatype matching data's 
-        datatype.
+        A producer of arrays.
 
     References:
         1. Porat, B. (1997). A Course In Digital Signal Processing. John
            Wiley & Sons. Chapter 12 "Multirate Signal Processing"
+        2. Polyphase implementation: scipy.signal.resample_poly
     """
 
+    # iterators yielding prior, current and next chunks of data
     x = producer(data, chunksize, axis)
     y = producer(data, chunksize, axis)
     z = producer(data, chunksize, axis)
+    iprior, icurrent, inext = (iter(pro) for pro in [x,y,z])
 
-    # build and get coeffs of the kaiser antialiasing filter
+    # kaiser antialiasing filter coeffecients
     fstop = kwargs.pop('fstop', fs // M)
     fpass = kwargs.pop('fpass', fstop - fstop // 10)
     gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
     h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
 
-    # additional samples to avoid boundary effects
-    q = int(np.ceil(len(h) / M) * M)
-    q += bool(q % M)
-    print(q)
-    boundary_shape = list(x.shape)
-    boundary_shape[axis] = q
- 
-    ix, iy, iz = (iter(pro) for pro in [x,y,z])
-    #
-    pre_bound = np.zeros(boundary_shape)
-    #
-    next(iz)
-    post_bound = slice_along_axis(next(iz), 0, q)
-    #
-    padded = np.concatenate((pre_bound, next(iy), post_bound), axis=axis)
-    ds = sps.resample_poly(padded, up=1, down=M, axis=axis, window=h)
-    result = slice_along_axis(ds, start=q//M, stop=-q//M, axis=axis)
-    yield result
+    # num. boundary pts to cover left & right convolve overhangs
+    # must be divisible by M for integer slicing after downsampling
+    overhang = int(np.ceil(len(h) / M) * M) 
+    
+    # initialize the first left boundary and right boundaries
+    left_bound_shape = list(data.shape)
+    left_bound_shape[axis] = overhang
+    left_bound = np.zeros(left_bound_shape)
+    next(inext)
+    right_bound = slice_along_axis(next(inext), 0, overhang,  axis=axis) 
+    
+    # yield initial boundary corrected downsampled chunk
+    current = next(icurrent)
+    padded = np.concatenate((left_bound, current, right_bound), axis=axis)
+    downed = sps.resample_poly(padded, up=1, down=M, axis=axis, window=h)
+    yield slice_along_axis(downed, overhang//M, -overhang//M, axis=axis)
 
-    nchunks = y.shape[axis] // y.chunksize + bool(y.shape[axis]
-            % y.chunksize)
-    print(nchunks)
-    for idx, (last_arr, arr, next_arr) in enumerate(zip(ix, iy, iz),1):
-
-            pre_bound = slice_along_axis(last_arr, -q, axis=axis)
-            
-            #if next_arr.shape[axis] < z.chunksize:
-            if idx == nchunks - 2: # TODO UNDERSTAND
-                # we are just before the last chunk
-                arr = np.concatenate((arr, next_arr), axis=axis)
-                padded = np.concatenate((pre_bound, arr), axis=-1)
-                ds = sps.resample_poly(padded, up=1, down=M, axis=axis, 
-                                       window=h)
-                yield slice_along_axis(ds, start=q//M, stop=None,  axis=axis)
-            
-            else:
-
-                post_bound = slice_along_axis(next_arr, 0, q, axis=axis)
-                padded = np.concatenate((pre_bound, arr, post_bound), axis=axis)
-                ds = sps.resample_poly(padded, up=1, down=M, axis=axis, 
-                                       window=h)
-
-                yield slice_along_axis(ds, start=q//M, stop=-q//M,  axis=axis)
-
-
-    """
-    for idx, (last_arr, arr) in enumerate(zip(ix, iy), 1):
-
-        try:
-            print('idx : ', idx)
-            next_arr = next(iz)
-            print ('arr shape = ', arr.shape)
-            print ('next arr shape = ', next_arr.shape)
-            pre_bound = slice_along_axis(last_arr, -q, axis=axis)
-            post_bound = slice_along_axis(next_arr, 0, q, axis=axis)
-            padded = np.concatenate((pre_bound, arr, post_bound), axis=axis)
-
-            ds = sps.resample_poly(padded, up=1, down=M, axis=axis, window=h)
-            print('ds shape = ', ds.shape)
-            result = slice_along_axis(ds, start=q//M, stop=-q//M,  axis=axis)
-            print('result shape = {}'.format(result.shape))
-            yield result
+    # downsample remaining cnt chunks
+    cnt = z.shape[axis] // chunksize + bool(z.shape[axis] % chunksize) - 1
+    for n, (last, curr, nxt) in enumerate(zip(iprior, icurrent, inext), 1):
         
-        except StopIteration:
-            print('last arrays')
-            print(last_arr.shape, arr.shape)
-            pre_bound  = slice_along_axis(last_arr, -q, axis=axis)
-            padded = np.concatenate((pre_bound, arr), axis=axis)
-            print('padded shape', padded.shape)
-            ds = sps.resample_poly(padded, up=1, down=M, axis=axis, window=h)
-            print('ds shape = ', ds.shape)
-            result = slice_along_axis(ds, start=q//M, stop=None,  axis=axis)
-            print(result.shape)
-            yield result
-    """
+        left_bound = slice_along_axis(last, -overhang, axis=axis)
+     
+        if n < cnt - 1:
+            right_bound = slice_along_axis(nxt, 0, overhang, axis=axis)
+        else:
+            # at cnt-1 chunks concantenate next to current
+            curr = np.concatenate((curr, nxt), axis=axis) 
+            right_bound = np.zeros(left_bound.shape)
 
-
+        padded = np.concatenate((left_bound, curr, right_bound), axis)
+        downed = sps.resample_poly(padded, 1, M, axis=axis, window=h)
+        yield slice_along_axis(downed, overhang//M, -overhang//M, axis=axis)
 
 
 if __name__ == '__main__':
@@ -329,19 +130,11 @@ if __name__ == '__main__':
         return reader.read(start, stop, channels=channels)
 
 
-    arr = data(edf_path, 0, 3000000)
-
-    """
-    # polyphase decomposition
-    t0 = time.perf_counter()
-    pp = _downsample(arr, fs=5000, M=10)
-    print('Polyphase time = {}'.format(time.perf_counter() - t0))
-    """
-    
+    arr = data(edf_path, 0, 2999997)
 
     
     t0 = time.perf_counter()
-    res = downsample(arr, M=10, fs=5000, chunksize=100000, axis=-1)
+    res = downsample(arr, M=10, fs=5000, chunksize=10000, axis=-1)
     pp = np.concatenate([x for x in res], axis=-1)
     print('Polyphase time = {}'.format(time.perf_counter() - t0))
 
@@ -367,10 +160,10 @@ if __name__ == '__main__':
 
     fig, axarr = plt.subplots(arr.shape[0], 1, figsize=(4,8))
     for idx, (a, c) in enumerate(zip(pp, y)):
-        axarr[idx].plot(a[-50000:], color='tab:blue', label='pp')
+        axarr[idx].plot(a[:], color='tab:blue', label='pp')
         #axarr[idx].plot(b[0:50000], color='tab:green', alpha=0.5,
         #label='standard')
-        axarr[idx].plot(c[-50000:], color='tab:red', alpha=0.5,
+        axarr[idx].plot(c[:], color='tab:red', alpha=0.5,
         label='scipy')
     plt.legend()
     plt.ion()
