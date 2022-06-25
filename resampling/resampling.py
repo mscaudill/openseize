@@ -114,6 +114,96 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
         yield slice_along_axis(downed, overhang//M, -overhang//M, axis=axis)
 
 
+def upsample(data, L, fs, chunksize, axis=-1, **kwargs)
+    """Upsamples an array or producer of arrays using polyphase 
+    decomposition by an integer expansion factor.
+
+    Args:
+        data: ndarray or producer of ndarrays
+            The data to be upsampled.
+        L: int
+            The expansion factor. L-1 interpolated values will be inserted
+            between consecutive samples in data along axis.
+        fs: int
+            The sampling rate of data in Hz.
+        chunksize: int
+            The number of samples to hold in memory during upsampling.
+            This method will require ~ 3 times chunksize in memory.
+        axis: int
+            The axis of data along which downsampling will occur.
+        kwargs:
+            Any valid keyword for a Kaiser lowpass filter. The default 
+            values for this antialiasing filter are:
+
+                fstop: int
+                    The stop band edge frequency. Defaults to fs // M.
+                fpass: int
+                    The pass band edge frequency. Must be less than fstop.
+                    Defaults to fstop - fstop // 10.
+                gpass: int
+                    The pass band attenuation in dB. Defaults to a max loss
+                    in the passband of 1 dB ~ 11% amplitude loss.
+                gstop: int
+                    The max attenuation in the stop band in dB. Defaults to
+                    40 dB or 99%  amplitude attenuation.
+
+    Returns:
+        A producer of arrays.
+
+    References:
+        1. Porat, B. (1997). A Course In Digital Signal Processing. John
+           Wiley & Sons. Chapter 12 "Multirate Signal Processing"
+        2. Polyphase implementation: scipy.signal.resample_poly
+    """
+
+    # iterators yielding prior, current and next chunks of data
+    x = producer(data, chunksize, axis)
+    y = producer(data, chunksize, axis)
+    z = producer(data, chunksize, axis)
+    iprior, icurrent, inext = (iter(pro) for pro in [x,y,z])
+
+    # kaiser antialiasing filter coeffecients
+    fstop = kwargs.pop('fstop', fs // M)
+    fpass = kwargs.pop('fpass', fstop - fstop // 10)
+    gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
+    h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
+
+    # num. boundary pts to cover left & right convolve overhangs
+    overhang = len(h) - 1
+
+    # initialize the first left boundary and right boundaries
+    left_bound_shape = list(data.shape)
+    left_bound_shape[axis] = overhang
+    left_bound = np.zeros(left_bound_shape)
+    next(inext)
+    right_bound = slice_along_axis(next(inext), 0, overhang,  axis=axis) 
+
+    # yield initial boundary corrected upsampled chunk
+    current = next(icurrent)
+    padded = np.concatenate((left_bound, current, right_bound), axis=axis)
+    downed = sps.resample_poly(padded, up=L, down=1, axis=axis, window=h)
+    yield slice_along_axis(downed, overhang * L, -overhang * L, axis=axis)
+
+    # upsample remaining cnt chunks
+    cnt = z.shape[axis] // chunksize + bool(z.shape[axis] % chunksize) - 1
+    for n, (last, curr, nxt) in enumerate(zip(iprior, icurrent, inext), 1):
+        
+        left_bound = slice_along_axis(last, -overhang, axis=axis)
+     
+        if n < cnt - 1:
+            right_bound = slice_along_axis(nxt, 0, overhang, axis=axis)
+        else:
+            # at cnt-1 chunks concantenate next to current
+            curr = np.concatenate((curr, nxt), axis=axis) 
+            right_bound = np.zeros(left_bound.shape)
+
+        padded = np.concatenate((left_bound, curr, right_bound), axis)
+        d = sps.resample_poly(padded, L, 1, axis=axis, window=h)
+        yield slice_along_axis(d, overhang * L, -overhang * L, axis=axis)
+
+
+
+
 if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
