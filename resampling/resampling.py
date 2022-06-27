@@ -114,7 +114,7 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
         yield slice_along_axis(downed, overhang//M, -overhang//M, axis=axis)
 
 
-def upsample(data, L, fs, chunksize, axis=-1, **kwargs)
+def upsample(data, L, fs, chunksize, axis=-1, **kwargs):
     """Upsamples an array or producer of arrays using polyphase 
     decomposition by an integer expansion factor.
 
@@ -163,7 +163,7 @@ def upsample(data, L, fs, chunksize, axis=-1, **kwargs)
     iprior, icurrent, inext = (iter(pro) for pro in [x,y,z])
 
     # kaiser antialiasing filter coeffecients
-    fstop = kwargs.pop('fstop', fs // M)
+    fstop = kwargs.pop('fstop', fs // L)
     fpass = kwargs.pop('fpass', fstop - fstop // 10)
     gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
     h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
@@ -220,13 +220,15 @@ if __name__ == '__main__':
         return reader.read(start, stop, channels=channels)
 
 
+    # downsampling
+    """ 
     arr = data(edf_path, 0, 2999997)
 
-    
     t0 = time.perf_counter()
     res = downsample(arr, M=10, fs=5000, chunksize=10000, axis=-1)
     pp = np.concatenate([x for x in res], axis=-1)
     print('Polyphase time = {}'.format(time.perf_counter() - t0))
+    """
 
     """
     # Standard method 
@@ -241,6 +243,7 @@ if __name__ == '__main__':
     print('Filter-decimate time = {}'.format(time.perf_counter() - t0))
     """
 
+    """
     #scipy resample_poly
     t0 = time.perf_counter()
     filt = Kaiser(fpass=450, fstop=500, fs=5000)
@@ -258,4 +261,32 @@ if __name__ == '__main__':
     plt.legend()
     plt.ion()
     plt.show()
+    """
+
+    # upsampling
+    arr = data(edf_path, 0, 30023)
+
+    # producer processed
+    t0 = time.perf_counter()
+    up_pro = upsample(arr, L=10, fs=5000, chunksize=10000)
+    up_pro = np.concatenate([x for x in up_pro], axis=-1)
+    print('Produced upsample time = ', time.perf_counter() - t0)
+
+    # scipy upsample
+    t0 =  time.perf_counter()
+    filt = Kaiser(fpass=450, fstop=500, fs=5000)
+    up_scipy = sps.resample_poly(arr, 10, 1, axis=-1, window=filt.coeffs)
+    print('Scipy upsample time = ', time.perf_counter() - t0)
+
+    fig, axarr = plt.subplots(arr.shape[0], 1, figsize=(4,8))
+    for idx, (a, b) in enumerate(zip(up_pro, up_scipy)):
+        axarr[idx].plot(a[:], color='tab:blue', label='pp')
+        axarr[idx].plot(b[:], color='tab:red', alpha=0.5, label='scipy')
+    plt.legend()
+    plt.ion()
+    plt.show()
+
+
+
+
 
