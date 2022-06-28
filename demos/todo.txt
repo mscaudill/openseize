@@ -10,7 +10,6 @@ List of demos that need to be built.
     - Masked Producers
       - Producing from sections of binary file combined with masking
         use a generating function and a mask to make masked Producer
-    - Slicing via Masked Producers
 
 2. Filtering
     - Building and applying FIR filters
