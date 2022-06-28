@@ -1,6 +1,7 @@
 #requirements for the openseize package
 name: openseize
 dependencies:
+    - requests
     - numpy
     - scipy
     - matplotlib
