@@ -4,6 +4,10 @@
 *.pkl
 *.png
 *.swp
+*.npy
+*.npz
+*.edf
+*.txt
 
 #data
 *.edf
