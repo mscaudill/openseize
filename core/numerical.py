@@ -6,6 +6,7 @@ import scipy.signal as sps
 
 from openseize.core.producer import Producer, producer, as_producer 
 from openseize.core.arraytools import pad_along_axis, slice_along_axis
+from openseize.filtering.fir import Kaiser
 
 def optimal_nffts(arr):
     """Estimates the optimal number of FFT points for an arr."""
@@ -234,6 +235,115 @@ def sosfiltfilt(pro, sos, chunksize, axis):
 # FIXME
 # IMPLEMENT filtfilt for transfer function format filters
 # IMPLEMENT lfilter for transfer function format filters
+
+@as_producer
+def polyphase_resample(pro, L, M, fs, chunksize, axis=-1, **kwargs):
+    """Resamples an array or producer of arrays by a rational factor (L/M)
+    using the polyphase decomposition.
+
+    Args:
+        pro: A producer of ndarrays
+            The data producer to be resampled.
+        L: int
+            The expansion factor. L-1 interpolated values will be inserted
+            between consecutive samples along axis.
+        M: int
+            The decimation factor describing which Mth samples of produced 
+            data survive decimation. (E.g. M=10 -> every 10th survives)
+        fs: int
+            The sampling rate of produced data in Hz.
+        chunksize: int
+            The number of samples to hold in memory during upsampling.
+            This method will require ~ 3 times chunksize in memory.
+        axis: int
+            The axis of produced data along which downsampling will occur.
+        kwargs:
+            Any valid keyword for a Kaiser lowpass filter. The default 
+            values for combined antialiasing & interpolation filter are:
+
+                fstop: int
+                    The stop band edge frequency. 
+                    Defaults to fs // max(L,M).
+                fpass: int
+                    The pass band edge frequency. Must be less than fstop.
+                    Defaults to fstop - fstop // 10.
+                gpass: int
+                    The pass band attenuation in dB. Defaults to a max loss
+                    in the passband of 1 dB ~ 11% amplitude loss.
+                gstop: int
+                    The max attenuation in the stop band in dB. Defaults to
+                    40 dB or 99%  amplitude attenuation.
+
+    Returns: a producer of resampled data. The chunksize of the yielded
+             arrays along axis will be the nearest multiple of M closest to 
+             the supplied chunksize (e.g. if M=3 and chunksize=1000 the 
+             yielded chunksize will be 1002 since 1002 % 3 == 0).
+    """
+
+    if M >= pro.shape[axis]:
+        msg = 'Decimation factor must M={} be < pro.shape[{}] = {}'
+        raise ValueError(msg.format(M, axis, pro.shape[axis]))
+
+    # pathological case: pro has  < 3 chunks  -> autoreduce csize
+    csize = chunksize
+    if csize > pro.shape[axis] // 3:
+        csize = pro.shape[axis]  // 3
+
+    # kaiser antialiasing & interpolation filter coeffecients
+    fstop = kwargs.pop('fstop', fs // max(L, M))
+    fpass = kwargs.pop('fpass', fstop - fstop // 10)
+    gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
+    h = Kaiser(fpass, fstop, fs, gpass, gstop).coeffs
+
+    # ensure decimation of each produced array is integer samples
+    if csize % M > 0:
+        csize = int(np.ceil(csize / M) * M)
+
+    # iterators for prior, current and next chunks of data
+    x = producer(pro, csize, axis)
+    y = producer(pro, csize, axis)
+    z = producer(pro, csize, axis)
+    iprior, icurrent, inext = (iter(pro) for pro in [x,y,z])
+
+    # num pts to append left & right on axis to cover convolve overhang
+    # must be divisible by M to ensure int slicing after resample.
+    overhang = int(np.ceil((len(h) - 1) / M) * M)
+
+    # initialize left/right pads for first data section
+    left_shape = list(pro.shape)
+    left_shape[axis] = overhang
+    left = np.zeros(left_shape)
+    # advance inext twice to get right pads
+    next(inext)
+    right = slice_along_axis(next(inext), 0,  overhang, axis=axis)
+
+    # compute the first resampled chunk
+    current = next(icurrent)
+    padded = np.concatenate((left, current, right), axis=axis)
+    resampled = sps.resample_poly(padded, up=L, down=M, axis=axis, window=h)
+
+    # remove result points computed from pads
+    a, b = int(overhang * L / M), -int(overhang * L / M)
+    yield slice_along_axis(resampled, a, b, axis=axis)
+
+    # resample remaining chunks
+    cnt = z.shape[axis] // csize + bool(z.shape[axis] % csize) - 1
+    for n, (last, curr, nxt) in enumerate(zip(iprior, icurrent, inext), 1):
+
+        # build left and right pads for current
+        left = slice_along_axis(last, -overhang, axis=axis)
+        
+        if n < cnt - 1:
+            right = slice_along_axis(nxt, 0, overhang, axis=axis)
+        else:
+            # at cnt-1 chunks concantenate next to current
+            curr = np.concatenate((curr, nxt), axis=axis) 
+            right = np.zeros(left.shape)
+
+        padded = np.concatenate((left, curr, right), axis=axis)
+        resampled = sps.resample_poly(padded, L, M, axis=axis, window=h)
+        yield slice_along_axis(resampled, a, b, axis=axis)
+
 
 def welch(pro, fs, nperseg, window, axis, csize=100, **kwargs):
     """Iteratively estimates the power spectral density of data from
