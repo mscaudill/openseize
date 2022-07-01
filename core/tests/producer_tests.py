@@ -2,7 +2,7 @@
 generators, file Readers with and without boolean masks.
 
 Typical usage example:
-    !pytest producer_tests::<TEST_NAME>
+    !pytest producer_tests.py::<TEST_NAME>
 """
 
 import pytest
