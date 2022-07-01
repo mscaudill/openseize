@@ -39,6 +39,7 @@ from collections.abc import Iterable, Sequence, Generator
 
 from openseize.io.edf import Reader
 from openseize.core import mixins
+from openseize.core import resources
 
 def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     """Constructs an iterable that produces ndarrays of length chunksize
@@ -189,6 +190,25 @@ class Producer(Iterable, mixins.ViewInstance):
     @abc.abstractproperty
     def shape(self):
         """Returns the shape of this producers data attribute."""
+
+    def to_array(self, dtype=float):
+        """Assign this Producer to an ndarray by concatenation along axis.
+
+        Args:
+            dtype: numpy datatype
+                The datatype of each sample in this Producer. Default is
+                float64.
+        """
+
+        resource_result  = resources.assignable_array(self.shape, dtype)
+        assignable, allowable, required = resource_result
+        
+        if not assignable:
+            a, b = np.round(np.array([required, allowable]) / 1e9, 1)
+            msg = 'Producer will consume {} GB but only {} GB are available'
+            raise MemoryError(msg.format(a, b))
+        
+        return np.concatenate([arr for arr in self], axis=self.axis)
 
 
 class ReaderProducer(Producer):
