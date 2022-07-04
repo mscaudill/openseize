@@ -2,6 +2,7 @@
 name: openseize
 dependencies:
     - requests
+    - pywget
     - numpy
     - scipy
     - matplotlib
