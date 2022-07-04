@@ -54,11 +54,11 @@ def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     Args:
         data:
             An object from which ndarrays will be produced from. Supported
-            types are Reader instances, ndarrays, sequence of ndarrays, 
-            generating functions yielding ndarrays, or a producer of 
-            ndarrays. For sequences and generator functions it is
-            required that each subarray has the same shape along all axes 
-            except for the axis along which chunks will be produced. 
+            types are Reader instances, ndarrays, sequences, generating 
+            functions yielding ndarrays, or a producer of ndarrays. 
+            For sequences and generator functions it is required that each
+            subarray has the same shape along all axes except for the axis 
+            along which chunks will be produced. 
         chunksize: int
             The desired length along axis of each produced ndarray. 
         axis: int
@@ -96,11 +96,8 @@ def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     elif inspect.isgeneratorfunction(data):
         result = GenProducer(data, chunksize, axis, shape, **kwargs)
 
-    elif isinstance(data, np.ndarray):
-        result = ArrayProducer(data, chunksize, axis, **kwargs)
-
-    elif isinstance(data, Sequence):
-        x = np.concatenate(data, axis=axis)
+    elif isinstance(data, (np.ndarray, Sequence)):
+        x = np.array(data)
         result = ArrayProducer(x, chunksize, axis, **kwargs)
 
     else:
