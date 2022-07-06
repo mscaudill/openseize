@@ -1,7 +1,6 @@
 import inspect
 import requests
 import wget
-import shutil
 import reprlib
 from pathlib import Path
 
