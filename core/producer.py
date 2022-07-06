@@ -345,10 +345,10 @@ class MaskedProducer(Producer):
     def shape(self):
         """The cumulative shape of all arrays in this producer."""
 
-        result = list(self.data.shape[axis])
+        result = list(self.data.shape)
+        included  = np.count_nonzero(self.mask.to_array(dtype=bool))
         #iteration stops when producer or mask runs out
-        result[self.axis] = min(self.data.shape[axis], 
-                                self.mask.shape[axis])
+        result[self.axis] = min(self.data.shape[self.axis], included)
         return tuple(result)
 
     @property
