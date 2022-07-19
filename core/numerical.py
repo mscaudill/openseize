@@ -1,7 +1,7 @@
 import numpy as np
 import itertools
 from functools import partial
-from scipy import fft, ifft
+from numpy import fft, ifft
 import scipy.signal as sps
 
 from openseize.core.producer import Producer, producer, as_producer 
@@ -344,6 +344,49 @@ def polyphase_resample(pro, L, M, fs, chunksize, axis=-1, **kwargs):
         resampled = sps.resample_poly(padded, L, M, axis=axis, window=h)
         yield slice_along_axis(resampled, a, b, axis=axis)
 
+def periodogram(data, fs, nfft=None, window='hann', axis=-1, 
+                detrend='constant', scaling='density'):
+    """
+
+    """
+
+    arr = pro.to_array() if isinstance(data, Producer) else data
+    nsamples = arr.shape[axis]
+    nfft = nsamples if not nfft else nfft
+
+    # detrend the array
+    arr = sps.detrend(arr, axis=axis, type=detrend)
+
+    # fetch and apply window
+    coeffs = sps.get_window(window, nsamples)
+    arr = arr * coeffs
+
+    # compute real (Hermetian-symmetric) FFT
+    arr = np.fft.rfft(arr, nfft, axis=axis)
+    freqs = np.fft.rfftfreq(nfft, d=1/fs)
+
+    # scale using weighted means of window values
+    if scaling == 'spectrum':
+        norm = 1 / np.sum(coeffs)**2
+    elif scaling == 'density':
+        norm = 1 / (fs * np.sum(coeffs**2))
+    else:
+        msg = 'Unknown scaling: {}'
+        raise ValueError(msg.format(scaling))
+    arr = (np.real(arr)**2 + np.imag(arr)**2) * scale
+
+    # since real FFT -> double for uncomputed negative freqs.
+    slicer = [slice(None)] * arr.ndim
+    if nfft % 2:
+        # k=0 dft sample is not pos. or neg so not doubled
+        slicer[axis] = slice(1, None)
+    else:
+        # last k=nfft/2 is not in the dft since nfft is odd
+        slicer[axis] = slice(1, -1)
+    
+    arr[slicer] *= 2
+
+    return freqs, arr
 
 def welch(pro, fs, nperseg, window, axis, csize=100, **kwargs):
     """Iteratively estimates the power spectral density of data from
