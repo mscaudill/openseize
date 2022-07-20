@@ -1,7 +1,7 @@
 import numpy as np
 import itertools
 from functools import partial
-from numpy import fft, ifft
+from numpy import fft
 import scipy.signal as sps
 
 from openseize.core.producer import Producer, producer, as_producer 
@@ -344,51 +344,105 @@ def polyphase_resample(pro, L, M, fs, chunksize, axis=-1, **kwargs):
         resampled = sps.resample_poly(padded, L, M, axis=axis, window=h)
         yield slice_along_axis(resampled, a, b, axis=axis)
 
-def periodogram(data, fs, nfft=None, window='hann', axis=-1, 
+
+def periodogram(arr, fs, nfft=None, window='hann', axis=-1, 
                 detrend='constant', scaling='density'):
+    """Estimates the power spectrum of an ndarray using the windowed
+    periodogram method.
+
+    Args:
+        arr: ndarray
+            An array of values to estimate the PS or PSD along axis.
+            This array is assumed to be real-valued (Hermetian symmetric)
+        fs: int
+            The sampling rate of the values in arr.
+        nfft: int
+            The number of frequencies between 0 and fs used to construct
+            the Discrete Fourier Transform. If None, nfft will match the 
+            length of the arr. If nfft is smaller than arr along axis, the
+            array is cropped. If nfft is larger than arr along axis, the 
+            array is zero padded. The returned frequencies will be nfft/2
+            since this method returns only positive frequencies.
+        window: str
+            A scipy signal module window function. Please see references
+            for all available windows.
+        axis: int
+            Axis along which the power spectrum will be estimated.
+        detrend: str
+            The type of detrending to apply to data before computing
+            estimate. Options are 'constant' and 'linear'. If constant, the
+            mean of the data is removed before the PS/PSD is estimated. If
+            linear, the linear trend in the data array along axis is removed
+            before the estimate.
+        scaling: str
+            A string for determining the normalization of the estimate. If
+            'spectrum', the estimate will have units V**2 and be referred to
+            as the power spectral estimate. If 'density' the estimate will
+            have units V**2 / Hz and is referred to as the power spectral
+            density estimate.
+            
+    Returns:
+        A 1-D array of length NFFT/2 of postive frequencies at which the 
+        estimate was computed.
+
+        An ndarray of power spectral (density) estimates the same shape as
+        array except along axis which we have length NFFT/2.
+
+    References:
+        Schuster, Arthur (January 1898). "On the investigation of hidden 
+        periodicities with application to a supposed 26 day period of 
+        meteorological phenomena". Terrestrial Magnetism. 3 (1): 13–41
+
+        Scipy windows:
+        https://docs.scipy.org/doc/scipy/reference/signal.windows.html
     """
 
-    """
-
-    arr = pro.to_array() if isinstance(data, Producer) else data
     nsamples = arr.shape[axis]
     nfft = nsamples if not nfft else nfft
 
+    if nfft < nsamples:
+        # crop arr before detrending & windowing; see rfft crop
+        arr = slice_along_axis(arr, 0, nfft, axis=-1)
+    
     # detrend the array
     arr = sps.detrend(arr, axis=axis, type=detrend)
 
     # fetch and apply window
-    coeffs = sps.get_window(window, nsamples)
+    coeffs = sps.get_window(window, arr.shape[axis])
     arr = arr * coeffs
 
-    # compute real (Hermetian-symmetric) FFT
+    # compute real DFT. Zeropad for nfft > nsamples is automatic
     arr = np.fft.rfft(arr, nfft, axis=axis)
     freqs = np.fft.rfftfreq(nfft, d=1/fs)
 
-    # scale using weighted means of window values
+    # scale using weighted mean of window values
     if scaling == 'spectrum':
         norm = 1 / np.sum(coeffs)**2
+
     elif scaling == 'density':
         norm = 1 / (fs * np.sum(coeffs**2))
+    
     else:
         msg = 'Unknown scaling: {}'
         raise ValueError(msg.format(scaling))
-    arr = (np.real(arr)**2 + np.imag(arr)**2) * scale
+    arr = (np.real(arr)**2 + np.imag(arr)**2) * norm
 
     # since real FFT -> double for uncomputed negative freqs.
     slicer = [slice(None)] * arr.ndim
     if nfft % 2:
         # k=0 dft sample is not pos. or neg so not doubled
         slicer[axis] = slice(1, None)
+    
     else:
         # last k=nfft/2 is not in the dft since nfft is odd
         slicer[axis] = slice(1, -1)
     
-    arr[slicer] *= 2
+    arr[tuple(slicer)] *= 2
 
     return freqs, arr
 
-def welch(pro, fs, nperseg, window, axis, csize=100, **kwargs):
+
+def _welch(pro, fs, nperseg, window, axis, csize=100, **kwargs):
     """Iteratively estimates the power spectral density of data from
     a producer using Welch's method.
 
