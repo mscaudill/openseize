@@ -398,7 +398,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
     """
 
     nsamples = arr.shape[axis]
-    nfft = nsamples if not nfft else nfft
+    nfft = nsamples if not nfft else int(nfft)
 
     if nfft < nsamples:
         # crop arr before detrending & windowing; see rfft crop
