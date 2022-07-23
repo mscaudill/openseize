@@ -361,8 +361,8 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
             the Discrete Fourier Transform. If None, nfft will match the 
             length of the arr. If nfft is smaller than arr along axis, the
             array is cropped. If nfft is larger than arr along axis, the 
-            array is zero padded. The returned frequencies will be nfft/2
-            since this method returns only positive frequencies.
+            array is zero padded. The returned frequencies will be 
+            nfft//2 + 1 since this method returns only positive frequencies.
         window: str
             A scipy signal module window function. Please see references
             for all available windows.
@@ -386,7 +386,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
         estimate was computed.
 
         An ndarray of power spectral (density) estimates the same shape as
-        array except along axis which we have length NFFT/2.
+        array except along axis which we have length nfft//2 + 1.
 
     References:
         Schuster, Arthur (January 1898). "On the investigation of hidden 
@@ -442,88 +442,113 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
     return freqs, arr
 
 
-def _welch(pro, fs, nperseg, window, axis, csize=100, **kwargs):
-    """Iteratively estimates the power spectral density of data from
-    a producer using Welch's method.
+def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
+    """Iteratively estimates the power spectrum using Welch's method.
+
+    Welch's method divides data into overlapping segments and averages the
+    modified periodograms for each segment. Unlike scipy, this method does
+    not assert that the data is an in-memory array.
 
     Args:
-        pro: producer instance
-                a producer of ndarrays
-
-        fs: float
-                sampling rate of produced data
-
-        nperseg: int
-                number of points used to compute FFT on each segment. Should
-                be < pro.chunksize and ideally a power of 2
-
-        window: str or tuple or array_like
-                a scipy window string or 1-D array of window heights. If 
-                array_like, its length must match nperseg
-
+        pro: A producer of ndarrays
+            A data producer whose power spectral is to be estimated.
+        fs: int
+            The sampling rate of the produced data.
+        nfft: int
+            The number of frequencies in the interval [0, fs) to use to
+            estimate the power spectra. This determines the frequency
+            resolution of the estimate since resolution = fs / nfft.
+        window: str
+            A string name for a scipy window to be applied to each data
+            segment before computing the periodogram of that segment. For
+            a full list of windows see scipy.signal.windows.
+        overlap: float
+            A percentage in [0, 1) of the data segement that should overlap
+            with the next data segment. If 0 this estimate is equivalent to
+            Bartletts method (2)
         axis: int
-                axis of producer along which spectrum is computed
-
-        csize: int
-                factor to multipy nperseg by that will be used as the
-                chunksize of the producer during welch computation. Default
-                is 100. The producer's chunksize will be set back to initial
-                chunksize after PSD is computed.
-
-        kwargs: passed to scipy.signal.welch
+            The sample axis of the producer. The estimate will be carried
+            out along this axis.
+        detrend: str either 'constant' or 'linear'
+            A string indicating whether to subtract the mean ('constant') or
+            subtract a linear fit ('linear') from each segment prior to
+            computing the estimate for a segment.
+        scaling: str either 'spectrum' or 'density'
+            Determines the normalization to apply to the estimate. If
+            'spectrum' the estimate will have units V**2 and if 'density'
+            V**2 / Hz.
 
     Returns:
-        f: ndarray
-                array of FFT sample frequencies
-
-        pxx: ndarray
-                power spectral density or power spectrum of producer
-
-    See also:
-        scipy.signal.welch
-
-    References:
-    1.  P. Welch, “The use of the fast Fourier transform for the 
-        estimation of power spectra: A method based on time averaging over
-        short, modified periodograms”, IEEE Trans. Audio Electroacoust. 
-        vol. 15, pp. 70-73, 1967.
+        An ndarray of shape matching the producers shape except along axis
+        which will have shape nfft//2 + 1 since only positive frequencies
+        and 0 are returned (scipy 'onesided' parameter).
 
     Notes:
-        Masked producers may produce arrays with few if any values. Scipy 
-        sets the nperseg parameter to the min. of the input data & nperseg.
-        This behavior changes the FFT frequency resolution depending on the
-        amount of data in each produced array. We therefore drop segments
-        from the producer whose size along axis is less than nperseg.
+        Scipy allows for the segment length and number of DFT points (nfft)
+        to be different. This allows for interpolation of frequencies. Given
+        that EEG data typically has many samples, openseize locks the
+        segment length to the nfft amount (i.e. no interpolation). Finer
+        resolutions of the estimate will require longer data segements.
+
+        Scipy welch drops the last segment of data if the number of points in 
+        the segment is less than nfft. Openseize welch follows the same 
+        convention. 
+
+        Lastly, Openseize assumes the produced data is real-valued. This is
+        appropriate for all EEG data. If you are calling this method on
+        complex data, the imaginary part will be dropped.
+
+    References:
+        (1) P. Welch, "The use of the fast Fourier transform for the 
+        estimation of power spectra: A method based on time averaging over 
+        short, modified periodograms", IEEE Trans. Audio Electroacoust. vol.
+        15, pp. 70-73, 1967
+
+        (2) M.S. Bartlett, "Periodogram Analysis and Continuous Spectra", 
+        Biometrika, vol. 37, pp. 1-16, 1950.
+
+        (3) B. Porat, "A Course In Digitial Signal Processing" Chapters 4 & 13. 
+        Wiley and Sons 1997.
     """
 
-    # chunksize will need to be a multiple of nperseg to avoid gaps
-    # need to get last overlap window from previous array to have 
-    # continuous overlapping windows
+    # store the pro's chunksize
+    csize = pro.chunksize
 
-    overlap = kwargs.pop('noverlap', nperseg // 2)
-    isize = pro.chunksize
-    pro.chunksize = csize * nperseg
+    # find num overlap samples
+    nover = int(overlap * nfft)
+    # make iterator that starts at each overlap start
+    pro.chunksize = nfft - nover
+    ipro = iter(pro)
 
-    cnt, current_sum = 0, 0
-    previous = np.array([])
-    for arr in pro:
-        
-        if previous.size > 0:
-            x = np.concatenate((previous, arr), axis=axis)
-        else:
-            x = arr
+    #collect arrays from ipro until first nfft length is reached
+    x = next(ipro)
+    while x.shape[axis] < nfft:
+        x = np.concatenate((x, next(ipro)), axis=axis)
 
-        if x.shape[axis] >= nperseg:
-            f, _, pxx = sps.spectral._spectral_helper(x, x, fs=fs, 
-                            window=window, nperseg=nperseg, axis=axis, 
-                            mode='psd', **kwargs)
-            #update number of windows and add to summed psd
-            cnt += pxx.shape[-1]
-            current_sum += np.sum(pxx, axis=-1)
-            previous = slice_along_axis(x, x.shape[axis]-overlap, axis=axis)
+    # estimate PS(D) from nfft chunks by slicing concatenated segments 
+    estimate = 0
+    for navg, arr in enumerate(ipro, 1):
 
-    pro.chunksize = isize
-    return f, current_sum / cnt
+        # compute modified periodogram -- crops x if x.shape[axis] > nfft
+        f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
+        estimate = estimate + 1 / navg * (y - estimate)
+
+        # slice off last produced and append next produced
+        x = slice_along_axis(x, start=pro.chunksize, stop=None, axis=axis)
+        x = np.concatenate((x, arr), axis)
+
+    else:
+
+        # last concatenated 'x' may have >= nfft 
+        if x.shape[axis] >= nfft:
+
+            f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
+            estimate = estimate + 1 / (navg + 1) * (y - estimate)
+
+    return f, estimate
+
+
+
 
 if __name__ == '__main__':
 
