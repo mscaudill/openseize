@@ -448,9 +448,9 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     fpass = [500]
-    fstop = [700]
-    bands = [0, 500, 700, 2500]
-    desired = [1, 0]
+    fstop = [600]
+    #bands = [0, 500, 700, 2500]
+    #desired = [1, 0]
 
     #fpass = [500]
     #fstop = [400]
@@ -482,9 +482,11 @@ if __name__ == '__main__':
     #bands = [0, 48, 56, 64, 72, 500, 510, 2500]
     #desired = [1, 0, 1, 0]
 
+    """
     filt = Remez(bands, desired, gpass=.05, gstop=40, fs=5000)
 
     filt.plot()
+    """
    
     """
     w, h = sps.freqz(filt.coeffs, fs=1000, worN=2000)

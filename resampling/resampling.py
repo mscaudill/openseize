@@ -39,6 +39,7 @@ import numpy as np
 import functools
 
 from openseize import producer
+from openseize.filtering.fir import Kaiser
 from openseize.core.numerical import polyphase_resample
 
 def resampled_shape(pro, L, M, axis):
@@ -106,7 +107,8 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
     """
    
     pro = producer(data, chunksize, axis)
-    result = polyphase_resample(pro, 1, M, fs, chunksize, axis, **kwargs)
+    result = polyphase_resample(pro, 1, M, fs, chunksize, Kaiser, axis, 
+                                **kwargs)
 
     # compute new downsampled shape and set new shape
     shape = resampled_shape(pro, L=1, M=M, axis=axis)
@@ -157,7 +159,8 @@ def upsample(data, L, fs, chunksize, axis=-1, **kwargs):
     """
     
     pro = producer(data, chunksize, axis)
-    result = polyphase_resample(pro, L, 1, fs, chunksize, axis, **kwargs)
+    result = polyphase_resample(pro, L, 1, fs, chunksize, Kaiser, axis,
+                                **kwargs)
    
     # compute new upsampled shape and set new shape
     shape = resampled_shape(pro, L=L, M=1, axis=axis)
@@ -212,7 +215,8 @@ def resample(data, L, M, fs, chunksize, axis=-1, **kwargs):
     """
 
     pro = producer(data, chunksize, axis)
-    result = polyphase_resample(pro, L, M, fs, chunksize, axis, **kwargs)
+    result = polyphase_resample(pro, L, M, fs, chunksize, Kaiser, axis, 
+                                **kwargs)
    
     # compute new upsampled shape and set new shape
     shape = resampled_shape(pro, L=L, M=M, axis=axis)
