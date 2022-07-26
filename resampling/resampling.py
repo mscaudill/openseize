@@ -36,9 +36,32 @@ For further details on implementation please see:
 """
 
 import numpy as np
+import functools
 
 from openseize import producer
 from openseize.core.numerical import polyphase_resample
+
+def resampled_shape(pro, L, M, axis):
+    """Returns the resampled shape of a producer along axis.
+    
+    Args:
+        pro: producer of ndarrays
+            The data to be downsampled.
+        L: int
+            The expansion factor. L-1 interpolated values will be inserted
+            between consecutive samples in data along axis.
+        M: int
+            The decimation factor describing which Mth samples of data
+            survive decimation. (E.g. M=10 -> every 10th sample survives)
+        axis: int
+            The axis of pro along which resampling will occur.
+
+    Returns: shape tuple
+    """
+
+    shape = list(pro.shape)
+    shape[axis] = int(np.ceil(pro.shape[axis] * L / M))
+    return tuple(shape)
 
 
 def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
@@ -84,7 +107,11 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
    
     pro = producer(data, chunksize, axis)
     result = polyphase_resample(pro, 1, M, fs, chunksize, axis, **kwargs)
-   
+
+    # compute new downsampled shape and set new shape
+    shape = resampled_shape(pro, L=1, M=M, axis=axis)
+    result.shape = shape
+    
     return result.to_array() if isinstance(data, np.ndarray) else result
 
 
@@ -132,6 +159,10 @@ def upsample(data, L, fs, chunksize, axis=-1, **kwargs):
     pro = producer(data, chunksize, axis)
     result = polyphase_resample(pro, L, 1, fs, chunksize, axis, **kwargs)
    
+    # compute new upsampled shape and set new shape
+    shape = resampled_shape(pro, L=L, M=1, axis=axis)
+    result.shape = shape
+
     return result.to_array() if isinstance(data, np.ndarray) else result
 
 
@@ -154,7 +185,7 @@ def resample(data, L, M, fs, chunksize, axis=-1, **kwargs):
             The number of samples to hold in memory during upsampling.
             This method will require ~ 3 times chunksize in memory.
         axis: int
-            The axis of data along which downsampling will occur.
+            The axis of data along which resampling will occur.
         kwargs:
             Any valid keyword for a Kaiser lowpass filter. The default 
             values for combined antialiasing & interpolation filter are:
@@ -183,4 +214,8 @@ def resample(data, L, M, fs, chunksize, axis=-1, **kwargs):
     pro = producer(data, chunksize, axis)
     result = polyphase_resample(pro, L, M, fs, chunksize, axis, **kwargs)
    
+    # compute new upsampled shape and set new shape
+    shape = resampled_shape(pro, L=L, M=M, axis=axis)
+    result.shape = shape
+
     return result.to_array() if isinstance(data, np.ndarray) else result

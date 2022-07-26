@@ -115,9 +115,12 @@ def as_producer(func):
 
     Producers are multi-transversal iterables (not iterators). Generators
     are 'one-shot' transversal objects. Therefore to support multiple data
-    transversals, Producers can only be built from generating functions. 
+    transversals, Producers can be built from generating functions. 
     This decorater converts any generating function that accepts a producer
-    as its first argument into a Producer instance.
+    as its first argument into a Producer instance. It assumes that the
+    cumulative shape of the yielded arrays from 'func' matches the shape of
+    the input producer to 'func'. If this is False, the producer's shape
+    should be updated after construction by caller.
 
     Returns: func
         A new function that creates a Producer instance in place of the
@@ -300,13 +303,23 @@ class GenProducer(Producer):
             raise ValueError(msg.format('Producer'))
 
         super().__init__(data, chunksize, axis, **kwargs)
-        self._shape = shape
+        self._shape = tuple(shape)
 
     @property 
     def shape(self):
         """Returns the summed shape of arrays in this Producer."""
 
         return self._shape
+
+    @shape.setter
+    def shape(self, value):
+        """Sets the summed shape of the arrays in this Producer."""
+
+        if len(value) != len(self._shape):
+            msg = 'Cannot change the dimensionsality of producer'
+            raise ValueError(msg)
+
+        self._shape = value
 
     def __iter__(self):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
