@@ -1,7 +1,7 @@
 """A module for testing the resampling arrays and producer of arrays.
 
 Typical usage example:
-    !pytest resampling_test::<TEST_NAME>
+    !pytest resampling_test.py::<TEST_NAME>
 """
 
 import pytest
