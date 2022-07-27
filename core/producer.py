@@ -331,7 +331,8 @@ class GenProducer(Producer):
                 yield collector.get()
         else:
             # yield anything left in collector queue
-            yield collector.get()
+            if collector.qsize() > 0:
+                yield collector.get()
 
 
 class MaskedProducer(Producer):
@@ -387,8 +388,8 @@ class MaskedProducer(Producer):
             while collector.full():
                 yield collector.get()
         else:
-            # yield anything left in collector queue
-            yield collector.get()
+            if collector.qsize() > 0:
+                yield collector.get()
 
 
 class FIFOArray:
