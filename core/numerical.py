@@ -565,7 +565,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     freqs = np.fft.rfftfreq(nfft, 1/fs)
 
     # num. segments that fit into pro samples of len nfft with % overlap
-    nsegs = (pro.shape[axis] - nfft) // (nfft * (1-overlap)) + 1
+    nsegs = int((pro.shape[axis] - nfft) // (nfft * (1-overlap)) + 1)
     shape = list(pro.shape)
     shape[axis] = nsegs
 
