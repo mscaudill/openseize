@@ -1,40 +1,69 @@
 import numpy as np
-import scipy.signal as sps
 
-from openseize.types.producer import producer
+from scipy.stats import chi2
 
-class Welch:
+from openseize.core import numerical as nm
+from openseize import producer
+
+
+class PSD:
     """
 
     """
 
-    def __init__(self, fs, nperseg, window='hann'):
+    def __init__(self, pro, fs):
         """Initialize this Welch."""
-    
-       # Method to view the Window and the FFT of the window with ENBW 
-        
 
-    def enbw(self):
-        """ """
-       
-        return np.sum(self.window**2) / np.sum(self.window)**2 * self.fs
+        self.pro = pro
+        self.fs = fs
+    
         
+    def estimate(self, resolution=0.5, window='hann', overlap=0.5, axis=-1,
+                 detrend='constant', scaling='density'):
+        """
+
+        """
+
+        nfft = int(self.fs / resolution)
+        freqs, psd_pro = nm.welch(self.pro, self.fs, nfft, window, overlap,
+                                  axis, detrend, scaling)
+
+        self.freqs, self.psd_pro = freqs, psd_pro
+
+        result = 0
+        for cnt, arr in enumerate(self.psd_pro, 1):
+            result = result + 1 / cnt * (arr - result)
+        self.avg_psd = result
+        
+        return freqs, result
+
+    def confidence_interval(self, alpha=0.05):
+        """ """
+
+        pass
+
+    def plot(self):
+        pass
+
 
 if __name__ == '__main__':
 
-    import matplotlib.pyplot as plt
-    from scipy.fft import fft, fftshift    
+    from openseize.io import edf
+    from openseize.demos import paths
 
-    fs = 5000
-    window = sps.windows.hann(16384*2)
-    #window = np.ones(10000)
-    A = fft(window, 10000) / (len(window) / 2)
-    freq = np.linspace(-fs/2, fs/2, len(A))
-    resp = 20 * np.log10(np.abs(fftshift(A/ abs(A).max())))
 
-    resolution =  np.sum(window**2) / np.sum(window)**2 * len(window)
-    print(resolution)
+    def fetch_data(start, stop):
+        """ """
 
-    plt.plot(freq, resp)
-    plt.show()
-    plt.ion()
+        fp = paths.locate('recording_001.edf')
+        with edf.Reader(fp) as reader:
+            arr = reader.read(start, stop)
+
+        return arr
+    
+    data = fetch_data(0, 127000)
+    pro = producer(data, chunksize=20000, axis=-1)
+
+    estimator = PSD(pro, fs=5000)
+    freqs, avg_psd = estimator.estimate()
+
