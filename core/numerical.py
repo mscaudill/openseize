@@ -443,77 +443,18 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
     return freqs, arr
 
 
-def _welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
+def _iwelch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """Iteratively estimates the power spectrum using Welch's method.
 
-    Welch's method divides data into overlapping segments and averages the
-    modified periodograms for each segment. Unlike scipy, this method does
-    not assert that the data is an in-memory array.
-
-    Args:
-        pro: A producer of ndarrays
-            A data producer whose power spectral is to be estimated.
-        fs: int
-            The sampling rate of the produced data.
-        nfft: int
-            The number of frequencies in the interval [0, fs) to use to
-            estimate the power spectra. This determines the frequency
-            resolution of the estimate since resolution = fs / nfft.
-        window: str
-            A string name for a scipy window to be applied to each data
-            segment before computing the periodogram of that segment. For
-            a full list of windows see scipy.signal.windows.
-        overlap: float
-            A percentage in [0, 1) of the data segement that should overlap
-            with the next data segment. If 0 this estimate is equivalent to
-            Bartletts method (2)
-        axis: int
-            The sample axis of the producer. The estimate will be carried
-            out along this axis.
-        detrend: str either 'constant' or 'linear'
-            A string indicating whether to subtract the mean ('constant') or
-            subtract a linear fit ('linear') from each segment prior to
-            computing the estimate for a segment.
-        scaling: str either 'spectrum' or 'density'
-            Determines the normalization to apply to the estimate. If
-            'spectrum' the estimate will have units V**2 and if 'density'
-            V**2 / Hz.
-
-    Returns:
-        An ndarray of shape matching the producers shape except along axis
-        which will have shape nfft//2 + 1 since only positive frequencies
-        and 0 are returned (scipy 'onesided' parameter).
-
-    Notes:
-        Scipy allows for the segment length and number of DFT points (nfft)
-        to be different. This allows for interpolation of frequencies. Given
-        that EEG data typically has many samples, openseize locks the
-        segment length to the nfft amount (i.e. no interpolation). Finer
-        resolutions of the estimate will require longer data segements.
-
-        Scipy welch drops the last segment of data if the number of points in 
-        the segment is less than nfft. Openseize welch follows the same 
-        convention. 
-
-        Lastly, Openseize assumes the produced data is real-valued. This is
-        appropriate for all EEG data. If you are calling this method on
-        complex data, the imaginary part will be dropped.
-
-    References:
-        (1) P. Welch, "The use of the fast Fourier transform for the 
-        estimation of power spectra: A method based on time averaging over 
-        short, modified periodograms", IEEE Trans. Audio Electroacoust. vol.
-        15, pp. 70-73, 1967
-
-        (2) M.S. Bartlett, "Periodogram Analysis and Continuous Spectra", 
-        Biometrika, vol. 37, pp. 1-16, 1950.
-
-        (3) B. Porat, "A Course In Digitial Signal Processing" Chapters 4 & 13. 
-        Wiley and Sons 1997.
+    This method is a generating function that yields the PS(D) estimate for
+    each segment of the Welch method. It is not intended to be called
+    externally. 'welch' in this module is the client facing method that
+    returns both the frequencies and a producer of PS(D) estimates for each
+    overlapped segment.
     """
 
     # store the pro's chunksize
-    csize = pro.chunksize
+    isize = pro.chunksize
 
     # find num overlap samples
     nover = int(overlap * nfft)
@@ -527,12 +468,11 @@ def _welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         x = np.concatenate((x, next(ipro)), axis=axis)
 
     # estimate PS(D) from nfft chunks by slicing concatenated segments 
-    estimate = 0
     for navg, arr in enumerate(ipro, 1):
 
         # compute modified periodogram -- crops x if x.shape[axis] > nfft
         f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
-        estimate = estimate + 1 / navg * (y - estimate)
+        yield y
 
         # slice off last produced and append next produced
         x = slice_along_axis(x, start=pro.chunksize, stop=None, axis=axis)
@@ -544,9 +484,9 @@ def _welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         if x.shape[axis] >= nfft:
 
             f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
-            estimate = estimate + 1 / (navg + 1) * (y - estimate)
+            yield y
 
-    return f, estimate
+    pro.chunksize = isize
 
 
 def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
@@ -586,9 +526,8 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
             V**2 / Hz.
 
     Returns:
-        An ndarray of shape matching the producers shape except along axis
-        which will have shape nfft//2 + 1 since only positive frequencies
-        and 0 are returned (scipy 'onesided' parameter).
+        A tuple containing a 1-D array of frequencies of lenght nfft//2 + 1
+        and a producer of PS(D) estimates for each overlapped segment.
 
     Notes:
         Scipy allows for the segment length and number of DFT points (nfft)
@@ -618,86 +557,19 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         Wiley and Sons 1997.
     """
 
-    # store the pro's chunksize
-    isize = pro.chunksize
+    # build the welch generating function
+    genfunc = partial(_iwelch, pro, fs, nfft, window, overlap, axis, 
+                      detrend, scaling)
 
-    # find num overlap samples
-    nover = int(overlap * nfft)
-    # make iterator that starts at each overlap start
-    pro.chunksize = nfft - nover
-    ipro = iter(pro)
+    # obtain the positive freqs.
+    freqs = np.fft.rfftfreq(nfft, 1/fs)
 
-    #collect arrays from ipro until first nfft length is reached
-    x = next(ipro)
-    while x.shape[axis] < nfft:
-        x = np.concatenate((x, next(ipro)), axis=axis)
+    # num. segments that fit into pro samples of len nfft with % overlap
+    nsegs = (pro.shape[axis] - nfft) // (nfft * (1-overlap)) + 1
+    shape = list(pro.shape)
+    shape[axis] = nsegs
 
-    # estimate PS(D) from nfft chunks by slicing concatenated segments 
-    for navg, arr in enumerate(ipro, 1):
+    # return producer from iwelch gen func with each yielded 
+    result = producer(genfunc, chunksize=len(freqs), axis=axis, shape=shape)
+    return freqs, result
 
-        # compute modified periodogram -- crops x if x.shape[axis] > nfft
-        f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
-        print(navg, y.shape)
-        yield y
-
-        # slice off last produced and append next produced
-        x = slice_along_axis(x, start=pro.chunksize, stop=None, axis=axis)
-        x = np.concatenate((x, arr), axis)
-
-    else:
-
-        # last concatenated 'x' may have >= nfft 
-        if x.shape[axis] >= nfft:
-
-            f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
-            print('last ', y.shape)
-            yield y
-
-    pro.chunksize = isize
-
-
-if __name__ == '__main__':
-
-
-    """
-    import matplotlib.pyplot as plt
-    from openseize.io.readers import EDF
-    from openseize.types.producer import producer
-
-    import time
-
-    PATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
-    edf = EDF(PATH)
-    pro = producer(edf, chunksize=10e6, axis=-1)
-
-    t0 = time.perf_counter()
-    f, pxx = welch(pro, 5000, nperseg=16384, window='hann', axis=-1,
-            csize=1000)
-    print('ops welch in {} s'.format(time.perf_counter() - t0))
-
-    """
-
-    """
-    x = np.concatenate([arr for arr in pro], axis=-1)
-    t0 = time.perf_counter()
-    sp_f, sp_pxx = sps.welch(x, fs=5000, nperseg=16384, window='hann', axis=-1)
-    print('sp welch in {} s'.format(time.perf_counter() - t0))
-    """
-
-    """
-    plt.plot(f, pxx[0], label='os result')
-    """
-
-    """
-    plt.plot(f, sp_pxx[0], label='sp result')
-    plt.plot(f, (pxx[0] - sp_pxx[0]), label='residual')
-    plt.legend()
-    plt.show()
-    """
-
-    x = np.array(range(7))
-    y = np.array([0, 1, .5, 2, 0])
-    z = np.convolve(x,y)
-    r = convolve_slicer(z, x.shape, y.shape, axis=-1, mode='valid')
-    o = np.convolve(x,y, mode='valid')
-    assert np.allclose(r, o)
