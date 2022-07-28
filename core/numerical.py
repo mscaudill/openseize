@@ -394,6 +394,10 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
         periodicities with application to a supposed 26 day period of 
         meteorological phenomena". Terrestrial Magnetism. 3 (1): 13–41
 
+        Shiavi, R. (2007). Introduction to Applied Statistical Signal 
+        Analysis : Guide to Biomedical and Electrical Engineering 
+        Applications. 3rd ed.
+
         Scipy windows:
         https://docs.scipy.org/doc/scipy/reference/signal.windows.html
     """
@@ -421,6 +425,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
         norm = 1 / np.sum(coeffs)**2
 
     elif scaling == 'density':
+        #process loss Shiavi Eqn 7.54
         norm = 1 / (fs * np.sum(coeffs**2))
     
     else:
