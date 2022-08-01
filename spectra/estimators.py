@@ -179,7 +179,7 @@ if __name__ == '__main__':
 
         return arr
     
-    data = fetch_data(0, 500000)
+    data = fetch_data(0, 3000000)
     pro = producer(data, chunksize=20000, axis=-1)
 
     estimator = PSD(pro, fs=5000)
@@ -187,11 +187,14 @@ if __name__ == '__main__':
 
     ci_s = estimator.confidence_interval(0.05)
 
-    fig, axarr = plt.subplots(3, 1, sharex=True)
+    fig, axarr = plt.subplots(3, 1, sharex=True, figsize=(5,6))
     for idx, ax in enumerate(axarr):
         lower, upper = ci_s[idx]
         ax.plot(freqs, avg_psd[idx], color='green', label='Avg PSD')
         ax = banded(freqs, upper, lower, ax, label='95% CI')
         ax.legend()
 
+    plt.xlim([-1, 20])
+    title = 'Data Duration = {} s'.format(data.shape[-1] / 5000)
+    plt.suptitle(title)
     plt.show()
