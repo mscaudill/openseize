@@ -97,4 +97,21 @@ def filter1D(size, indices):
         result[idxs] = True
     return result
 
+def nearest1D(x, x0, axis=-1):
+    """Returns the index in a 1-D array whose value has the smallest 
+    distance to x0
+
+    Args:
+        x: 1-D array
+            A sequence of values to search for minimim distance to x0.
+        x0: float
+            The value whose distance from each value in x is measured.
+    
+    Returns: 
+        The index of x whose distance to x0 is smallest.
+    """
+
+    index = np.argmin(np.abs(x - x0))
+    return index
+
 
