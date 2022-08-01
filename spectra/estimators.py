@@ -4,20 +4,12 @@ a producer.
 This module contains the following classes and functions:
 
     PSD:
-        A class for estimating the power spectrum of a producer using
+        A function for estimating the power spectrum of a producer using
         Welch's method.
 
-        Typical usage example:
-        
-        # create an estimator of the power spectrum
-        estimator = PSD(producer, fs=sampling_rate)
-        
-        # estimate method the average PS(D) estimate across all overlapping
-        # segements of producer's data.
-        freqs, psd = estimator.estimate()
-        
-        # compute the confidence iterval of the 0th signal in the estimate
-        CI = estimator.confidence_interval(psd[0])
+    normalize:
+        A function that normalizes an array of PSDs by the total power in
+        a band (see spectra.metrics.power)
 
     For Further implementation specific details please see
     openseize.numerical.welch and scipy.signal.welch
