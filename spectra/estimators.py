@@ -26,61 +26,31 @@ This module contains the following classes and functions:
 import numpy as np
 import matplotlib.pyplot as plt
 
-from scipy.stats import chi2
 
 from openseize.core import numerical as nm
 from openseize import producer
 from openseize.core.producer import Producer
 from openseize.spectra.plotting import banded
+from openseize.spectra.metrics import power
 
 
-class PSD:
+def PSD(data, fs, axis=-1, resolution=0.5, window='hann', overlap=0.5,
+        detrend='constant', scaling='density'):
     """A power spectrum (density) estimator using Welch's method.
 
     Welch's method divides data into overlapping segments and averages the
-    modified periodograms for each segment. This estimator 
+    modified periodograms for each segment. This estimator can process 
+    ndarrays or producer of ndarrays allowing it to estimate the PSD for
+    large data sets.
 
-
-    References:
-        (1) P. Welch, "The use of the fast Fourier transform for the 
-        estimation of power spectra: A method based on time averaging
-        over short, modified periodograms", IEEE Trans. Audio 
-        Electroacoust. vol.15, pp. 70-73, 1967
-
-        (2) M.S. Bartlett, "Periodogram Analysis and Continuous 
-        Spectra", Biometrika, vol. 37, pp. 1-16, 1950.
-
-        (3) B. Porat, "A Course In Digitial Signal Processing" Chapters 
-        4 & 13. Wiley and Sons 1997.
-
-    """
-
-    def __init__(self, data, fs, axis=-1):
-        """Initialize this Estimator.
-
-        Args:
-            data: An ndarray or producer of ndarrays
-                A data producer whose power spectral is to be estimated.
-            fs: int
-                The sampling rate of the produced data.
-            axis: int
-                The sample axis of the producer. The estimate will be 
-                carried out along this axis.
-        """
-
-        self.pro = data
-        if isinstance(data, np.ndarray):
-            # chunksize is arbitrary since welch will set it
-            self.pro = producer(data, chunksize=fs, axis=axis)
-
-        self.fs = fs
-        self.axis = axis
-    
-    def estimate(self, resolution=0.5, window='hann', overlap=0.5,
-                 detrend='constant', scaling='density'):
-        """Estimates the power spectrum (density) along axis of this
-        Estimator's producer. 
-
+    Args:
+        data: An ndarray or producer of ndarrays
+            A data producer whose power spectral is to be estimated.
+        fs: int
+            The sampling rate of the produced data.
+        axis: int
+            The sample axis of the producer. The estimate will be 
+            carried out along this axis.
         resolution: float
             The frequency resolution of the estimate in Hz. The resolution
             determines the number of DFT frequencies between [0, fs) to use
@@ -104,63 +74,67 @@ class PSD:
             'spectrum' the estimate will have units V**2 and if 'density'
             V**2 / Hz. Default scaling is 'density'.
         
-        Returns: A 1D array of frequencies at which the PSD was estimated
-        and the average PSD estimate across all overlapping windows.
+    Returns: The integer number of windows averaged to compute the PSD 
+             estimate; a 1D array of frequencies at which the PSD was 
+             estimated and the average PSD estimate ndarray.
 
-        Stores: The 1D array of frequencies and a producer that yields the
-        PS(D) estimate for each overlapping segment.
-        """
+    References:
+        (1) P. Welch, "The use of the fast Fourier transform for the 
+        estimation of power spectra: A method based on time averaging
+        over short, modified periodograms", IEEE Trans. Audio 
+        Electroacoust. vol.15, pp. 70-73, 1967
 
-        # convert requested resolution to DFT pts
-        nfft = int(self.fs / resolution)
+        (2) M.S. Bartlett, "Periodogram Analysis and Continuous 
+        Spectra", Biometrika, vol. 37, pp. 1-16, 1950.
 
-        # build a producer of psd estimates, one per welch segment & store
-        freqs, psd_pro = nm.welch(self.pro, self.fs, nfft, window, overlap,
-                                  self.axis, detrend, scaling)
-        self.freqs, self.psd_pro = freqs, psd_pro
+        (3) B. Porat, "A Course In Digitial Signal Processing" Chapters 
+        4 & 13. Wiley and Sons 1997.
+    """
 
-        # compute the average PSD estimate
-        result = 0
-        for cnt, arr in enumerate(self.psd_pro, 1):
-            result = result + 1 / cnt * (arr - result)
-        self.avg_psd = result
+    pro = producer(data, chunksize=fs, axis=axis)
+    
+    # convert requested resolution to DFT pts
+    nfft = int(fs / resolution)
+
+    # build a producer of psd estimates, one per welch segment & store
+    freqs, psd_pro = nm.welch(pro, fs, nfft, window, overlap, axis, detrend,
+                              scaling)
+
+    # compute the average PSD estimate
+    result = 0
+    for cnt, arr in enumerate(psd_pro, 1):
+        result = result + 1 / cnt * (arr - result)
+    
+    return cnt, freqs, result
+
+
+def normalize(estimate, freqs, start=None, stop=None, axis=-1):
+    """Normalizes power spectral densities by the total power between 
+    start and stop frequencies.
+
+    Args:
+        estimate: ndarray
+            An ndarray of PSD values to normalize.
+        freqs: 1-D array
+            Array of frequency values at which PSD was estimated.
+        start: float
+            The start frequency to begin measuring power at. If not in
+            freqs, the closest value in freqs will be used. If None the
+            first frequency in freqs is used. Default is None.
+        stop: float
+            The stop frequency to stop measuring power at. If not in
+            freqs, the closest value in freqs will be used. If None the
+            last frequency in freqs is used. Default is None.
+        axis: int
+            The frequency axis of the psd ndarray.
+
+    Returns:
+        An array of normalized PSD values.
+    """
         
-        return freqs, result
-
-    def confidence_interval(self, alpha=0.05):
-        """Returns the 1-alpha level confidence interval for each signal in 
-        this estimate.
-
-        Args:
-            alpha: float in [0, 1)
-                Alpha expresses the probability that a future interval will
-                miss the True PSD.
-
-        Returns: list of lower and upper CI boundaries, one per signal in
-        this estimators averaged PSD estimate.
-        
-        Interpretation:
-        The confidence interval for the PS(D) defines an upper and lower
-        bound in which we expect at 1-alpha % probability that future
-        intervals will tend to contain the True PS(D). The narrower this 
-        interval, the more confident we can be that our estimate is "near" 
-        the True PS(D).
-
-        References:
-        Shiavi, R. (2007). Introduction to Applied Statistical Signal 
-        Analysis : Guide to Biomedical and Electrical Engineering 
-        Applications. 3rd ed.
-        """
-
-        # degrees of freedom is avg segments
-        dof = self.psd_pro.shape[self.axis]
-        
-        chi_bounds = chi2.ppf([alpha/2, 1-alpha/2], dof)
-
-        # factor of 2 diff with Shiavi 7.48; 7.47 assumes complex signals
-        lowers, uppers = [self.avg_psd * dof / b for b in chi_bounds]
-
-        return list(zip(lowers, uppers))
+    norm = power(estimate, freqs, start, stop, axis)
+    norm = np.expand_dims(norm, axis=axis)
+    return estimate / norm
 
 
 
@@ -168,6 +142,8 @@ if __name__ == '__main__':
 
     from openseize.io import edf
     from openseize.demos import paths
+    from openseize.spectra.metrics import confidence_interval
+    import time
 
 
     def fetch_data(start, stop):
@@ -179,18 +155,19 @@ if __name__ == '__main__':
 
         return arr
     
-    data = fetch_data(0, 3000000)
-    pro = producer(data, chunksize=20000, axis=-1)
+    data = fetch_data(0, 200000)
 
-    estimator = PSD(pro, fs=5000)
-    freqs, avg_psd = estimator.estimate()
+    t0 = time.perf_counter()
+    n, freqs, avg_psd = PSD(data, fs=5000, axis=-1) 
+    norm_psd = normalize(avg_psd, freqs, start=0, stop=None)
+    print('openseize estimated in {} s'.format(time.perf_counter() - t0))
 
-    ci_s = estimator.confidence_interval(0.05)
+    ci_s = confidence_interval(norm_psd, n, alpha=0.05)
 
     fig, axarr = plt.subplots(3, 1, sharex=True, figsize=(5,6))
     for idx, ax in enumerate(axarr):
         lower, upper = ci_s[idx]
-        ax.plot(freqs, avg_psd[idx], color='green', label='Avg PSD')
+        ax.plot(freqs, norm_psd[idx], color='green', label='Avg Norm PSD')
         ax = banded(freqs, upper, lower, ax, label='95% CI')
         ax.legend()
 
