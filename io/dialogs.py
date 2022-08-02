@@ -4,6 +4,7 @@ import tkinter.messagebox as tkmsgbox
 import re
 from pathlib import Path
 
+
 def root_deco(dialog):
     """Decorates a dialog with a toplevel that is destroyed when the dialog
     is closed."""
@@ -17,6 +18,7 @@ def root_deco(dialog):
         root.destroy()
         return result
     return decorated
+
 
 @root_deco
 def standard(kind, **options):
@@ -52,12 +54,14 @@ def message(kind, **options):
 
     return getattr(tkmsgbox, kind)(**options)
 
+
 def _validate_lengths(paths, others):
     """Raises OSError if len of paths does not match len of other paths."""
 
     if len(paths) != len(others):
         msg = 'length of selected paths do not match {} != {}'
         raise OSError(msg.format(len(paths), len(others)))
+
 
 def matched(titles=['', ''], **options):
     """Opens two standard dialogs & matches the path instances by Path stem.
@@ -88,6 +92,7 @@ def matched(titles=['', ''], **options):
             raise OSError(msg.format(fpath.stem, ostems))
         res.append((fpath, opaths[idx]))
     return res
+
 
 def regexmatched(pattern, titles=['',''], **options):
     """Opens two dialogs and matches the path instances by regex pattern.
@@ -123,6 +128,84 @@ def regexmatched(pattern, titles=['',''], **options):
             msg = 'pattern {} is not found in any of {}'
             raise OSError(msg.format(pattern, fstems))
     return results
+
+
+class Matcher:
+    """
+
+    """
+
+    def __init__(self, titles=['', ''], **options):
+        """ """
+
+        self.titles = titles
+        self.opts = options
+
+    def _validate_selection(self, selected):
+        """ """
+
+        lengths = [len(paths) for paths in selected]
+        return all([length == lengths[0] for length in lengths])
+
+    def select(self):
+        """Opens ndialogs for matching."""
+
+        selected = []
+        for idx, title in enumerate(self.titles):
+
+            title = 'dialog {}'.format(idx) if not title else title
+            paths = standard('askopenfilenames', title=title, **self.opts)
+            selected.append(paths)
+
+        # validate that lengths of paths from each dialog are equal
+        if self._validate_selection(selected):
+            self.selected = selected
+
+        else:
+            msg = 'The length of the selected files do not match {} != {}'
+            msg.format(min(lengths), max(lengths))
+            raise OSError(msg)
+
+    def regex_match(self, regex):
+        """ """
+       
+        results = []
+        for path in self.selected[0]:
+            
+            result = [path]
+            pattern = re.search(path, regex).group()
+
+            for title, sublist in zip(titles[1:], self.selected[1:]):
+                
+                others = [opath for opath in sublist if pattern in opath]
+                
+                if len(others) > 1:
+                    msg = "{} files selected in dialog {} contain pattern '{}'"
+                    raise OSError(len(others), title, pattern)
+
+                elif len(others) < 1:
+                    msg = "No files selected in dialog {} contain pattern '{}'"
+                    raise OSError(msg.format(title, pattern))
+                
+                else:
+                    result.append(others[0])
+
+            results.append(tuple(result))
+        
+        return results
+
+    def name_match(self):
+        """ """
+
+        pass
+
+
+
+
+            
+
+
+
 
 
 
