@@ -163,7 +163,7 @@ if __name__ == '__main__':
         ax = banded(freqs, upper, lower, ax, label='95% CI')
         ax.legend()
 
-    plt.xlim([-1, 20])
+    #plt.xlim([-1, 20])
     title = 'Data Duration = {} s'.format(data.shape[-1] / 5000)
     plt.suptitle(title)
     plt.show()
