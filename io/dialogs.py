@@ -55,100 +55,94 @@ def message(kind, **options):
     return getattr(tkmsgbox, kind)(**options)
 
 
-def _validate_lengths(paths, others):
-    """Raises OSError if len of paths does not match len of other paths."""
-
-    if len(paths) != len(others):
-        msg = 'length of selected paths do not match {} != {}'
-        raise OSError(msg.format(len(paths), len(others)))
-
-
-def matched(titles=['', ''], **options):
-    """Opens two standard dialogs & matches the path instances by Path stem.
-
-    Assumes the filenames match exactly except for the extension. For a more
-    general pattern match between files see regexmatched.
-    
-    Args:
-        titles (seq):           2-el seq of string titles one per dialog
-        **options:              passed to standard dialog
-    
-    Returns: list of matched tuples of Path instances
-    """
-
-    res = []
-    t0, t1 = titles
-    #dialog for paths and match by stems
-    fpaths = standard('askopenfilenames', title=t0, **options)
-    opaths = standard('askopenfilenames', title=t1, **options)
-    _validate_lengths(fpaths, opaths)
-    #match stems
-    ostems = [op.stem for op in opaths]
-    for fpath in fpaths:
-        try:
-            idx = ostems.index(fpath.stem)
-        except IndexError:
-            msg = 'file {} does not match any of {}'
-            raise OSError(msg.format(fpath.stem, ostems))
-        res.append((fpath, opaths[idx]))
-    return res
-
-
-def regexmatched(pattern, titles=['',''], **options):
-    """Opens two dialogs and matches the path instances by regex pattern.
+def matching_dialog(titles=['', ''], regex=None, initialdir=None):
+    """Opens a sequence of dialogs and matches each file selected in the
+    first dialog with a single file selected in the subsequent dialogs.
 
     Args:
-        titles (seq):           2-el seq of string titles one per dialog
-        **options:              passed to standard dialog
+        titles: sequence
+            A list of dialog titles one per dialog to be opened. Default is
+            ['', ''] which opens two un-named dialogs.
+        regex: regular expression pattern
+            A string specifying a regular expression pattern. This pattern
+            will be used to extract a character string (i.e. token) from
+            each path in the first dialog to match against each path in
+            subsequent dialogs. If None (default) the path stem (i.e.
+            filename without ext) will be used as the token for matching
+            paths across dialogs.
+        initialdir: str
+            The initialdir for the dialogs to query file selections.
 
-    Returns: list of matched tuples of Path instances
-    """
+    Typical Usage Example:
+
+    If trying to match edf files [5872_animal0_xx3.edf, 81_animal9_yz3.edf]
+    with text files [5872_animal0.txt, 81_animal9.txt]
+
+    >> matching_dialog(['Select EDFs', 'Select Texts'], regex='\d+_w+')
     
-    results = []
-    t0, t1 = titles
-    #dialog for paths and fetch stems
-    fpaths = standard('askopenfilenames', title=t0, **options)
-    opaths = standard('askopenfilenames', title=t1, **options)
-    _validate_lengths(fpaths, opaths)
-    ostems = [op.stem for op in opaths]
-    fstems = [fp.stem for fp in fpaths]
-    #make match by regex pattern
-    for path in fpaths:
-        match = re.search(pattern, path.stem)
-        if match:
-            other = [opath for opath, ostem in zip(opaths, ostems) 
-                     if match.group() in ostem]
-            if len(other) == 1:
-                results.append(other)
-            else:
-                msg = ('zero or multiple matches found for path {}'
-                      ' with pattern {}')
-                raise OSError(msg.format(path, pattern))
-        else:
-            msg = 'pattern {} is not found in any of {}'
-            raise OSError(msg.format(pattern, fstems))
-    return results
+    >> # returns the following 
+    
+    >> [(5872_animal0_xx3.edf, 5872_animal0.txt),
+             (81_animal9_yz3.edf,81_animal9.txt)]
 
-
-class Matcher:
+    Returns: A sequence of tuples where each tuple contains the matched
+             paths on per dialog opened.
     """
 
+    matcher = _Matcher(titles, initialdir=initialdir)
+    matcher.select()
+    return matcher.match(regex)
+
+
+class _Matcher:
+    """A sequence of dialogs for selecting and matching filepaths based on
+    filename matching or regular expression pattern matching. 
+
+    Each path in the first dialog will be matched with a single path
+    returned from each of the subsequent dialogs. If multiple matches or no
+    matches are found, this Matcher raises OSError.
+
+    This class is not intended to be called externally.
+
+    Attrs:
+        titles: sequence of strings
+            A sequence of dialog titles, one per dialog to be opened.
+        options: dict
+            Any valid kwarg for tkinter's askopenfilenames dialog.
+            
+    Computed Attrs:
+        selected: sequence
+            A sequence of path lists one per dialog opened by this
+            matcher.
     """
 
-    def __init__(self, titles=['', ''], **options):
-        """ """
+    def __init__(self, titles, **options):
+        """Intialize this matcher with the title of each dialog and the
+        dialog box options.
+
+        Args:
+            titles: sequence
+                A sequence of string titles for each dialog. Default is to
+                open 2 dialogs with no string name. 
+            options: dict
+                Any valid kwargs for tkinter askopenfilenames.
+        """
 
         self.titles = titles
         self.opts = options
 
-    def _validate_selection(self, selected):
-        """ """
+    def validate_selection(self, selected):
+        """Validates the number of paths returned from each dialog equal."""
 
         lengths = [len(paths) for paths in selected]
-        return all([length == lengths[0] for length in lengths])
+
+        if not all([length == lengths[0] for length in lengths]):
+            
+            msg = 'Number of files from each dialog do not match {} != {}'
+            raise OSError(msg.format(min(lengths), max(lengths)))
 
     def select(self):
-        """Opens ndialogs for matching."""
+        """Opens dialogs one for each title in this Matcher's titles."""
 
         selected = []
         for idx, title in enumerate(self.titles):
@@ -158,55 +152,93 @@ class Matcher:
             selected.append(paths)
 
         # validate that lengths of paths from each dialog are equal
-        if self._validate_selection(selected):
-            self.selected = selected
+        self.validate_selection(selected)
+        self.selected = selected
 
+    def _tokenize(self, regex, path):
+        """Converts a path to a token using a regex pattern or path stem.
+
+        A token is a set of characters that will be used to match files
+        returned from each dialog. If no regex pattern is provided the
+        path's stem (i.e. filename without ext) is used to perform the
+        matching.
+
+        Returns: A token string to use to match files from each dialog.
+        """
+
+        # if no regex the token is the path's stem
+        if not regex:
+            return path.stem
+
+        # if regex given -> compute token
+        match = re.search(regex, str(path))
+        if match:
+            token = match.group()
+        
         else:
-            msg = 'The length of the selected files do not match {} != {}'
-            msg.format(min(lengths), max(lengths))
-            raise OSError(msg)
+            msg = 'regex pattern {} not found in path {}'
+            raise OSError(msg.format(regex, path))
+        
+        return token
 
-    def regex_match(self, regex):
-        """ """
+    def _match_by_token(self, token):
+        """Locates a single path from each dialogs' returned paths that
+        contains token.
+
+        Returns: A sequence of length titles containing the path from each
+        dialog that contains the token string.
+        """
+
+        if isinstance(token, Path):
+            token = token.stem
+
+        result = []
+        for title, dialog in zip(self.titles[1:], self.selected[1:]):
+            
+            others = [path for path in dialog if token in str(path)]
+            
+            # if there are multiple matches from one of the dialogs
+            if len(others) > 1:
+                msg = "{} files from dialog '{}' contain the token '{}'"
+                raise OSError(msg.format(len(others), title, token))
+
+            # if there are no matches from one of the dialogs
+            elif len(others) < 1:
+                msg = "No files from dialog '{}' contain the token '{}'"
+                raise OSError(msg.format(title, token))
+            
+            else:
+                result.append(others[0])
+        
+        return result
+
+    def match(self, regex):
+        """Matches a token extracted from the paths of the first dialog to
+        the subsequent dialogs opened by this Matcher.
+
+        Args:
+            regex: an re str
+                A regular expression string used to build a searchable token
+                for each path returned from the first dialog to match against
+                filenames in the subsequent dialogs. If None, the token used
+                to search subsequent dialogs will be the path stem of each
+                path in the first dialog.
+
+        Returns: a sequence of tuples of matched path instances.
+        """
        
         results = []
+
         for path in self.selected[0]:
             
-            result = [path]
-            pattern = re.search(path, regex).group()
+            # build token from path, match and store
+            token = self._tokenize(regex, path)
+            tup = tuple([path] + self._match_by_token(token))
+            results.append(tup)
 
-            for title, sublist in zip(titles[1:], self.selected[1:]):
-                
-                others = [opath for opath in sublist if pattern in opath]
-                
-                if len(others) > 1:
-                    msg = "{} files selected in dialog {} contain pattern '{}'"
-                    raise OSError(len(others), title, pattern)
-
-                elif len(others) < 1:
-                    msg = "No files selected in dialog {} contain pattern '{}'"
-                    raise OSError(msg.format(title, pattern))
-                
-                else:
-                    result.append(others[0])
-
-            results.append(tuple(result))
-        
         return results
 
-    def name_match(self):
-        """ """
-
-        pass
-
-
-
-
-            
-
-
-
-
+    
 
 
 
@@ -214,5 +246,9 @@ if __name__ == '__main__':
 
     #path = standard('askopenfilename', title='hubbub')
     #path = standard('asksaveasfilename', defaultextension='.pkl')
-    paths = regexmatched('\d+_\w+_\w+')
+    #paths = regexmatched('\d+_\w+_\w+')
     #response = message('askyesno')
+
+    matched = matching_dialog(['Select EDFs', 'Select Annotations'],
+                    regex='\d+_\w+_\w+',
+                    initialdir='/media/matt/Magnus/data/rett_eeg/')
