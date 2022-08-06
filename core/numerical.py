@@ -402,6 +402,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
         https://docs.scipy.org/doc/scipy/reference/signal.windows.html
     """
 
+    """
     nsamples = arr.shape[axis]
     nfft = nsamples if not nfft else int(nfft)
 
@@ -417,6 +418,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
     arr = arr * coeffs
 
     # compute real DFT. Zeropad for nfft > nsamples is automatic
+    # rfft uses 'backward' norm default which is no norm on rfft
     arr = np.fft.rfft(arr, nfft, axis=axis)
     freqs = np.fft.rfftfreq(nfft, d=1/fs)
 
@@ -431,7 +433,14 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
     else:
         msg = 'Unknown scaling: {}'
         raise ValueError(msg.format(scaling))
+
     arr = (np.real(arr)**2 + np.imag(arr)**2) * norm
+    """
+
+    nfft = arr.shape[axis] if not nfft else int(nfft)
+    # FIXME NEW
+    freqs, arr = modified_DFT(arr, fs, nfft, window, axis, detrend, scaling)
+    arr = np.real(arr)**2 + np.imag(arr)**2 
 
     # since real FFT -> double for uncomputed negative freqs.
     slicer = [slice(None)] * arr.ndim
@@ -562,9 +571,15 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         Wiley and Sons 1997.
     """
 
+    """
     # build the welch generating function
     genfunc = partial(_iwelch, pro, fs, nfft, window, overlap, axis, 
                       detrend, scaling)
+    """
+
+    # FIXME NEW
+    genfunc = partial(_spectra_gen, pro, fs, nfft, window, overlap, axis,
+                      detrend, scaling, periodogram)
 
     # obtain the positive freqs.
     freqs = np.fft.rfftfreq(nfft, 1/fs)
@@ -577,4 +592,138 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     # return producer from iwelch gen func with each yielded 
     result = producer(genfunc, chunksize=len(freqs), axis=axis, shape=shape)
     return freqs, result
+
+
+def modified_DFT(arr, fs, nfft, window, axis, detrend, scaling):
+    """Returns the windowed Discrete Fourier Transform of a real signal.
+
+    Args:
+        arr: ndarray
+            An array of values to estimate the DFT along axis.
+            This array is assumed to be real-valued (Hermetian symmetric)
+        fs: int
+            The sampling rate of the values in arr.
+        nfft: int
+            The number of frequencies between 0 and fs used to construct
+            the DFT. If None, nfft will match the length of the arr. If 
+            nfft is smaller than arr along axis, the array is cropped. If
+            nfft is larger than arr along axis, the array is zero padded.
+            The returned frequencies will be nfft//2 + 1 since this method
+            returns only positive frequencies.
+        window: str
+            A scipy signal module window function. Please see references
+            for all available windows.
+        axis: int
+            Axis along which the DFT will be computed.
+        detrend: str
+            The type of detrending to apply to data before computing
+            DFT. Options are 'constant' and 'linear'. If constant, the
+            mean of the data is removed before the DFT is computed. If
+            linear, the linear trend in the data array along axis is 
+            removed.
+        scaling: str
+            A string for determining the normalization of the DFT. If
+            'spectrum', the DFT * np.conjugate(DFT) will have units V**2.
+            If 'density' the DFT * np.conjugate(DFT) will have units 
+            V**2 / Hz.
+
+    Returns:
+        A 1-D array of length nfft//2 + 1 of postive frequencies at which
+        the DFT was computed.
+
+        An ndarray of DFT the same shape as array except along axis which
+        will have length nfft//2 + 1
+
+    References:
+        Shiavi, R. (2007). Introduction to Applied Statistical Signal 
+        Analysis : Guide to Biomedical and Electrical Engineering 
+        Applications. 3rd ed.
+
+        Scipy windows:
+        https://docs.scipy.org/doc/scipy/reference/signal.windows.html
+    """
+
+    nsamples = arr.shape[axis]
+
+    if nfft < nsamples:
+        # crop arr before detrending & windowing; see rfft crop
+        arr = slice_along_axis(arr, 0, nfft, axis=-1)
+
+    # detrend the array
+    arr = sps.detrend(arr, axis=axis, type=detrend)
+
+    # fetch and apply window
+    coeffs = sps.get_window(window, arr.shape[axis])
+    arr = arr * coeffs
+
+    # compute real DFT. Zeropad for nfft > nsamples is automatic
+    # rfft uses 'backward' norm default which is no norm on rfft
+    arr = np.fft.rfft(arr, nfft, axis=axis)
+    freqs = np.fft.rfftfreq(nfft, d=1/fs)
+
+    # scale using weighted mean of window values
+    if scaling == 'spectrum':
+        norm = 1 / np.sum(coeffs)**2
+
+    elif scaling == 'density':
+        #process loss Shiavi Eqn 7.54
+        norm = 1 / (fs * np.sum(coeffs**2))
+    
+    else:
+        msg = 'Unknown scaling: {}'
+        raise ValueError(msg.format(scaling))
+   
+    # before conjugate multiplication unlike scipy
+    # see _spectral_helper lines 1808 an 1842.
+    arr *= np.sqrt(norm)
+
+    return freqs, arr
+
+
+def _spectra_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
+                 spectral_func):
+    """ """
+
+    # COLA CHK?
+
+    # store the pro's chunksize
+    isize = pro.chunksize
+
+    # find num overlap samples
+    nover = int(overlap * nfft)
+    # make iterator that starts at each overlap start
+    pro.chunksize = nfft - nover
+    ipro = iter(pro)
+
+    #collect arrays from ipro until first nfft length is reached
+    x = next(ipro)
+    while x.shape[axis] < nfft:
+        x = np.concatenate((x, next(ipro)), axis=axis)
+
+    # estimate DFT from nfft chunks by slicing concatenated segments 
+    for navg, arr in enumerate(ipro, 1):
+
+        # compute periodogram or modified_DFT 
+        # crops x if x.shape[axis] > nfft
+        f, y = spectral_func(x, fs, nfft, window, axis, detrend, scaling)
+        yield y
+
+        # slice off last produced and append next produced
+        x = slice_along_axis(x, start=pro.chunksize, stop=None, axis=axis)
+        x = np.concatenate((x, arr), axis)
+
+    else:
+
+        # last concatenated 'x' may have >= nfft 
+        if x.shape[axis] >= nfft:
+
+            f, y = spectral_func(x, fs, nfft, window, axis, detrend,
+                                 scaling)
+            yield y
+
+    pro.chunksize = isize
+
+
+
+
 
