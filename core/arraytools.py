@@ -21,6 +21,7 @@ def pad_along_axis(arr, pad, axis=-1, **kwargs):
     pads[axis] = pad
     return np.pad(arr, pads, **kwargs)
 
+
 def slice_along_axis(arr, start=None, stop=None, step=None, axis=-1):
     """Returns slice of arr along axis from start to stop in 'step' steps.
 
@@ -37,6 +38,7 @@ def slice_along_axis(arr, start=None, stop=None, step=None, axis=-1):
     slicer = [slice(None)] * arr.ndim
     slicer[axis] = slice(start, stop, step)
     return arr[tuple(slicer)]
+
 
 def expand_along_axis(arr, l, value=0, axis=-1):
     """Inserts l-1 copies of value between samples in an array along axis.
@@ -69,6 +71,7 @@ def expand_along_axis(arr, l, value=0, axis=-1):
     # move the -1 axis back to its original position
     x = np.swapaxes(x, -1, axis)
     return x
+
 
 def filter1D(size, indices):
     """Returns a 1D array of False values except at indices where values are
@@ -114,4 +117,39 @@ def nearest1D(x, x0, axis=-1):
     index = np.argmin(np.abs(x - x0))
     return index
 
+
+def zero_extend(arr, n, axis=-1):
+    """Pads an array on both ends with 0s along axis.
+
+    Args:
+        arr: ndarray
+            Array to be extended with zeros.
+        n: int
+            The number of zeros to extend arr at both ends along axis.
+        axis: int
+            The axis along which to extend arr.
+
+    Returns: an ndarray with n zeros bracketing each end of arr along axis.
+    """
+
+    return pad_along_axis(arr, n, axis=axis)
+
+
+def edge_extend(arr, n, axis=-1):
+    """Pads an array with the edge values along axis.
+
+    Args:
+        arr: ndarray
+            Array to be extended with edge values.
+        n: int
+            The number of zeros to extend arr at both ends along axis.
+        axis: int
+            The axis along which to extend arr.
+
+    Returns: an ndarray with n-repeats of edge values at the ends of axis.
+    """
+
+    left = slice_along_axis(arr, start=0, stop=1, axis=axis)
+    right = slice_along_axis(arr, start=-1, stop=None, axis=axis)
+    return np.concatenate((left, arr, right), axis=axis)
 
