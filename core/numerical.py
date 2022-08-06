@@ -90,6 +90,7 @@ def _oa_mode(segment, idx, win_len, axis, mode):
     slices[axis] = cuts[mode][1] if idx > 0 else cuts[mode][0]
     return segment[tuple(slices)]
 
+
 @as_producer
 def oaconvolve(pro, win, axis, mode):
     """A generator that performs overlap-add circular convolution of a
@@ -161,6 +162,7 @@ def oaconvolve(pro, win, axis, mode):
 
     #on iteration completion reset producer chunksize
     pro.chunksize = isize
+
 
 # FIXME Improve docs around zi please see iir apply method
 @as_producer  
@@ -346,6 +348,92 @@ def polyphase_resample(pro, L, M, fs, chunksize, fir, axis, **kwargs):
         yield slice_along_axis(resampled, a, b, axis=axis)
 
 
+def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
+    """Returns the windowed Discrete Fourier Transform of a real signal.
+
+    Args:
+        arr: ndarray
+            An array of values to estimate the DFT along axis.
+            This array is assumed to be real-valued (Hermetian symmetric)
+        fs: int
+            The sampling rate of the values in arr.
+        nfft: int
+            The number of frequencies between 0 and fs used to construct
+            the DFT. If None, nfft will match the length of the arr. If 
+            nfft is smaller than arr along axis, the array is cropped. If
+            nfft is larger than arr along axis, the array is zero padded.
+            The returned frequencies will be nfft//2 + 1 since this method
+            returns only positive frequencies.
+        window: str
+            A scipy signal module window function. Please see references
+            for all available windows.
+        axis: int
+            Axis along which the DFT will be computed.
+        detrend: str
+            The type of detrending to apply to data before computing
+            DFT. Options are 'constant' and 'linear'. If constant, the
+            mean of the data is removed before the DFT is computed. If
+            linear, the linear trend in the data array along axis is 
+            removed.
+        scaling: str
+            A string for determining the normalization of the DFT. If
+            'spectrum', the DFT * np.conjugate(DFT) will have units V**2.
+            If 'density' the DFT * np.conjugate(DFT) will have units 
+            V**2 / Hz.
+
+    Returns:
+        A 1-D array of length nfft//2 + 1 of postive frequencies at which
+        the DFT was computed.
+
+        An ndarray of DFT the same shape as array except along axis which
+        will have length nfft//2 + 1
+
+    References:
+        Shiavi, R. (2007). Introduction to Applied Statistical Signal 
+        Analysis : Guide to Biomedical and Electrical Engineering 
+        Applications. 3rd ed.
+
+        Scipy windows:
+        https://docs.scipy.org/doc/scipy/reference/signal.windows.html
+    """
+
+    nsamples = arr.shape[axis]
+
+    if nfft < nsamples:
+        # crop arr before detrending & windowing; see rfft crop
+        arr = slice_along_axis(arr, 0, nfft, axis=-1)
+
+    # detrend the array
+    arr = sps.detrend(arr, axis=axis, type=detrend)
+
+    # fetch and apply window
+    coeffs = sps.get_window(window, arr.shape[axis])
+    arr = arr * coeffs
+
+    # compute real DFT. Zeropad for nfft > nsamples is automatic
+    # rfft uses 'backward' norm default which is no norm on rfft
+    arr = np.fft.rfft(arr, nfft, axis=axis)
+    freqs = np.fft.rfftfreq(nfft, d=1/fs)
+
+    # scale using weighted mean of window values
+    if scaling == 'spectrum':
+        norm = 1 / np.sum(coeffs)**2
+
+    elif scaling == 'density':
+        #process loss Shiavi Eqn 7.54
+        norm = 1 / (fs * np.sum(coeffs**2))
+    
+    else:
+        msg = 'Unknown scaling: {}'
+        raise ValueError(msg.format(scaling))
+   
+    # before conjugate multiplication unlike scipy
+    # see _spectral_helper lines 1808 an 1842.
+    arr *= np.sqrt(norm)
+
+    return freqs, arr
+
+
 def periodogram(arr, fs, nfft=None, window='hann', axis=-1, 
                 detrend='constant', scaling='density'):
     """Estimates the power spectrum of an ndarray using the windowed
@@ -402,6 +490,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
         https://docs.scipy.org/doc/scipy/reference/signal.windows.html
     """
 
+    # FIXME REMOVE POST TESTING -- REPLACED BY modified_dft
     """
     nsamples = arr.shape[axis]
     nfft = nsamples if not nfft else int(nfft)
@@ -439,7 +528,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
 
     nfft = arr.shape[axis] if not nfft else int(nfft)
     # FIXME NEW
-    freqs, arr = modified_DFT(arr, fs, nfft, window, axis, detrend, scaling)
+    freqs, arr = modified_dft(arr, fs, nfft, window, axis, detrend, scaling)
     arr = np.real(arr)**2 + np.imag(arr)**2 
 
     # since real FFT -> double for uncomputed negative freqs.
@@ -456,15 +545,12 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
 
     return freqs, arr
 
+# NOTE THIS MAY BE REPLACED BY _spectra_gen LATER
+def _welch_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling):
+    """Iteratively estimates the power spectrum from segments in a producer.
 
-def _iwelch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
-    """Iteratively estimates the power spectrum using Welch's method.
-
-    This method is a generating function that yields the PS(D) estimate for
-    each segment of the Welch method. It is not intended to be called
-    externally. 'welch' in this module is the client facing method that
-    returns both the frequencies and a producer of PS(D) estimates for each
-    overlapped segment.
+    This is the generator for the welch function and should not be called
+    externally.
     """
 
     # store the pro's chunksize
@@ -571,15 +657,15 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         Wiley and Sons 1997.
     """
 
-    """
     # build the welch generating function
-    genfunc = partial(_iwelch, pro, fs, nfft, window, overlap, axis, 
+    genfunc = partial(_welch_gen, pro, fs, nfft, window, overlap, axis, 
                       detrend, scaling)
-    """
 
-    # FIXME NEW
+    # FIXME USE IF REFACTOR TO _spectra_gen WORKS
+    """
     genfunc = partial(_spectra_gen, pro, fs, nfft, window, overlap, axis,
                       detrend, scaling, periodogram)
+    """
 
     # obtain the positive freqs.
     freqs = np.fft.rfftfreq(nfft, 1/fs)
@@ -589,102 +675,63 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     shape = list(pro.shape)
     shape[axis] = nsegs
 
-    # return producer from iwelch gen func with each yielded 
+    # return producer from welch gen func with each yielded 
     result = producer(genfunc, chunksize=len(freqs), axis=axis, shape=shape)
     return freqs, result
 
 
-def modified_DFT(arr, fs, nfft, window, axis, detrend, scaling):
-    """Returns the windowed Discrete Fourier Transform of a real signal.
+# NOTE MAY BE COMBINED WITH _welch_gen INTO _spectra_gen LATER
+def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
+              boundary, padded):
+    """Iteratively computes a modified DFT for windows in pro.
 
-    Args:
-        arr: ndarray
-            An array of values to estimate the DFT along axis.
-            This array is assumed to be real-valued (Hermetian symmetric)
-        fs: int
-            The sampling rate of the values in arr.
-        nfft: int
-            The number of frequencies between 0 and fs used to construct
-            the DFT. If None, nfft will match the length of the arr. If 
-            nfft is smaller than arr along axis, the array is cropped. If
-            nfft is larger than arr along axis, the array is zero padded.
-            The returned frequencies will be nfft//2 + 1 since this method
-            returns only positive frequencies.
-        window: str
-            A scipy signal module window function. Please see references
-            for all available windows.
-        axis: int
-            Axis along which the DFT will be computed.
-        detrend: str
-            The type of detrending to apply to data before computing
-            DFT. Options are 'constant' and 'linear'. If constant, the
-            mean of the data is removed before the DFT is computed. If
-            linear, the linear trend in the data array along axis is 
-            removed.
-        scaling: str
-            A string for determining the normalization of the DFT. If
-            'spectrum', the DFT * np.conjugate(DFT) will have units V**2.
-            If 'density' the DFT * np.conjugate(DFT) will have units 
-            V**2 / Hz.
-
-    Returns:
-        A 1-D array of length nfft//2 + 1 of postive frequencies at which
-        the DFT was computed.
-
-        An ndarray of DFT the same shape as array except along axis which
-        will have length nfft//2 + 1
-
-    References:
-        Shiavi, R. (2007). Introduction to Applied Statistical Signal 
-        Analysis : Guide to Biomedical and Electrical Engineering 
-        Applications. 3rd ed.
-
-        Scipy windows:
-        https://docs.scipy.org/doc/scipy/reference/signal.windows.html
+    This is the generator for stft and should not be called externally.
     """
 
-    nsamples = arr.shape[axis]
-
-    if nfft < nsamples:
-        # crop arr before detrending & windowing; see rfft crop
-        arr = slice_along_axis(arr, 0, nfft, axis=-1)
-
-    # detrend the array
-    arr = sps.detrend(arr, axis=axis, type=detrend)
-
-    # fetch and apply window
-    coeffs = sps.get_window(window, arr.shape[axis])
-    arr = arr * coeffs
-
-    # compute real DFT. Zeropad for nfft > nsamples is automatic
-    # rfft uses 'backward' norm default which is no norm on rfft
-    arr = np.fft.rfft(arr, nfft, axis=axis)
-    freqs = np.fft.rfftfreq(nfft, d=1/fs)
-
-    # scale using weighted mean of window values
-    if scaling == 'spectrum':
-        norm = 1 / np.sum(coeffs)**2
-
-    elif scaling == 'density':
-        #process loss Shiavi Eqn 7.54
-        norm = 1 / (fs * np.sum(coeffs**2))
-    
-    else:
-        msg = 'Unknown scaling: {}'
-        raise ValueError(msg.format(scaling))
-   
-    # before conjugate multiplication unlike scipy
-    # see _spectral_helper lines 1808 an 1842.
-    arr *= np.sqrt(norm)
-
-    return freqs, arr
+    pass
 
 
+
+# TODO DECIDE IF _welch_gen AND _stft_gen CAN BE COMBINED
 def _spectra_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
                  spectral_func):
-    """ """
+    """Applies a periodogram or modified DFT to segements from producer.
 
-    # COLA CHK?
+    Args:
+        pro: A producer of ndarrays
+            A data producer whose DFT or power spectral is to be estimated.
+        fs: int
+            The sampling rate of the produced data.
+        nfft: int
+            The number of frequencies in the interval [0, fs) to use to
+            estimate the DFT or power spectra. This determines the frequency
+            resolution of the estimate since resolution = fs / nfft.
+        window: str
+            A string name for a scipy window to be applied to each data
+            segment before computing the periodogram of that segment. For
+            a full list of windows see scipy.signal.windows.
+        overlap: float
+            A percentage in [0, 1) of the data segement that should overlap
+            with the next data segment. If 0 this estimate is equivalent to
+            Bartletts method (2)
+        axis: int
+            The sample axis of the producer. The estimate will be carried
+            out along this axis.
+        detrend: str either 'constant' or 'linear'
+            A string indicating whether to subtract the mean ('constant') or
+            subtract a linear fit ('linear') from each segment prior to
+            computing the estimate for a segment.
+        scaling: str either 'spectrum' or 'density'
+            Determines the normalization to apply to the power spectrum or
+            DFT. Please see scaling in modified_dft or periodogram for
+            details.
+    """
+
+    # COLA CHK? SCIPY DOES NOT..
+    # FOR STFT 2 EXTRA PARAMS. BOUNDARY AND PAD. WILL NEED TO IMPLEMENT.
+    # PLEASE SEE NOTE IN WELCH ABOUT HOW SCIPY DROPS LAST SEGMENT IF < NFFT
+    # DETERMINE IF THESE TWO PARAM DIFFS WARRANT HAVING GENWELCH AND GENSTFT
+    # INSTEAD OF THIS SINGLE FUNC SPECTRA_GEN.
 
     # store the pro's chunksize
     isize = pro.chunksize
@@ -703,7 +750,7 @@ def _spectra_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
     # estimate DFT from nfft chunks by slicing concatenated segments 
     for navg, arr in enumerate(ipro, 1):
 
-        # compute periodogram or modified_DFT 
+        # compute periodogram or modified_dft
         # crops x if x.shape[axis] > nfft
         f, y = spectral_func(x, fs, nfft, window, axis, detrend, scaling)
         yield y
