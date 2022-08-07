@@ -100,6 +100,7 @@ def filter1D(size, indices):
         result[idxs] = True
     return result
 
+
 def nearest1D(x, x0, axis=-1):
     """Returns the index in a 1-D array whose value has the smallest 
     distance to x0
@@ -119,7 +120,7 @@ def nearest1D(x, x0, axis=-1):
 
 
 def zero_extend(arr, n, axis=-1):
-    """Pads an array on both ends with 0s along axis.
+    """Pads an array on both ends with zeros along axis.
 
     Args:
         arr: ndarray
@@ -129,7 +130,14 @@ def zero_extend(arr, n, axis=-1):
         axis: int
             The axis along which to extend arr.
 
-    Returns: an ndarray with n zeros bracketing each end of arr along axis.
+    Returns: an ndarray with n repeats of zeros at ends of axis.
+
+    Typical Usage Example:
+
+    >>> from openseize.core.arraytools import zero_extend
+    >>> x = np.array([[1,2,3], [4,5,6]])
+    >>> zero_extend(x, n=2, axis=-1)
+    array([[0, 0, 1, 2, 3, 0, 0], [0, 0, 4, 5, 6, 0, 0]])
     """
 
     return pad_along_axis(arr, n, axis=axis)
@@ -142,14 +150,133 @@ def edge_extend(arr, n, axis=-1):
         arr: ndarray
             Array to be extended with edge values.
         n: int
-            The number of zeros to extend arr at both ends along axis.
+            The number of times to repeat edge values for each end of axis.
         axis: int
             The axis along which to extend arr.
 
     Returns: an ndarray with n-repeats of edge values at the ends of axis.
+
+    Typical Usage Example:
+
+    >>> from openseize.core.arraytools import edge_extend
+    >>> x = np.array([[1,2,3], [4,5,6]])
+    >>> edge_extend(x, n=2, axis=-1)
+    array([[1, 1, 1, 2, 3, 3, 3], [4, 4, 4, 5, 6, 6, 6]])
     """
 
     left = slice_along_axis(arr, start=0, stop=1, axis=axis)
     right = slice_along_axis(arr, start=-1, stop=None, axis=axis)
+    left, right = [np.repeat(x, n, axis=axis) for x in (left, right)]
+    
     return np.concatenate((left, arr, right), axis=axis)
+
+
+def even_extend(arr, n, axis=-1):
+    """Pads an array with a mirror image of edge values along axis.
+
+    Args:
+        arr: ndarray
+            Array to be extended with even-symmetry edge values.
+        n: int
+            The number of additional edge values for each end of axis.
+        axis: int
+            The axis along which to extend arr.
+
+    Returns: an ndarray with n even-symmetric edge values concatenated to
+    each end of axis.
+
+    Typical Usage Example:
+
+    >>> from openseize.core.arraytools import even_ext
+    >>> x = np.array([[1,2,3], [4,5,6]])
+    >>> even_extend(x, n=2, axis=-1)
+    array([[3, 2, 1, 2, 3, 2, 1], [6, 5, 4, 5, 6, 5, 4]])
+    """
+
+    # for consistency match scipy error msg
+    if n > arr.shape[axis] - 1:
+        msg = ('The extension length n ({}) is too big. It must not '
+               'exceed x.shape[axis] - 1, which is {}.')
+        raise ValueError(msg.format(n, arr.shape[axis] - 1))
+
+    left = slice_along_axis(arr, start=n, stop=0, step=-1, axis=axis)
+    right = slice_along_axis(arr, start=-2, stop=-(n+2), step=-1, axis=axis)
+
+    return np.concatenate((left, arr, right), axis=axis)
+
+
+def odd_extend(arr, n, axis=-1):
+    """Pads an array with an odd extension of edge values along axis.
+
+    Args:
+        arr: ndarray
+            Array to be extended with odd-symmetry edge values.
+        n: int
+            The number of additional edge values for each end of axis.
+        axis: int
+            The axis along which to extend arr.
+
+    Returns: an ndarray with n odd-symmetric edge values concatenated to
+    each end of axis.
+
+    Typical Usage Example:
+
+    >>> from openseize.core.arraytools import even_ext
+    >>> x = np.array([[1, 2, 3, 4 , 5], [0, 2, -1, 3, 1]])
+    >>> odd_extend(x, n=2, axis=-1)
+    array([[-1, 0, 1, 2, 3, 4, 5, 6, 7], [1, -2, 0, 2, -1, 3, 1, -1, 3]])
+    """
+
+    # for consistency match scipy error msg
+    if n > arr.shape[axis] - 1:
+        msg = ('The extension length n ({}) is too big. It must not '
+               'exceed x.shape[axis] - 1, which is {}.')
+        raise ValueError(msg.format(n, arr.shape[axis] - 1))
+
+    leftmost = slice_along_axis(arr, start=0, stop=1, axis=axis)
+    rightmost = slice_along_axis(arr, start=-1, axis=axis)
+    
+    # get the boundary points to rotate about leftmost & rightmost
+    left = slice_along_axis(arr, start=n, stop=0, step=-1, axis=axis)
+    right = slice_along_axis(arr, start=-2, stop=-(n+2), step=-1, axis=axis)
+
+    # 180-deg rotation is a mirror followed by flip about left/rightmost
+    left_ext = (leftmost - left) + leftmost
+    right_ext = (rightmost - right) + rightmost
+
+    return np.concatenate((left_ext, arr, right_ext), axis=axis)
+
+    
+
+
+if __name__ == '__main__':
+
+    from scipy.signal._arraytools import even_ext, odd_ext, const_ext
+
+    
+    x = np.array([[1,2,3, 4, 5], [0, 2, -1, 3, 1]])
+    y = odd_extend(x, n=2, axis=-1)
+    
+    """ 
+    rng = np.random.default_rng(33)
+    x = rng.random((4, 12, 7, 100))
+
+    y = edge_extend(x, n=17, axis=1)
+    y_sp = const_ext(x, n=17, axis=1)
+    """
+  
+
+    """
+    y = even_extend(x, n=9, axis=-1)
+    y_sp = even_ext(x, n=9, axis=-1)
+    """
+
+
+    """
+    y = odd_extend(x, n=5, axis=2)
+    y_sp = odd_ext(x, n=5, axis=2)
+    """
+
+    #print(np.allclose(y, y_sp))
+
 
