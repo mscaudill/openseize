@@ -5,7 +5,10 @@ from numpy import fft
 import scipy.signal as sps
 
 from openseize.core.producer import Producer, producer, as_producer 
+from openseize.core.producer import FIFOArray
 from openseize.core.arraytools import pad_along_axis, slice_along_axis
+from openseize.core.arraytools import (odd_extend, even_extend, 
+                                       zero_extend, edge_extend)
 
 def optimal_nffts(arr):
     """Estimates the optimal number of FFT points for an arr."""
@@ -143,6 +146,7 @@ def oaconvolve(pro, win, axis, mode):
         #split filtered segment and overlap
         if segment_num < nsegments - 1:
             y, new_overlap = np.split(y, [L], axis=axis)
+        
         else:
             # last sample for last segment is data + window size
             last = subarr.shape[axis] + M - 1
@@ -545,7 +549,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
 
     return freqs, arr
 
-# NOTE THIS MAY BE REPLACED BY _spectra_gen LATER
+
 def _welch_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """Iteratively estimates the power spectrum from segments in a producer.
 
@@ -661,12 +665,6 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     genfunc = partial(_welch_gen, pro, fs, nfft, window, overlap, axis, 
                       detrend, scaling)
 
-    # FIXME USE IF REFACTOR TO _spectra_gen WORKS
-    """
-    genfunc = partial(_spectra_gen, pro, fs, nfft, window, overlap, axis,
-                      detrend, scaling, periodogram)
-    """
-
     # obtain the positive freqs.
     freqs = np.fft.rfftfreq(nfft, 1/fs)
 
@@ -680,7 +678,6 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     return freqs, result
 
 
-# NOTE MAY BE COMBINED WITH _welch_gen INTO _spectra_gen LATER
 def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
               boundary, padded):
     """Iteratively computes a modified DFT for windows in pro.
@@ -688,7 +685,53 @@ def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
     This is the generator for stft and should not be called externally.
     """
 
-    pass
+    # store the pro's chunksize
+    isize = pro.chunksize
+
+    # compute DFT of first boundary extended
+    bound_shape = pro.shape
+    bound_shape[axis] = nfft // 2
+    pro.chunksize =  nfft // 2
+    
+    x = np.concatenate(np.zeros(bound_shape)), next(iter(pro)), axis=axis)
+    f, y = modified_dft(x, fs, nfft, window, axis, detrend, scaling)
+    yield y
+
+    noverlap = int(nfft * overlap)
+    pro.chunksize = noverlap
+
+    fifo = FIFOArray(chunksize=nfft, axis=axis)
+
+
+    narrays = np.int(np.ceil(pro.shape[axis] / pro.chunksize))
+
+    # FIXME I need to know if an windows give complete coverage
+    nwins = int((pro.shape[axis] - nfft) // (nfft * (1-overlap)) + 1)
+
+    for idx, arr in enumerate(pro, 1):
+
+        if idx == narrays:
+            # add boundary
+            arr = np.concatenate((arr, np.zeros(bound_shape)), axis=axis)
+            # pad
+
+        fifo.put(arr)
+
+        if fifo.full():
+            
+            x = fifo.get()
+            f, y = modified_dft(x, fs, nfft, window, axis, detrend, scaling)
+            yield y
+
+            over = slice_along_axis(start=nfft, stop=None, axis=axis)
+            fifo.put(over)
+
+    pro.chunksize = isize
+
+
+
+
+            
 
 
 
