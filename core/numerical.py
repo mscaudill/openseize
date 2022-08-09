@@ -683,50 +683,70 @@ def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
     """Iteratively computes a modified DFT for windows in pro.
 
     This is the generator for stft and should not be called externally.
+
+    I will only allow boundary of zeros since this has the clear
+    interpretation as an interpolation in the DFT
     """
 
     # store the pro's chunksize
     isize = pro.chunksize
 
-    # compute DFT of first boundary extended
-    bound_shape = pro.shape
-    bound_shape[axis] = nfft // 2
-    pro.chunksize =  nfft // 2
-    
-    x = np.concatenate(np.zeros(bound_shape)), next(iter(pro)), axis=axis)
-    f, y = modified_dft(x, fs, nfft, window, axis, detrend, scaling)
-    yield y
-
-    noverlap = int(nfft * overlap)
-    pro.chunksize = noverlap
-
+    # Build a FIFO Array instance
     fifo = FIFOArray(chunksize=nfft, axis=axis)
 
+    if boundary:
+        pro.chunksize = nfft // 2
+        data = next(iter(pro))
+        bound = np.zeros_like(data)
+        x = np.concatenate((bound, data), axis=axis)
+        
+    else:
+        pro.chunksize = nfft
+        data = next(iter(pro))
+        x = data
 
-    narrays = np.int(np.ceil(pro.shape[axis] / pro.chunksize))
+    fifo.put(x)
 
-    # FIXME I need to know if an windows give complete coverage
-    nwins = int((pro.shape[axis] - nfft) // (nfft * (1-overlap)) + 1)
-
-    for idx, arr in enumerate(pro, 1):
-
-        if idx == narrays:
-            # add boundary
-            arr = np.concatenate((arr, np.zeros(bound_shape)), axis=axis)
-            # pad
-
-        fifo.put(arr)
-
+    nover = int(overlap * nfft)
+    pro.chunksize = nfft - nover
+    narrays = int(np.ceil(pro.shape[axis] / pro.chunksize))
+    
+    ipro = iter(pro)
+    next(ipro) #skip first arr since thats in fifo already
+    for n, arr in enumerate(ipro, 1):
+        
         if fifo.full():
-            
-            x = fifo.get()
-            f, y = modified_dft(x, fs, nfft, window, axis, detrend, scaling)
+
+            data = fifo.get()
+            f, y = modified_dft(data, fs, nfft, window, axis, detrend, 
+                                scaling)
             yield y
 
-            over = slice_along_axis(start=nfft, stop=None, axis=axis)
-            fifo.put(over)
+            fifo.put(slice_along_axis(data, start=-nover, axis=axis))
 
-    pro.chunksize = isize
+            if n == narrays and boundary:
+                
+                arr = np.concatenate((arr, bound), axis=axis)
+
+            if n == narrays and padded:
+
+                arr = pad_along_axis(arr, [0, nfft-nover-arr.shape[axis]],
+                                     axis=axis)
+
+            fifo.put(arr)
+
+    else:
+            
+        if fifo.full()
+            
+            data = fifo.get()
+            f, y = modified_dft(data, fs, nfft, window, axis, detrend, 
+                        scaling)
+            yield y
+
+
+
+
 
 
 
