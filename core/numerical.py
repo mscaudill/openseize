@@ -574,6 +574,8 @@ def _welch_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     # estimate PS(D) from nfft chunks by slicing concatenated segments 
     for navg, arr in enumerate(ipro, 1):
 
+        print(navg)
+
         # compute modified periodogram -- crops x if x.shape[axis] > nfft
         f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
         yield y
@@ -662,8 +664,11 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """
 
     # build the welch generating function
-    genfunc = partial(_welch_gen, pro, fs, nfft, window, overlap, axis, 
-                      detrend, scaling)
+    #genfunc = partial(_welch_gen, pro, fs, nfft, window, overlap, axis, 
+    #                  detrend, scaling)
+    genfunc = partial(_stft_gen, pro, fs, nfft, window, overlap, axis,
+                      detrend, scaling, boundary=None, padded=None,
+                      mode='psd')
 
     # obtain the positive freqs.
     freqs = np.fft.rfftfreq(nfft, 1/fs)
@@ -679,7 +684,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
 
 
 def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
-              boundary, padded):
+              boundary, padded, mode):
     """Iteratively computes a modified DFT for windows in pro.
 
     This is the generator for stft and should not be called externally.
@@ -694,6 +699,9 @@ def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
     # Build a FIFO Array instance
     fifo = FIFOArray(chunksize=nfft, axis=axis)
 
+
+    """
+    
     if boundary:
         pro.chunksize = nfft // 2
         data = next(iter(pro))
@@ -701,47 +709,60 @@ def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
         x = np.concatenate((bound, data), axis=axis)
         
     else:
-        pro.chunksize = nfft
-        data = next(iter(pro))
-        x = data
+        pro.chunksize = nfft - nover
+        ipro = iter(pro)
+        x = next(ipro)
+        while x.shape[axis] < nfft:
+            x = np.concatenate((x, next(ipro)), axis=axis)
+
+    fifo.put(x)
+    """
+    
+    nover = int(nfft * overlap)
+    pro.chunksize = nfft
+    x = next(iter(pro))
+    pro.chunksize = nfft - nover
+    advance_by = int(np.ceil(nfft / (nfft - nover)))
+    print(advance_by)
 
     fifo.put(x)
 
-    nover = int(overlap * nfft)
-    pro.chunksize = nfft - nover
     narrays = int(np.ceil(pro.shape[axis] / pro.chunksize))
     
+    func = periodogram if mode == 'psd' else modified_dft
+
     ipro = iter(pro)
-    next(ipro) #skip first arr since thats in fifo already
-    for n, arr in enumerate(ipro, 1):
+    [next(ipro) for _ in range(advance_by)]
+    for n, arr in enumerate(ipro, advance_by):
+
+        print(n, fifo.qsize())
+        data = fifo.get()
+        f, y = func(data, fs, nfft, window, axis, detrend, scaling)
+
+        yield y
+
+        fifo.put(slice_along_axis(data, start=-nover, axis=axis))
+
+        """
+        if n == narrays and boundary:
+            print('bounding')
+            arr = np.concatenate((arr, bound), axis=axis)
+
+        if n == narrays and padded:
+            print('padding')
+            arr = pad_along_axis(arr, [0, nfft-nover-arr.shape[axis]],
+                                 axis=axis)
+        """
+
+        fifo.put(arr)
+        
+    else:
         
         if fifo.full():
 
             data = fifo.get()
-            f, y = modified_dft(data, fs, nfft, window, axis, detrend, 
-                                scaling)
-            yield y
-
-            fifo.put(slice_along_axis(data, start=-nover, axis=axis))
-
-            if n == narrays and boundary:
-                
-                arr = np.concatenate((arr, bound), axis=axis)
-
-            if n == narrays and padded:
-
-                arr = pad_along_axis(arr, [0, nfft-nover-arr.shape[axis]],
-                                     axis=axis)
-
-            fifo.put(arr)
-
-    else:
+            f, y = func(data, fs, nfft, window, axis, detrend, scaling)
             
-        if fifo.full()
-            
-            data = fifo.get()
-            f, y = modified_dft(data, fs, nfft, window, axis, detrend, 
-                        scaling)
             yield y
 
 
