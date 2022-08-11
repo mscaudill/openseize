@@ -664,9 +664,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """
 
     # build the welch generating function
-    #genfunc = partial(_welch_gen, pro, fs, nfft, window, overlap, axis, 
-    #                  detrend, scaling)
-    genfunc = partial(_stft_gen, pro, fs, nfft, window, overlap, axis,
+    genfunc = partial(_spectra_gen, pro, fs, nfft, window, overlap, axis,
                       detrend, scaling, boundary=None, padded=None,
                       mode='psd')
 
@@ -683,7 +681,43 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     return freqs, result
 
 
-def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
+# TODO Determine if this should be combined with array pad
+@as_producer
+def pro_pad(pro, pad, axis, value):
+    """Pads the edges of a producer along axis.
+
+    Args:
+        pro: producer of ndarrys
+            The producer that is to be padded.
+        pad: int
+            The number of pads to apply before the 0th and after the last
+            index of producer along axis. If int, pads will be added to
+            both.
+        axis: int
+            The axis along which to pad the producer. Defaults to last axis.
+        value: float
+            The constant value to pad the producer with. Defaults to zero.
+
+    Returns: A producer yielding ndarrays.
+    """
+
+    #convert int pad to seq. of pads & place along axis of pads
+    pad = [pad, pad] if isinstance(pad, int) else pad
+    
+    left_shape, right_shape = list(pro.shape), list(pro.shape)
+    left_shape[axis] = pad[0]
+    right_shape[axis] = pad[1]
+    left, right = value * np.ones(left_shape), value * np.ones(right_shape)
+
+    yield left
+
+    for arr in pro:
+        yield arr
+
+    yield right
+
+    
+def _spectra_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
               boundary, padded, mode):
     """Iteratively computes a modified DFT for windows in pro.
 
@@ -693,166 +727,39 @@ def _stft_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
     interpretation as an interpolation in the DFT
     """
 
-    # store the pro's chunksize
-    isize = pro.chunksize
+    # COLA CHK? SCIPY DOES NOT..
 
-    # Build a FIFO Array instance
-    fifo = FIFOArray(chunksize=nfft, axis=axis)
-
-
-    """
-    
+    data = pro
     if boundary:
-        pro.chunksize = nfft // 2
-        data = next(iter(pro))
-        bound = np.zeros_like(data)
-        x = np.concatenate((bound, data), axis=axis)
-        
-    else:
-        pro.chunksize = nfft - nover
-        ipro = iter(pro)
-        x = next(ipro)
-        while x.shape[axis] < nfft:
-            x = np.concatenate((x, next(ipro)), axis=axis)
+        data = pro_pad(pro, nfft//2, axis=-1, value=0)
 
-    fifo.put(x)
-    """
+    if padded:
+        #amt = pro.shape[axis]
+        data = pro_pad(pro, [0, amt], axis=-1, value=0)
     
     nover = int(nfft * overlap)
-    pro.chunksize = nfft
-    x = next(iter(pro))
-    pro.chunksize = nfft - nover
-    advance_by = int(np.ceil(nfft / (nfft - nover)))
-    print(advance_by)
-
-    fifo.put(x)
-
-    narrays = int(np.ceil(pro.shape[axis] / pro.chunksize))
+    fifo = FIFOArray(chunksize=nfft-nover, axis=axis)
     
     func = periodogram if mode == 'psd' else modified_dft
+    for n, arr in enumerate(data):
 
-    ipro = iter(pro)
-    [next(ipro) for _ in range(advance_by)]
-    for n, arr in enumerate(ipro, advance_by):
-
-        print(n, fifo.qsize())
-        data = fifo.get()
-        f, y = func(data, fs, nfft, window, axis, detrend, scaling)
-
-        yield y
-
-        fifo.put(slice_along_axis(data, start=-nover, axis=axis))
-
-        """
-        if n == narrays and boundary:
-            print('bounding')
-            arr = np.concatenate((arr, bound), axis=axis)
-
-        if n == narrays and padded:
-            print('padding')
-            arr = pad_along_axis(arr, [0, nfft-nover-arr.shape[axis]],
-                                 axis=axis)
-        """
-
-        fifo.put(arr)
-        
-    else:
-        
-        if fifo.full():
-
-            data = fifo.get()
-            f, y = func(data, fs, nfft, window, axis, detrend, scaling)
+        while fifo.qsize() >= nfft:
             
+            x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
+            f, y = func(x, fs, nfft, window, axis, detrend, scaling)
+            fifo.get()
             yield y
+        
+        else:
 
-
-
-
-
-
-
-
-            
-
-
-
-# TODO DECIDE IF _welch_gen AND _stft_gen CAN BE COMBINED
-def _spectra_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
-                 spectral_func):
-    """Applies a periodogram or modified DFT to segements from producer.
-
-    Args:
-        pro: A producer of ndarrays
-            A data producer whose DFT or power spectral is to be estimated.
-        fs: int
-            The sampling rate of the produced data.
-        nfft: int
-            The number of frequencies in the interval [0, fs) to use to
-            estimate the DFT or power spectra. This determines the frequency
-            resolution of the estimate since resolution = fs / nfft.
-        window: str
-            A string name for a scipy window to be applied to each data
-            segment before computing the periodogram of that segment. For
-            a full list of windows see scipy.signal.windows.
-        overlap: float
-            A percentage in [0, 1) of the data segement that should overlap
-            with the next data segment. If 0 this estimate is equivalent to
-            Bartletts method (2)
-        axis: int
-            The sample axis of the producer. The estimate will be carried
-            out along this axis.
-        detrend: str either 'constant' or 'linear'
-            A string indicating whether to subtract the mean ('constant') or
-            subtract a linear fit ('linear') from each segment prior to
-            computing the estimate for a segment.
-        scaling: str either 'spectrum' or 'density'
-            Determines the normalization to apply to the power spectrum or
-            DFT. Please see scaling in modified_dft or periodogram for
-            details.
-    """
-
-    # COLA CHK? SCIPY DOES NOT..
-    # FOR STFT 2 EXTRA PARAMS. BOUNDARY AND PAD. WILL NEED TO IMPLEMENT.
-    # PLEASE SEE NOTE IN WELCH ABOUT HOW SCIPY DROPS LAST SEGMENT IF < NFFT
-    # DETERMINE IF THESE TWO PARAM DIFFS WARRANT HAVING GENWELCH AND GENSTFT
-    # INSTEAD OF THIS SINGLE FUNC SPECTRA_GEN.
-
-    # store the pro's chunksize
-    isize = pro.chunksize
-
-    # find num overlap samples
-    nover = int(overlap * nfft)
-    # make iterator that starts at each overlap start
-    pro.chunksize = nfft - nover
-    ipro = iter(pro)
-
-    #collect arrays from ipro until first nfft length is reached
-    x = next(ipro)
-    while x.shape[axis] < nfft:
-        x = np.concatenate((x, next(ipro)), axis=axis)
-
-    # estimate DFT from nfft chunks by slicing concatenated segments 
-    for navg, arr in enumerate(ipro, 1):
-
-        # compute periodogram or modified_dft
-        # crops x if x.shape[axis] > nfft
-        f, y = spectral_func(x, fs, nfft, window, axis, detrend, scaling)
-        yield y
-
-        # slice off last produced and append next produced
-        x = slice_along_axis(x, start=pro.chunksize, stop=None, axis=axis)
-        x = np.concatenate((x, arr), axis)
-
+            fifo.put(arr)
+            continue
     else:
 
-        # last concatenated 'x' may have >= nfft 
-        if x.shape[axis] >= nfft:
-
-            f, y = spectral_func(x, fs, nfft, window, axis, detrend,
-                                 scaling)
+        if fifo.qsize() >= nfft:
+            x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
+            f, y = func(x, fs, nfft, window, axis, detrend, scaling)
             yield y
-
-    pro.chunksize = isize
 
 
 
