@@ -4,16 +4,17 @@ from functools import partial
 from numpy import fft
 import scipy.signal as sps
 
-from openseize.core.producer import Producer, producer, as_producer 
-from openseize.core.producer import FIFOArray
+from openseize import producer
+from openseize.core.producer import Producer, as_producer, pad_producer 
+from openseize.core.queues import FIFOArray
 from openseize.core.arraytools import pad_along_axis, slice_along_axis
-from openseize.core.arraytools import (odd_extend, even_extend, 
-                                       zero_extend, edge_extend)
+
 
 def optimal_nffts(arr):
     """Estimates the optimal number of FFT points for an arr."""
 
     return int(8 * 2 ** np.ceil(np.log2(len(arr))))
+
 
 def convolve_slicer(arr, shape1, shape2, mode, axis):
     """Applies a boundary mode to slice a convolved array along axis.
@@ -56,6 +57,7 @@ def convolve_slicer(arr, shape1, shape2, mode, axis):
         start= q - 1 
         stop = (n + m - 1) - (q - 1)
         return slice_along_axis(arr, start, stop, axis=axis)
+
 
 def _oa_mode(segment, idx, win_len, axis, mode):
     """Applies the numpy/scipy mode to the first and last segement of the
@@ -494,44 +496,9 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
         https://docs.scipy.org/doc/scipy/reference/signal.windows.html
     """
 
-    # FIXME REMOVE POST TESTING -- REPLACED BY modified_dft
-    """
-    nsamples = arr.shape[axis]
-    nfft = nsamples if not nfft else int(nfft)
-
-    if nfft < nsamples:
-        # crop arr before detrending & windowing; see rfft crop
-        arr = slice_along_axis(arr, 0, nfft, axis=-1)
-    
-    # detrend the array
-    arr = sps.detrend(arr, axis=axis, type=detrend)
-
-    # fetch and apply window
-    coeffs = sps.get_window(window, arr.shape[axis])
-    arr = arr * coeffs
-
-    # compute real DFT. Zeropad for nfft > nsamples is automatic
-    # rfft uses 'backward' norm default which is no norm on rfft
-    arr = np.fft.rfft(arr, nfft, axis=axis)
-    freqs = np.fft.rfftfreq(nfft, d=1/fs)
-
-    # scale using weighted mean of window values
-    if scaling == 'spectrum':
-        norm = 1 / np.sum(coeffs)**2
-
-    elif scaling == 'density':
-        #process loss Shiavi Eqn 7.54
-        norm = 1 / (fs * np.sum(coeffs**2))
-    
-    else:
-        msg = 'Unknown scaling: {}'
-        raise ValueError(msg.format(scaling))
-
-    arr = (np.real(arr)**2 + np.imag(arr)**2) * norm
-    """
-
     nfft = arr.shape[axis] if not nfft else int(nfft)
-    # FIXME NEW
+    
+    # compute modified DFT & take modulus to get power spectrum
     freqs, arr = modified_dft(arr, fs, nfft, window, axis, detrend, scaling)
     arr = np.real(arr)**2 + np.imag(arr)**2 
 
@@ -550,50 +517,70 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
     return freqs, arr
 
 
-def _welch_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling):
-    """Iteratively estimates the power spectrum from segments in a producer.
+def _spectra_estimatives(pro, fs, nfft, window, overlap, axis, detrend,
+                         scaling, boundary, padded, func, **kwargs):
+    """Iteratively estimates the power spectrum or modified DFT for each
+    nfft segment in a producer.
 
-    This is the generator for the welch function and should not be called
-    externally.
+    This generator yields an estimate for each nfft segment. It should not
+    be called externally.
+
+    Args:
+        func: function
+            A function returning a spectral estimate for a window of data.
+            E.g. periodogram, modified_dft
+        kwargs: unused kwargs
+            Future support for additional spectral estimate functions.
     """
 
-    # store the pro's chunksize
-    isize = pro.chunksize
+    data = pro
+    # num overlap points & shift between successive nfft segments
+    noverlap = int(nfft * overlap)
+    stride = nfft - noverlap
 
-    # find num overlap samples
-    nover = int(overlap * nfft)
-    # make iterator that starts at each overlap start
-    pro.chunksize = nfft - nover
-    ipro = iter(pro)
+    # stft boundary & padding options
+    if boundary:
+        
+        # center first & last segments by padding producer
+        data = pad_producer(pro, nfft//2, value=0)
 
-    #collect arrays from ipro until first nfft length is reached
-    x = next(ipro)
-    while x.shape[axis] < nfft:
-        x = np.concatenate((x, next(ipro)), axis=axis)
+    if padded:
+        
+        nsamples = pro.shape[axis]
+        # pad w/ stride if samples not divisible by stride
+        amt = stride if nsamples % stride else 0
+        data = pad_producer(data, [0, amt], value=0)
+   
+    # use FIFO to cache & release nfft & stride  num. samples respectively
+    fifo = FIFOArray(chunksize=stride, axis=axis)
+    for n, arr in enumerate(data):
 
-    # estimate PS(D) from nfft chunks by slicing concatenated segments 
-    for navg, arr in enumerate(ipro, 1):
-
-        print(navg)
-
-        # compute modified periodogram -- crops x if x.shape[axis] > nfft
-        f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
-        yield y
-
-        # slice off last produced and append next produced
-        x = slice_along_axis(x, start=pro.chunksize, stop=None, axis=axis)
-        x = np.concatenate((x, arr), axis)
-
-    else:
-
-        # last concatenated 'x' may have >= nfft 
-        if x.shape[axis] >= nfft:
-
-            f, y = periodogram(x, fs, nfft, window, axis, detrend, scaling)
+        # yield nfft sized estimates while fifo has >= nfft samples
+        while fifo.qsize() >= nfft:
+            
+            # slice nfft samples to compute estimate
+            x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
+            f, y = func(x, fs, nfft, window, axis, detrend, scaling)
+            
+            # release stride samples leaving nover in FIFO
+            fifo.get()
             yield y
-
-    pro.chunksize = isize
-
+        
+        else:
+            
+            # provide fifo with more samples
+            fifo.put(arr)
+            continue
+    
+    else:
+        
+        # boundary & pads may leave >= nfft samples in fifo-- so exhaust
+        while fifo.qsize() >= nfft:
+            
+            x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
+            f, y = func(x, fs, nfft, window, axis, detrend, scaling)
+            fifo.get() 
+            yield y
 
 def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """Iteratively estimates the power spectrum using Welch's method.
@@ -659,14 +646,14 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         (2) M.S. Bartlett, "Periodogram Analysis and Continuous Spectra", 
         Biometrika, vol. 37, pp. 1-16, 1950.
 
-        (3) B. Porat, "A Course In Digitial Signal Processing" Chapters 4 & 13. 
-        Wiley and Sons 1997.
+        (3) B. Porat, "A Course In Digitial Signal Processing" Chapters 4 &
+        13. Wiley and Sons 1997.
     """
 
     # build the welch generating function
-    genfunc = partial(_spectra_gen, pro, fs, nfft, window, overlap, axis,
-                      detrend, scaling, boundary=None, padded=None,
-                      mode='psd')
+    genfunc = partial(_spectra_estimatives, pro, fs, nfft, window, overlap, 
+                      axis, detrend, scaling, boundary=None, padded=None,
+                      func=periodogram)
 
     # obtain the positive freqs.
     freqs = np.fft.rfftfreq(nfft, 1/fs)
@@ -681,87 +668,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     return freqs, result
 
 
-# TODO Determine if this should be combined with array pad
-@as_producer
-def pro_pad(pro, pad, axis, value):
-    """Pads the edges of a producer along axis.
-
-    Args:
-        pro: producer of ndarrys
-            The producer that is to be padded.
-        pad: int
-            The number of pads to apply before the 0th and after the last
-            index of producer along axis. If int, pads will be added to
-            both.
-        axis: int
-            The axis along which to pad the producer. Defaults to last axis.
-        value: float
-            The constant value to pad the producer with. Defaults to zero.
-
-    Returns: A producer yielding ndarrays.
-    """
-
-    #convert int pad to seq. of pads & place along axis of pads
-    pad = [pad, pad] if isinstance(pad, int) else pad
-    
-    left_shape, right_shape = list(pro.shape), list(pro.shape)
-    left_shape[axis] = pad[0]
-    right_shape[axis] = pad[1]
-    left, right = value * np.ones(left_shape), value * np.ones(right_shape)
-
-    yield left
-
-    for arr in pro:
-        yield arr
-
-    yield right
-
-    
-def _spectra_gen(pro, fs, nfft, window, overlap, axis, detrend, scaling,
-              boundary, padded, mode):
-    """Iteratively computes a modified DFT for windows in pro.
-
-    This is the generator for stft and should not be called externally.
-
-    I will only allow boundary of zeros since this has the clear
-    interpretation as an interpolation in the DFT
-    """
-
-    # COLA CHK? SCIPY DOES NOT..
-
-    data = pro
-    if boundary:
-        data = pro_pad(pro, nfft//2, axis=-1, value=0)
-
-    if padded:
-        #amt = pro.shape[axis]
-        data = pro_pad(pro, [0, amt], axis=-1, value=0)
-    
-    nover = int(nfft * overlap)
-    fifo = FIFOArray(chunksize=nfft-nover, axis=axis)
-    
-    func = periodogram if mode == 'psd' else modified_dft
-    for n, arr in enumerate(data):
-
-        while fifo.qsize() >= nfft:
-            
-            x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
-            f, y = func(x, fs, nfft, window, axis, detrend, scaling)
-            fifo.get()
-            yield y
-        
-        else:
-
-            fifo.put(arr)
-            continue
-    else:
-
-        if fifo.qsize() >= nfft:
-            x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
-            f, y = func(x, fs, nfft, window, axis, detrend, scaling)
-            yield y
-
-
-
+def stft():
+    pass
 
 
