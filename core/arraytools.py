@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def pad_along_axis(arr, pad, axis=-1, **kwargs):
     """Wrapper for numpy pad allowing before and after padding along
     a single axis.
