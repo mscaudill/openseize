@@ -40,6 +40,7 @@ from collections.abc import Iterable, Sequence, Generator
 from openseize.io.edf import Reader
 from openseize.core import mixins
 from openseize.core import resources
+from openseize.core.queues import FIFOArray
 
 def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     """Constructs an iterable that produces ndarrays of length chunksize
@@ -145,6 +146,39 @@ def as_producer(func):
         return producer(genfunc, pro.chunksize, pro.axis, shape=pro.shape)
 
     return decorated
+
+
+@as_producer
+def pad_producer(pro, pad, value):
+    """Pads the edges of a producer along its axis.
+
+    Args:
+        pro: producer of ndarrys
+            The producer that is to be padded.
+        pad: 2-el sequence of ints or single int
+            The number of pads to apply before the 0th and after the last
+            index of the producer's axis. If int, pads will be added to
+            both.
+        value: float
+            The constant value to pad the producer with. Defaults to zero.
+
+    Returns: A producer yielding ndarrays.
+    """
+
+    #convert int pad to seq. of pads & place along axis of pads
+    pads = [pad, pad] if isinstance(pad, int) else pad
+
+    left_shape, right_shape = list(pro.shape), list(pro.shape)
+    left_shape[pro.axis] = pads[0]
+    right_shape[pro.axis] = pads[1]
+    left, right = value * np.ones(left_shape), value * np.ones(right_shape)
+
+    yield left
+
+    for arr in pro:
+        yield arr
+
+    yield right
 
 
 class Producer(Iterable, mixins.ViewInstance):
@@ -390,63 +424,4 @@ class MaskedProducer(Producer):
         else:
             if collector.qsize() > 0:
                 yield collector.get()
-
-
-class FIFOArray:
-    """A first-in-first-out queue-like data structure for collecting 
-    ndarrays into chunksize subarrays.
-
-    Attrs:
-        queue: ndarray
-            An ndarray formed by the concatenation of arrays supplied by the
-            'put' method along axis.
-        chunksize: int
-            The size of each ndarray to be dequeued by the 'get' method.
-        axis: int
-            The axis along which ndarrays will be collected. This is usually
-            the sample axis of the putted ndarrays.
-    """
-
-    def __init__(self, chunksize, axis):
-        """Initialize this FIFOArray with an empty queue."""
-
-        self.queue = np.array([])
-        self.chunksize = chunksize
-        self.axis = axis
-
-    def qsize(self):
-        """Returns the shape of the queue along axis."""
-
-        return 0 if self.empty() else self.queue.shape[self.axis]
-
-    def empty(self):
-        """Returns True if the queue is empty and False otherwise."""
-
-        return True if self.queue.size == 0 else False
-
-    def full(self):
-        """Returns True if the size of the queue is at least chunksize."""
-
-        return True if self.qsize() >= self.chunksize else False
-
-    def put(self, x):
-        """Appends an ndarray to this queue.
-
-        Args:
-            x: ndarray
-                If the queue is not empty, this array must have the same
-                dimensions as the queue on all axes except axis.
-        """
-
-        if self.empty():
-            self.queue = x
-        else:
-            self.queue = np.concatenate((self.queue, x), axis=self.axis)
-
-    def get(self):
-        """Pops an array of size chunksize along axis from this queue."""
-
-        result, self.queue = np.split(self.queue, [self.chunksize],
-                                      axis=self.axis)
-        return result
 
