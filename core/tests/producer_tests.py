@@ -10,9 +10,11 @@ import numpy as np
 from itertools import zip_longest
 from pathlib import Path
 
-from openseize.core.producer import producer, as_producer, Producer
+from openseize import producer
+from openseize.core.producer import as_producer, Producer, pad_producer
 from openseize.io.edf import Reader
 from openseize import demos
+from openseize.core.arraytools import slice_along_axis
 
 def test_fromarray():
     """Verify that a producer built from an array produces the correct
@@ -334,6 +336,47 @@ def test_asproducer1():
         slicer = [slice(None)] * arr.ndim #slice obj to slice arr
         slicer[0] = slice(start, stop)
         assert np.allclose(meaned[tuple(slicer)], pro_arr)
+
+
+def test_padproducer0():
+    """Test if pad_producer produces the correct padded sequence of
+    ndarrays for a range of pad amounts."""
+
+    rng = np.random.default_rng(seed=0)
+    arr = rng.random((17, 12, 52013))
+
+    pro = producer(arr, chunksize=1000, axis=-1)
+    left_pads = rng.integers(low=0, high=1233, size=32)
+    right_pads = rng.integers(low=0, high=1233, size=32)
+
+    for l, r in zip(left_pads, right_pads):
+
+        padded = pad_producer(pro, [l, r], value=0)
+        padded = np.concatenate([x for x in padded], axis=-1)
+
+        assert np.allclose(padded[:,:, l:-r], arr)
+
+def test_padproducer1():
+    """Test that pad_producer produces the correct padded sequence of
+    ndarrays when the pad amt is an interger."""
+
+    rng = np.random.default_rng(seed=0)
+    arr = rng.random((52060, 4, 7, 2))
+    axis = 0
+
+    pro = producer(arr, chunksize=1000, axis=axis)
+    for amt in rng.integers(low=0, high=998, size=18, dtype=int):
+        
+        padded = pad_producer(pro, int(amt), value=10)
+        padded = np.concatenate([x for x in padded], axis=axis)
+        probe = slice_along_axis(padded, start=amt, stop=-amt, axis=axis)
+        
+        assert np.allclose(probe, arr)
+
+
+
+
+
 
 
 
