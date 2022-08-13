@@ -568,6 +568,7 @@ def _spectra_estimatives(pro, fs, nfft, window, overlap, axis, detrend,
             fifo.get() 
             yield y
 
+
 def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """Iteratively estimates the power spectrum using Welch's method.
 
@@ -774,10 +775,10 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
 
     # compute the segment times
     if boundary:
-        time = 1 / fs * np.arange(0, pro.shape[axis] + 1, nfft-noverlap)
+        time = 1 / fs * np.arange(0, data.shape[axis] + 1, nfft-noverlap)
     else:
-        time = 1 / fs * np.arange(nfft//2, pro.shape[axis] + 1 - nfft//2, 
-                                  nfft-noverlap
+        time = 1 / fs * np.arange(nfft//2, data.shape[axis] + 1 - nfft//2, 
+                                  nfft-noverlap)
 
     # return producer from welch gen func with each yielded 
     result = producer(genfunc, chunksize=len(freqs), axis=axis, shape=shape)
