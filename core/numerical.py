@@ -518,7 +518,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
 
 
 def _spectra_estimatives(pro, fs, nfft, window, overlap, axis, detrend,
-                         scaling, boundary, padded, func, **kwargs):
+                         scaling, func, **kwargs):
     """Iteratively estimates the power spectrum or modified DFT for each
     nfft segment in a producer.
 
@@ -533,27 +533,13 @@ def _spectra_estimatives(pro, fs, nfft, window, overlap, axis, detrend,
             Future support for additional spectral estimate functions.
     """
 
-    data = pro
     # num overlap points & shift between successive nfft segments
     noverlap = int(nfft * overlap)
     stride = nfft - noverlap
 
-    # stft boundary & padding options
-    if boundary:
-        
-        # center first & last segments by padding producer
-        data = pad_producer(pro, nfft//2, value=0)
-
-    if padded:
-        
-        nsamples = pro.shape[axis]
-        # pad w/ stride if samples not divisible by stride
-        amt = stride if nsamples % stride else 0
-        data = pad_producer(data, [0, amt], value=0)
-   
     # use FIFO to cache & release nfft & stride  num. samples respectively
     fifo = FIFOArray(chunksize=stride, axis=axis)
-    for n, arr in enumerate(data):
+    for n, arr in enumerate(pro):
 
         # yield nfft sized estimates while fifo has >= nfft samples
         while fifo.qsize() >= nfft:
@@ -574,7 +560,7 @@ def _spectra_estimatives(pro, fs, nfft, window, overlap, axis, detrend,
     
     else:
         
-        # boundary & pads may leave >= nfft samples in fifo-- so exhaust
+        # exhaust the fifo
         while fifo.qsize() >= nfft:
             
             x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
@@ -585,9 +571,12 @@ def _spectra_estimatives(pro, fs, nfft, window, overlap, axis, detrend,
 def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """Iteratively estimates the power spectrum using Welch's method.
 
-    Welch's method divides data into overlapping segments and averages the
-    modified periodograms for each segment. Unlike scipy, this method does
-    not assert that the data is an in-memory array.
+    Welch's method divides data into overlapping segments and computes the
+    modified periodograms for each segment. Usually these segments are
+    average over to estimate the PSD under the assumption that the data is
+    stationary (i.e. the spectral content across segments is similar.)
+    Unlike scipy, this method does not assert that the data is an in-memory
+    array.
 
     Args:
         pro: A producer of ndarrays
@@ -652,8 +641,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
 
     # build the welch generating function
     genfunc = partial(_spectra_estimatives, pro, fs, nfft, window, overlap, 
-                      axis, detrend, scaling, boundary=None, padded=None,
-                      func=periodogram)
+                      axis, detrend, scaling, func=periodogram)
 
     # obtain the positive freqs.
     freqs = np.fft.rfftfreq(nfft, 1/fs)
@@ -668,7 +656,130 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     return freqs, result
 
 
-def stft():
-    pass
+def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
+         padded):
+    """Estimates the Discrete Short-time Fourier Transform of a real signal.
 
+    STFT breaks the signal into overlapping segments and computes
+    a windowed Discrete Fourier Transform for each segment. This is a
+    complex sequence X(freq, time). The spectrogram is then 
+    np.abs(X(freq, time))**2.
+
+    Args:
+        pro: A producer of ndarrays
+            A data producer whose STFT is to be estimated.
+        fs: int
+            The sampling rate of the produced data.
+        nfft: int
+            The number of frequencies in the interval [0, fs) to use to
+            estimate the spectra in each segment. This determines the 
+            frequency resolution of the estimate since 
+            resolution = fs / nfft.
+        window: str
+            A string name for a scipy window to be applied to each data
+            segment before computing the periodogram of that segment. For
+            a full list of windows see scipy.signal.windows.
+        overlap: float
+            A percentage in [0, 1) of the data segement that should overlap
+            with the next data segment. In order for the STFT to be
+            invertible. The overlap amount needs to equally weight all
+            samples in pro. This is called the "constant overlap-add" COLA
+            constraint. It is window dependent. If you intend to invert this
+            STFT (synthesis) you  will need to verify this constraint is met
+            using scipy.signal.check_COLA. 
+        axis: int
+            The sample axis of the producer. The estimate will be carried
+            out along this axis.
+        detrend: str either 'constant' or 'linear'
+            A string indicating whether to subtract the mean ('constant') or
+            subtract a linear fit ('linear') from each segment prior to
+            computing the estimate for a segment.
+        scaling: str either 'spectrum' or 'density'
+            Determines the normalization to apply to the estimate for each
+            segment. If 'spectrum', then np.abs(X)**2 is the magnitude 
+            spectrum for each segment. If density np.abs(X)**2 is the
+            density spectrum and may be integrated over to give the total 
+            power for a segment.
+        boundary: bool
+            A boolean indicating if the first and last segments should be
+            extended with zeros so that the first/last samples ar centered
+            at nfft//2.  This allows for inversion of the first/last input 
+            points for windows whose first & last values are 0. Unlike 
+            scipy, openseize only allows for zero extensions since this has
+            the clear interpretation of a zero-pad interpolation of the
+            frequencies in the DFT.
+        padded: bool
+            Specifies if the last array of the producer should be padded
+            with zeros so that a whole number of overlapped nfft segments
+            fit into the signal length. This enables inversion of the stft
+            since the entire signal is used. This is in contrast with Welch
+            which drops the last segment if shorter than nfft - noverlap.
+
+    Returns:
+        f: 1-D array of frequencies
+        t: 1-D array of segment times
+        X: 2-D array of STFT estimates with the last axis corresponding to
+           times (t).
+
+    Notes:
+        Scipy allows for the segment length and number of DFT points (nfft)
+        to be different. This allows for interpolation of frequencies. Given
+        that EEG data typically has many samples, openseize locks the
+        segment length to the nfft amount (i.e. no interpolation). Finer
+        resolutions of the estimate will require longer data segements.
+
+        Openseize assumes the produced data is real-valued. This is
+        appropriate for all EEG data. If you are calling this method on
+        complex data, the imaginary part will be dropped.
+
+    
+    References:
+        (1) Shiavi, R. (2007). Introduction to Applied Statistical Signal 
+        Analysis : Guide to Biomedical and Electrical Engineering 
+        Applications. 3rd ed.
+
+        (2) B. Porat, "A Course In Digitial Signal Processing" Chapters 4 &
+        13. Wiley and Sons 1997.
+    """
+
+    # num overlap points & shift between successive nfft segments
+    noverlap = int(nfft * overlap)
+    stride = nfft - noverlap
+
+    # stft boundary & padding options
+    data = pro
+    if boundary:
+        
+        # center first & last segments by padding producer
+        data = pad_producer(data, nfft//2, value=0)
+
+    if padded:
+        
+        nsamples = pro.shape[axis]
+        # pad w/ stride if samples not divisible by stride
+        amt = stride if nsamples % stride else 0
+        data = pad_producer(data, [0, amt], value=0)
+
+    # build the stft generating function
+    genfunc = partial(_spectra_estimatives, data, fs, nfft, window, overlap, 
+                      axis, detrend, scaling, func=modified_dft)
+
+    # obtain the positive freqs.
+    freqs = np.fft.rfftfreq(nfft, 1/fs)
+    
+    # num. segments that fit into pro samples of len nfft with % overlap
+    nsegs = int((data.shape[axis] - nfft) // (nfft * (1-overlap)) + 1)
+    shape = list(data.shape)
+    shape[axis] = nsegs
+
+    # compute the segment times
+    if boundary:
+        time = 1 / fs * np.arange(0, pro.shape[axis] + 1, nfft-noverlap)
+    else:
+        time = 1 / fs * np.arange(nfft//2, pro.shape[axis] + 1 - nfft//2, 
+                                  nfft-noverlap
+
+    # return producer from welch gen func with each yielded 
+    result = producer(genfunc, chunksize=len(freqs), axis=axis, shape=shape)
+    return freqs, time, result
 
