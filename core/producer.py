@@ -42,6 +42,7 @@ from openseize.core import mixins
 from openseize.core import resources
 from openseize.core.queues import FIFOArray
 
+
 def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     """Constructs an iterable that produces ndarrays of length chunksize
     along axis during iteration.
@@ -111,6 +112,7 @@ def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     else:
         return MaskedProducer(result, mask, chunksize, axis, **kwargs)
 
+
 def as_producer(func):
     """Decorator returning a Producer instance from a generating function.
 
@@ -148,7 +150,6 @@ def as_producer(func):
     return decorated
 
 
-@as_producer
 def pad_producer(pro, pad, value):
     """Pads the edges of a producer along its axis.
 
@@ -163,22 +164,34 @@ def pad_producer(pro, pad, value):
             The constant value to pad the producer with. Defaults to zero.
 
     Returns: A producer yielding ndarrays.
+
+    Note: Since shape will be changed @as_producer does not work here and we
+    fallback to building a generating func.
     """
 
     #convert int pad to seq. of pads & place along axis of pads
     pads = [pad, pad] if isinstance(pad, int) else pad
+    
+    def genfunc():
 
-    left_shape, right_shape = list(pro.shape), list(pro.shape)
-    left_shape[pro.axis] = pads[0]
-    right_shape[pro.axis] = pads[1]
-    left, right = value * np.ones(left_shape), value * np.ones(right_shape)
+        left_shape, right_shape = list(pro.shape), list(pro.shape)
+        left_shape[pro.axis] = pads[0]
+        right_shape[pro.axis] = pads[1]
+        left = value * np.ones(left_shape)
+        right = value * np.ones(right_shape)
 
-    yield left
+        yield left
 
-    for arr in pro:
-        yield arr
+        for arr in pro:
+            yield arr
 
-    yield right
+        yield right
+
+    # compute new shape
+    shape = list(pro.shape)
+    shape[pro.axis] = pro.shape[pro.axis] + sum(pads)
+    
+    return producer(genfunc, pro.chunksize, pro.axis, shape=shape)
 
 
 class Producer(Iterable, mixins.ViewInstance):
