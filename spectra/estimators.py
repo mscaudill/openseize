@@ -22,7 +22,6 @@ This module contains the following classes and functions:
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 from openseize.core import numerical as nm
 from openseize.core.resources import is_assignable
 from openseize import producer
@@ -31,7 +30,7 @@ from openseize.spectra.plotting import banded
 from openseize.spectra.metrics import power
 
 
-def PSD(data, fs, axis=-1, resolution=0.5, window='hann', overlap=0.5,
+def psd(data, fs, axis=-1, resolution=0.5, window='hann', overlap=0.5,
         detrend='constant', scaling='density'):
     """A power spectrum (density) estimator using Welch's method.
 
@@ -235,42 +234,4 @@ def stft(data, fs, axis, resolution=0.5, window='hann', overlap=0.5,
             result = np.stack([arr for arr in result], axis=-1)
     
     return freqs, time, result
-    
 
-if __name__ == '__main__':
-
-    from openseize.io import edf
-    from openseize.demos import paths
-    from openseize.spectra.metrics import confidence_interval
-    import time
-
-
-    def fetch_data(start, stop):
-        """ """
-
-        fp = paths.locate('recording_001.edf')
-        with edf.Reader(fp) as reader:
-            arr = reader.read(start, stop)
-
-        return arr
-    
-    data = fetch_data(0, 200000)
-
-    t0 = time.perf_counter()
-    n, freqs, avg_psd = PSD(data, fs=5000, axis=-1) 
-    norm_psd = normalize(avg_psd, freqs, start=0, stop=None)
-    print('openseize estimated in {} s'.format(time.perf_counter() - t0))
-
-    ci_s = confidence_interval(norm_psd, n, alpha=0.05)
-
-    fig, axarr = plt.subplots(3, 1, sharex=True, figsize=(5,6))
-    for idx, ax in enumerate(axarr):
-        lower, upper = ci_s[idx]
-        ax.plot(freqs, norm_psd[idx], color='green', label='Avg Norm PSD')
-        ax = banded(freqs, upper, lower, ax, label='95% CI')
-        ax.legend()
-
-    #plt.xlim([-1, 20])
-    title = 'Data Duration = {} s'.format(data.shape[-1] / 5000)
-    plt.suptitle(title)
-    plt.show()
