@@ -11,6 +11,7 @@ import scipy.signal as sps
 from openseize import producer
 from openseize.core.numerical import periodogram, welch
 from openseize.filtering.fir import Kaiser
+from openseize.spectra.estimators import stft
 
 def test_periodogram_arrs():
     """Test if the openseize periodogram function matches scipy's peridogram
@@ -367,5 +368,252 @@ def test_welch_nfft():
 
         assert np.allclose(op_f, sp_f)
         assert np.allclose(op_res, sp_res)
+
+
+def test_stft_pros():
+    """Test if Openseize's stft result matches scipy's result for a variety
+    of producer sizes."""
+
+    rng = np.random.default_rng(1234)
+
+    lengths = rng.integers(10000, 192000, size=30)
+    arrs = [rng.random((3, l, 4)) for l in lengths]
+
+    # stft parameters
+    fs = 5000
+    axis = 1
+    resolution = 0.5
+    window='hann'
+    overlap = 0.5
+    detrend = 'constant'
+    scaling = 'spectrum'
+    boundary = True
+    padded = True
+    asarray = True
+
+    nfft = fs // resolution
+    for arr in arrs:
+
+        # get openseize result
+        ofreqs, otime, ostft = stft(arr, fs, axis, resolution, window,
+                                    overlap, detrend, scaling, boundary,
+                                    padded, asarray)
+
+        # get scipy result
+        noverlap = int(nfft * overlap)
+        bound = 'zeros'
+
+        # NOTE scipy version dependent scaling argument versions < 1.9 do
+        # not have scaling parameter -- always returns spectrum
+        sfreqs, stime, sstft = sps.stft(arr, fs, window, nfft, noverlap,
+                nfft,  detrend, True, bound, padded, axis)
+
+        assert np.allclose(ofreqs, sfreqs)
+        assert np.allclose(otime, stime)
+        assert np.allclose(ostft, sstft)
+
+
+def test_stft_resolution():
+    """Test if Openseize's stft method matches scipy's for a variety of
+    frequency resolutions."""
+
+    rng = np.random.default_rng(1234)
+    arr = rng.random((3, 4, 76065))
+
+    resolutions = np.arange(.1, .75, .05)
+
+    # stft parameters
+    fs = 5000
+    axis = -1
+    window='hann'
+    overlap = 0.5
+    detrend = 'constant'
+    scaling = 'spectrum'
+    boundary = True
+    padded = True
+    asarray = True
+
+    for res in resolutions:
+    
+        nfft = int(fs / res)
+
+        # get openseize result
+        ofreqs, otime, ostft = stft(arr, fs, axis, res, window,
+                                    overlap, detrend, scaling, boundary,
+                                    padded, asarray)
+
+        # get scipy result
+        noverlap = int(nfft * overlap)
+        bound = 'zeros'
+
+        sfreqs, stime, sstft = sps.stft(arr, fs, window, nfft, noverlap,
+                nfft,  detrend, True, bound, padded, axis)
+
+        assert np.allclose(ofreqs, sfreqs)
+        assert np.allclose(otime, stime)
+        assert np.allclose(ostft, sstft)
+
+
+def test_stft_overlaps():
+    """Test if Openseize's stft method matches scipy's for a variety of
+    overlaps."""
+
+    rng = np.random.default_rng(1234)
+    arr = rng.random((3, 4, 176065))
+
+    overlaps = np.arange(0, 0.9, 0.05)
+
+    # stft parameters
+    fs = 5000
+    axis = -1
+    window='hann'
+    resolution = 0.5
+    detrend = 'constant'
+    scaling = 'spectrum'
+    boundary = True
+    padded = True
+    asarray = True
+
+    nfft = fs // resolution
+    for over in overlaps:
+
+        # get openseize result
+        ofreqs, otime, ostft = stft(arr, fs, axis, resolution, window,
+                                    over, detrend, scaling, boundary,
+                                    padded, asarray)
+
+        # get scipy result
+        noverlap = int(nfft * over)
+        bound = 'zeros'
+
+        sfreqs, stime, sstft = sps.stft(arr, fs, window, nfft, noverlap,
+                nfft,  detrend, True, bound, padded, axis)
+
+        assert np.allclose(ofreqs, sfreqs)
+        assert np.allclose(otime, stime)
+        assert np.allclose(ostft, sstft)
+
+
+def test_stft_boundary():
+    """Test if Openseize;s stft method matches scipy with and without a zero
+    boundary."""
+
+    rng = np.random.default_rng(1234)
+    arr = rng.random((776065, 4))
+
+    # stft parameters
+    fs = 5000
+    axis = 0
+    window='hann'
+    overlap = 0.5
+    resolution = 0.5
+    detrend = 'constant'
+    scaling = 'spectrum'
+    padded = True
+    asarray = True
+
+    nfft = fs // resolution
+    for boundary in [True, False]:
+
+        # get openseize result
+        ofreqs, otime, ostft = stft(arr, fs, axis, resolution, window,
+                                    overlap, detrend, scaling, boundary,
+                                    padded, asarray)
+
+        # get scipy result
+        noverlap = int(nfft * overlap)
+        bound = 'zeros' if boundary else None
+
+        sfreqs, stime, sstft = sps.stft(arr, fs, window, nfft, noverlap,
+                nfft,  detrend, True, bound, padded, axis)
+
+        assert np.allclose(ofreqs, sfreqs)
+        assert np.allclose(otime, stime)
+        assert np.allclose(ostft, sstft)
+
+
+def test_stft_padding():
+    """Test if Openseize;s stft method matches scipy with and without a zero
+    extension."""
+
+    rng = np.random.default_rng(1234)
+    arr = rng.random((376065, 4, 2))
+
+    # stft parameters
+    fs = 5000
+    axis = 0
+    window='hann'
+    overlap = 0.5
+    resolution = 0.5
+    detrend = 'constant'
+    scaling = 'spectrum'
+    boundary = True
+    asarray = True
+
+    nfft = fs // resolution
+    for padded in [True, False]:
+
+        # get openseize result
+        ofreqs, otime, ostft = stft(arr, fs, axis, resolution, window,
+                                    overlap, detrend, scaling, boundary,
+                                    padded, asarray)
+
+        # get scipy result
+        noverlap = int(nfft * overlap)
+        bound = 'zeros'
+
+        sfreqs, stime, sstft = sps.stft(arr, fs, window, nfft, noverlap,
+                nfft,  detrend, True, bound, padded, axis)
+
+        assert np.allclose(ofreqs, sfreqs)
+        assert np.allclose(otime, stime)
+        assert np.allclose(ostft, sstft)
+
+
+def test_stft_scaling():
+    """Test if Openseizes stft matches scipy for different scalings.
+
+    NOTE: This test only works for scipy version 1.9.0 and higher."""
+
+    rng = np.random.default_rng(1234)
+    arr = rng.random((2, 376065, 4))
+
+    # stft parameters
+    fs = 5000
+    axis = 1
+    window='hann'
+    overlap = 0.5
+    resolution = 0.5
+    detrend = 'constant'
+    boundary = True
+    padded = True
+    asarray = True
+
+    nfft = fs // resolution
+    for scaling in ['density', 'spectrum']:
+
+        # get openseize result
+        ofreqs, otime, ostft = stft(arr, fs, axis, resolution, window,
+                                    overlap, detrend, scaling, boundary,
+                                    padded, asarray)
+
+        # get scipy result
+        noverlap = int(nfft * overlap)
+        bound = 'zeros'
+
+        # scipy stft does not support welch density argument
+        s = scaling
+        if scaling == 'density':
+            s = 'psd'
+
+        sfreqs, stime, sstft = sps.stft(arr, fs, window, nfft, noverlap,
+                nfft,  detrend, True, bound, padded, axis, scaling=s)
+
+        assert np.allclose(ofreqs, sfreqs)
+        assert np.allclose(otime, stime)
+        assert np.allclose(ostft, sstft)
+  
+
+
 
 
