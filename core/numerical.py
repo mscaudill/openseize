@@ -8,6 +8,7 @@ from openseize import producer
 from openseize.core.producer import Producer, as_producer, pad_producer 
 from openseize.core.queues import FIFOArray
 from openseize.core.arraytools import pad_along_axis, slice_along_axis
+from openseize.core.arraytools import multiply_along_axis
 
 
 def optimal_nffts(arr):
@@ -414,7 +415,7 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
 
     # fetch and apply window
     coeffs = sps.get_window(window, arr.shape[axis])
-    arr = arr * coeffs
+    arr = multiply_along_axis(arr, coeffs, axis=axis)
 
     # compute real DFT. Zeropad for nfft > nsamples is automatic
     # rfft uses 'backward' norm default which is no norm on rfft
@@ -719,8 +720,8 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
     Returns:
         f: 1-D array of frequencies
         t: 1-D array of segment times
-        X: 2-D array of STFT estimates with the last axis corresponding to
-           times (t).
+        X: Producer of stft estimates for each segment. Each yielded array
+           has length nfft - nfft * overlap along axis.
 
     Notes:
         Scipy allows for the segment length and number of DFT points (nfft)
@@ -775,7 +776,7 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
 
     # compute the segment times
     if boundary:
-        time = 1 / fs * np.arange(0, data.shape[axis] + 1, nfft-noverlap)
+        time = 1 / fs * np.arange(0, data.shape[axis] - nfft + 1, nfft-noverlap)
     else:
         time = 1 / fs * np.arange(nfft//2, data.shape[axis] + 1 - nfft//2, 
                                   nfft-noverlap)
