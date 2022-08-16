@@ -74,6 +74,24 @@ def expand_along_axis(arr, l, value=0, axis=-1):
     return x
 
 
+def multiply_along_axis(x, y, axis=-1):
+    """Multiplies an ndarray by a 1-D array along axis.
+    
+    Args:
+        x: ndarray
+            Array to multiply along axis.
+        y: 1-D array
+            Values to multiply arr by along axis.
+        axis: int
+            axis along which to multiply
+            
+    Returns: ndarray of shape x.
+    """
+
+    shape = np.ones(x.ndim, int)
+    shape[axis] = len(y)
+    return x * y.reshape(shape)
+
 def filter1D(size, indices):
     """Returns a 1D array of False values except at indices where values are
     True.
