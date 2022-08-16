@@ -28,6 +28,34 @@ def assignable_array(shape, dtype=float, allowable=None):
     
     return assignable, allowable, required
 
+
+def is_assignable(pro, dtype=float, allowable=None):
+    """Validates if a producer can be assigned to an in-memory array.
+
+    Args:
+        pro: producer of ndarrays.
+            The producer to convert to an in-memory array.
+        dtype: numpy datatype.
+            The data type of each element of each array in the producer.
+        allowable: int
+            The maximum allowed memory usage in bytes. If None, query and
+            use the available system memory. Default is None.
+    
+    Returns: True if the producer is assignable and raises a memory error if
+             not.
+    """
+
+    resource_result  = assignable_array(pro.shape, dtype)
+    assignable, allowable, required = resource_result
+        
+    if not assignable:
+        a, b = np.round(np.array([required, allowable]) / 1e9, 1)
+        msg = 'Producer will consume {} GB but only {} GB are available'
+        raise MemoryError(msg.format(a, b))
+    
+    else:
+        return True
+
     
 
     
