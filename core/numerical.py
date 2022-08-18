@@ -60,73 +60,74 @@ def convolve_slicer(arr, shape1, shape2, mode, axis):
         return slice_along_axis(arr, start, stop, axis=axis)
 
 
-def _oa_mode(segment, idx, win_len, axis, mode):
-    """Applies the numpy/scipy mode to the first and last segement of the
-    oaconvolve generator.
+def _oa_mode(arr, window, side, axis, mode):
+    """Applies the numpy convolve mode to first or last segment yielded from
+    oaconvolve.
 
     Args:
-        segment (arr):          array of values yielded by oaconvolve
-        idx (int):              index number of the segment
-        total (int):            total number of segments 
-        win_len (int):          len of convolving window
-        axis (int):             axis along which convolution was applied
-        mode (str):             one of 'full', 'same', 'valid'.
-                                identical to numpy convovle mode
+        arr: ndarray
+            The first or last array of values from the oaconvolve producer.
+        window: 1-D array
+            The window that was convolved across arr.
+        side: str
+            One of 'left', 'right' indicating if the array is the first or
+            last segment from oaconvolve.
+        axis: int
+            The axis of arr along which convolution was performed.
+        mode: str
+            A numpy convolve mode -- one of 'full', 'same', 'valid'.
     
-    Returns: segment with boundary mode applied
+    Returns: An ndarray with boundary mode applied
     """
 
-    #FIXME refactor to reuse your convolve slicer
-
-    modes = ('full', 'same', 'valid')
-    if mode not in modes:
-        msg = 'mode {} is not one of the valid modes {}'
-        raise ValueError(msg.format(mode, modes))
-
-    ns = segment.shape[axis]
+    ns = arr.shape[axis]
+    lw = len(window)
     #dict of slices to apply to axis for 0th & last segment for each mode
-    cuts = {'full': [slice(None), slice(None)],
-            'same': [slice((win_len - 1) // 2, None), 
-                     slice(None, ns - ((win_len - 1) // 2))],
-            'valid': [slice(win_len - 1, None), 
-                      slice(None, ns - win_len + 1)]}
-    
+    cuts = {'full': {'left': slice(None), 
+                     'right': slice(None)},
+
+            'same': {'left': slice((lw - 1) // 2, None), 
+                     'right': slice(None, ns - int(np.ceil((lw - 1) / 2)))},
+
+            'valid': {'left': slice(lw - 1, None), 
+                      'right': slice(None, ns - lw + 1)}}
+
     #apply slices
-    slices = [slice(None)] * segment.ndim
-    slices[axis] = cuts[mode][1] if idx > 0 else cuts[mode][0]
-    return segment[tuple(slices)]
+    slices = [slice(None)] * arr.ndim
+    slices[axis] = cuts[mode][side]
+    return arr[tuple(slices)]
 
 
 @as_producer
-def oaconvolve(pro, win, axis, mode):
-    """A generator that performs overlap-add circular convolution of a
-    an array or producer of arrays with a 1-dimensional window.
+def oaconvolve(pro, window, axis, mode):
+    """Performs overlap-add circular convolution of a producer of 
+    ndarrays with a 1-dimensional window.
 
     Args:
-        pro:                        producer of ndarray(s)
-        win (1-D array):            a 1-D window to convolve across arr
-        axis (int):                 axis of arr or each producer array
-                                    along which window should be convolved
-        mode (str):                 one of 'full', 'same', 'valid'.
-                                    identical to numpy convolve mode
+        pro: producer of ndarrays
+            The data to be convolved.
+        window: 1-D array            
+            A 1-D window to convolve across data.
+        axis: int                 
+            The axis of data along which window should be convolved.
+        mode: str
+            A convolution mode matching one of 'full', 'same', 'valid'.
+            These modes are identical to numpy convolve modes.
 
-    Numpy & Scipy implement oaconvolve but require that the input and  
-    output be storable in RAM. This implementation makes no such constraint.
-    The input iterable can be an in-memory array, a numpy memmap, a 
-    generator of arrays or an iterable of arrays (see producer). 
+    Numpy & Scipy implementations of oaconvolve require that the input be an
+    in-memory array. Openseize utilizes a producer making it suitable for
+    convolving 1-D arrays across data that may not fit into memory.
 
-    Returns: a generator of convolved arrays. The length of each array along
-    axis will be (optimal_nffts(win) - len(win) - 1). See optimal_nffts
-    func.
+    Returns: A producer of convolved arrays. The length of each array along
+             axis will be (optimal_nffts(window) - len(window) - 1).
     """
 
-    #fetch the producers initial chunksize
     isize = pro.chunksize
 
     #estimate optimal nfft and transform window
-    nfft = optimal_nffts(win)
-    M = len(win)
-    H = fft.fft(win, nfft)
+    nfft = optimal_nffts(window)
+    M = len(window)
+    H = fft.fft(window, nfft)
 
     #set the step size 'L' and compute num of segments
     L = nfft - M + 1
@@ -162,8 +163,11 @@ def oaconvolve(pro, win, axis, mode):
         overlap = new_overlap
         
         #apply the boundary mode to first and last segments
-        if segment_num == 0 or segment_num == nsegments - 1:
-            y = _oa_mode(y, segment_num, len(win), axis, mode)
+        if segment_num == 0:
+            y = _oa_mode(y, window, 'left', axis, mode)
+        
+        if  segment_num == nsegments - 1:
+            y = _oa_mode(y, window, 'right', axis, mode)
         
         yield y
 
@@ -171,31 +175,39 @@ def oaconvolve(pro, win, axis, mode):
     pro.chunksize = isize
 
 
-# FIXME Improve docs around zi please see iir apply method
 @as_producer  
 def sosfilt(pro, sos, chunksize, axis, zi=None):
-    """Batch applies a second-order-section fmt filter to a producer.
+    """Batch applies a forward second-order-section fmt filter to a 
+    producer of numpy arrays.
 
     Args:
-        pro:                     producer of ndarrays
-        sos (array):             a nsectios x 6 array of numerator &
-                                 denominator coeffs from an iir filter
-        chunksize (int):         amount of data along axis to filter per
-                                 batch
-        axis (int):              axis along which to apply the filter in
-                                 chunksize batches
-        zi (ndarray):            initial condition data (Default None ->
-                                 zeros as intial condition)
+        pro: producer of ndarrays
+            A producer of ndarrays to filter.
+        sos: 2-D array
+            An n-sections x 6 array of numerator & denominator coeffs of the
+            transfer function of an IIR filter.
+        chunksize: int
+            The amount of data along axis to filter per batch
+        axis: int
+            The axis along which to apply the filter in chunksize batches
+        zi: ndarray
+            Initial conditions of the filter. This is an n-sections x 
+            (...,2,...) array where (...,2...) has the same shape as pro 
+            but with 2 along axis. This 2 is because biquad section of the
+            sos fmt has a delay of 2 along axis. For further details see 
+            sosfilt_zi in scipy's signal module. Default is None
+            which sets the initial nsections of filtered values to 0.
 
-    Returns: a generator of filtered values of len chunksize along axis
+    Returns: A producer of filtered values of len chunksize along axis.
     """
 
-    #set initial conditions for filter (see scipy sosfilt; zi)
+    # set initial conditions for filter (see scipy sosfilt; zi)
     shape = list(pro.shape)
     shape[axis] = 2
     z = np.zeros((sos.shape[0], *shape)) if zi is None else zi
-    #compute filter values & store current initial conditions 
-    for idx, subarr in enumerate(pro):
+    
+    # compute filter values & store current initial conditions 
+    for subarr in pro:
         y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
         yield y
 
@@ -206,43 +218,126 @@ def sosfiltfilt(pro, sos, chunksize, axis):
     of numpy arrays.
 
     Args:
-        pro:                     producer of ndarrays
-        sos (array):             a nsectios x 6 array of numerator &
-                                 denominator coeffs from an iir filter
-        chunksize (int):         amount of data along axis to filter per
-                                 batch
-        axis (int):              axis along which to apply the filter in
-                                 chunksize batches
+        pro: producer of ndarrays
+            A producer of ndarrays to filter.
+        sos: 2-D array
+            An n-sections x 6 array of numerator & denominator coeffs of the
+            transfer function of an IIR filter.
+        chunksize: int
+            The amount of data along axis to filter per batch
+        axis: int
+            The axis along which to apply the filter in chunksize batches
 
-    Returns: a generator of forward-backward filtered values of len 
+    Returns: a producer of forward-backward filtered values of len 
              chunksize along axis
+
+    Note: Since the filter is a forward/backward filter the initial 
+          conditions are handled automatically.
     """
 
-    #get initial value from producer
+    # get initial value from producer
     subarr = next(iter(pro))
     x0 = slice_along_axis(subarr, 0, 1, axis=axis) 
     
-    # build initial condition
+    # build steady state initial condition
     zi = sps.sosfilt_zi(sos) #nsections x 2
     s = [1] * len(pro.shape)
     s[axis] = 2
     zi = np.reshape(zi, (sos.shape[0], *s)) #nsections,1,2
     
-    #create a producer of forward filter values
+    # create a producer of forward filter values
     forward = sosfilt(pro, sos, chunksize, axis, zi=zi*x0)
     
-    #filter backwards each forward produced arr
+    # filter backwards each forward produced arr
     for idx, arr in enumerate(forward):
+        
         flipped = np.flip(arr, axis=axis)
-        #get the last value as initial condition for backward pass
+        # get the last value as initial condition for backward pass
         y0 = slice_along_axis(flipped, 0, 1, axis=axis)
-        #filter in reverse, reflip and yield
+        
+        # filter in reverse, reflip and yield
         revfilt, z = sps.sosfilt(sos, flipped, axis=axis, zi=zi*y0)
         yield np.flip(revfilt, axis=axis)
 
-# FIXME
-# IMPLEMENT filtfilt for transfer function format filters
-# IMPLEMENT lfilter for transfer function format filters
+
+@as_producer
+def lfilter(pro, coeffs, chunksize, axis, zi=None):
+    """Batch appliies a forward transfer function fmt (b,a) filter to
+    a producer of numpy arrays.
+
+    Args:
+        pro: producer of ndarrays
+            A producer of ndarrays to filter.
+        coeffs: tuple
+            A tuple of numerator, denominator coefficient arrays of the
+            transfer function fmt (b,a).
+        chunksize: int
+            The amount of data along axis to filter per batch
+        axis: int
+            The axis along which to apply the filter in chunksize batches
+        zi: ndarray
+           The initial output values of the filtered data. If None
+           (default), the iniitial values are zeros. Please see scipy
+           signal lfilter for more details.
+    
+    Returns: A producer of filtered values of len chunksize along axis.    
+    """
+
+    b, a = coeffs
+
+    # set initial conditions of the filters output
+    shape = list(pro.shape)
+    shape[axis] = int(max(len(b), len(a)) - 1)
+    z = np.zeros(shape) if zi is None else zi
+
+    # compute filter values & store current initial conditions
+    for subarr in pro:
+        y, z = sps.lfilter(b, a, subarr, axis=axis, zi=z)
+        yield y
+
+
+@as_producer
+def filtfilt(pro, coeffs, chunksize, axis):
+    """Batch applies a forward-backward filter in transfer func fmt (b,a)
+    to a producer of numpy arrays.
+
+    Args:
+        pro: producer of ndarrays
+            A producer of ndarrays to filter.
+        coeffs: tuple
+            A tuple of numerator, denominator coefficient arrays of the
+            transfer function fmt (b,a).
+        chunksize: int
+            The amount of data along axis to filter per batch
+        axis: int
+            The axis along which to apply the filter in chunksize batches
+
+    Returns: A producer of filtered values of len chunksize along axis.
+
+    Note: Since the filter is a forward/backward filter the initial
+          conditions are handled automatically.
+    """
+
+    # get initial value from producer
+    x0 = slice_along_axis(next(iter(pro)), 0, 1, axis=axis)
+
+    # build steady state initial condition
+    zss = sps.lfilter_zi(b, a)
+
+    # create a producer of forward filtered values
+    forward = lfilter(pro, coeffs, chunksize, axis, zi=zss*x0)
+
+    # filter backwards for each forward produced arr
+    for arr in forward:
+
+        flipped = np.flip(arr, axis=axis)
+        # get last value as initial cond. for backward pass
+        y0 = slice_along_axis(flipped, 0, 1, axis=axis)
+        
+        # filter flipped (backward pass), reflip and yield
+        revfilt, z = sps.lfilter(*coeffs, flipped, axis=axis, zi=zss*y0)
+        yield np.flip(revfilt, axis=axis)
+
 
 @as_producer
 def polyphase_resample(pro, L, M, fs, chunksize, fir, axis, **kwargs):
