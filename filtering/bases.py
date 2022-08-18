@@ -152,7 +152,7 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
             else:
                 filtfunc = nm.lfilter
         
-        result = filtfunc(pro, self.coeffs, chunksize, axis)
+        result = filtfunc(pro, self.coeffs, chunksize, axis, zi)
         
         if isinstance(x, np.ndarray):
             # if data is an ndarray return an ndarray
