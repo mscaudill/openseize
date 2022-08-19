@@ -103,7 +103,7 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
                              btype=self.btype, ftype=self.ftype, 
                              output=self.fmt, fs=self.fs)
 
-    def call(self, data, chunksize, axis, dephase=True, zi=None, **kwargs):
+    def __call__(self, data, chunksize, axis, dephase=True, zi=None, **kwargs):
         """Apply this filter to an ndarray or producer of ndarrays.
 
         Args:
@@ -138,10 +138,10 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
             filtered data. The output type will match the input data type.
         """
 
-        pro = producer(x, chunksize, axis, **kwargs)
+        pro = producer(data, chunksize, axis, **kwargs)
 
         if self.fmt == 'sos':
-            if depahse:
+            if dephase:
                 filtfunc = nm.sosfiltfilt
             else:
                 filtfunc = nm.sosfilt
@@ -151,10 +151,11 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
                 filtfunc = nm.filtfilt
             else:
                 filtfunc = nm.lfilter
+       
+        # zi is ignored if filtfunc is a forward/backward filtfilt
+        result = filtfunc(pro, self.coeffs, chunksize, axis, zi=zi)
         
-        result = filtfunc(pro, self.coeffs, chunksize, axis, zi)
-        
-        if isinstance(x, np.ndarray):
+        if isinstance(data, np.ndarray):
             # if data is an ndarray return an ndarray
             result = np.concatenate([arr for arr in result], axis=axis)
 
