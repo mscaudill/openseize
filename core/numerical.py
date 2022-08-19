@@ -12,7 +12,23 @@ from openseize.core.arraytools import multiply_along_axis
 
 
 def optimal_nffts(arr):
-    """Estimates the optimal number of FFT points for an arr."""
+    """Estimates the number of FFT points for the overlap-add convolution.
+
+    Args:
+        arr: 1-D array
+            The window which will be convolved across a larger ndarry.
+
+    This is an approximation for the value that minimizes oa cost func:
+
+        oa_cost = Nx * NFFT * (log2(NFFT) + 1) / (NFFT - len(arr) + 1) 
+    
+        Nx is length of larger array along convolve axis
+        NFFT is the number of FFT points to be estimated
+        arr is the length of the convolving window.
+        see https://en.wikipedia.org/wiki/Overlap-add_method
+
+    Returns: Integer number of NFFT pts.
+    """
 
     return int(8 * 2 ** np.ceil(np.log2(len(arr))))
 
@@ -145,7 +161,8 @@ def oaconvolve(pro, window, axis, mode):
         x = pad_along_axis(subarr, [0, M - 1], axis=axis)
         
         #perform circular convolution
-        y = fft.ifft(fft.fft(x, nfft, axis=axis) * H, axis=axis).real
+        xf = multiply_along_axis(fft.fft(x, nfft, axis=axis), H, axis=axis)
+        y = fft.ifft(xf, axis=axis).real
         
         #split filtered segment and overlap
         if segment_num < nsegments - 1:
@@ -212,8 +229,22 @@ def sosfilt(pro, sos, chunksize, axis, zi=None):
         yield y
 
 
+def _sosfilt(pro, sos, chunksize, axis, zi=None):
+    """ """
+
+    # set initial conditions for filter (see scipy sosfilt; zi)
+    shape = list(pro.shape)
+    shape[axis] = 2
+    z = np.zeros((sos.shape[0], *shape)) if zi is None else zi
+    
+    # compute filter values & store current initial conditions 
+    for subarr in pro:
+        y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
+        yield y, z
+
+
 @as_producer
-def sosfiltfilt(pro, sos, chunksize, axis):
+def sosfiltfilt(pro, sos, chunksize, axis, **kwargs):
     """Batch applies a forward-backward filter in sos format to a producer
     of numpy arrays.
 
@@ -244,7 +275,34 @@ def sosfiltfilt(pro, sos, chunksize, axis):
     s = [1] * len(pro.shape)
     s[axis] = 2
     zi = np.reshape(zi, (sos.shape[0], *s)) #nsections,1,2
-    
+
+    forward = _sosfilt(pro, sos, chunksize, axis, zi=zi*x0)
+    nforward = _sosfilt(pro, sos, chunksize, axis, zi=zi*x0)
+    next(nforward)
+    n = np.int(np.ceil(pro.shape[axis] / pro.chunksize))
+    for idx, (arr,_) in enumerate(forward):
+        
+
+        print(idx, n)
+
+        if idx < n-1:
+
+            _, zf = next(nforward)
+            flipped = np.flip(arr, axis=axis)
+            revfilt, _ = sps.sosfilt(sos, flipped, axis=axis, zi=zf)
+            yield np.flip(revfilt, axis=axis)
+
+        else:
+            flipped = np.flip(arr, axis=axis)
+            x = slice_along_axis(flipped, 0, 1, axis=axis)
+            revfilt,_ = sps.sosfilt(sos, flipped, axis=axis, zi=zi*x)
+            yield np.flip(revfilt, axis=axis)
+            
+
+
+                
+
+    """
     # create a producer of forward filter values
     forward = sosfilt(pro, sos, chunksize, axis, zi=zi*x0)
     
@@ -254,10 +312,15 @@ def sosfiltfilt(pro, sos, chunksize, axis):
         flipped = np.flip(arr, axis=axis)
         # get the last value as initial condition for backward pass
         y0 = slice_along_axis(flipped, 0, 1, axis=axis)
-        
+
+        # FIXME you are using ss responses at each edge going backwards
+        # you'll need to get the z from previous section
+        z = zi*y0
+
         # filter in reverse, reflip and yield
-        revfilt, z = sps.sosfilt(sos, flipped, axis=axis, zi=zi*y0)
+        revfilt, z = sps.sosfilt(sos, flipped, axis=axis, zi=z)
         yield np.flip(revfilt, axis=axis)
+    """
 
 
 @as_producer
@@ -292,12 +355,13 @@ def lfilter(pro, coeffs, chunksize, axis, zi=None):
 
     # compute filter values & store current initial conditions
     for subarr in pro:
+        
         y, z = sps.lfilter(b, a, subarr, axis=axis, zi=z)
         yield y
 
 
 @as_producer
-def filtfilt(pro, coeffs, chunksize, axis):
+def filtfilt(pro, coeffs, chunksize, axis, **kwargs):
     """Batch applies a forward-backward filter in transfer func fmt (b,a)
     to a producer of numpy arrays.
 
@@ -333,9 +397,10 @@ def filtfilt(pro, coeffs, chunksize, axis):
         flipped = np.flip(arr, axis=axis)
         # get last value as initial cond. for backward pass
         y0 = slice_along_axis(flipped, 0, 1, axis=axis)
+        z = zss * y0
         
         # filter flipped (backward pass), reflip and yield
-        revfilt, z = sps.lfilter(*coeffs, flipped, axis=axis, zi=zss*y0)
+        revfilt, z = sps.lfilter(*coeffs, flipped, axis=axis, zi=z)
         yield np.flip(revfilt, axis=axis)
 
 
