@@ -232,8 +232,8 @@ def sosfilt(pro, sos, chunksize, axis, zi=None):
 
 @as_producer
 def sosfiltfilt(pro, sos, chunksize, axis, **kwargs):
-    """Batch applies a forward-backward filter in sos format to a producer
-    of numpy arrays.
+    """Batch applies a forward-backward second order section fmt filter to
+    a producer of numpy arrays.
 
     Args:
         pro: producer of ndarrays
@@ -273,6 +273,7 @@ def sosfiltfilt(pro, sos, chunksize, axis, **kwargs):
 
     # build steady state initial condition
     zi = sps.sosfilt_zi(sos) #nsections x 2
+    # reshape zi so zi * x0 broadcast to correct shape for zi param
     s = [1] * len(pro.shape)
     s[axis] = 2
     zi = np.reshape(zi, (sos.shape[0], *s)) #nsections,1,2
@@ -300,7 +301,7 @@ def sosfiltfilt(pro, sos, chunksize, axis, **kwargs):
 
         else:
             
-            # for last segment the initial condition is last sample
+            # for last segment the initial condition is last sample ss
             aflipped = np.flip(a, axis=axis)
             a0 = slice_along_axis(aflipped, 0, 1, axis=axis)
             rfilt, _ = sps.sosfilt(sos, aflipped, axis=axis, zi=zi*a0)
@@ -362,30 +363,62 @@ def filtfilt(pro, coeffs, chunksize, axis, **kwargs):
 
     Returns: A producer of filtered values of len chunksize along axis.
 
-    Note: Since the filter is a forward/backward filter the initial
-          conditions are handled automatically.
+    Notes:
+        1. This iterative algorithm is not nearly as effecient as working on
+           the full array. For each forward/backward filtered sub arr in
+           producer we must perform a forward/backward filter of two
+           subarrs in producer. This gives us the correct initial conditions
+           at the boundaries of the arrays. It is one reason why FIR filters
+           should be preferred in Openseize.
+
+        2. Since the filter is a forward/backward filter the initial 
+           conditions are handled automatically.
+
+        3. This algorithm does not allow for boundary padding like scipy
+           filtfilt. There is exact agreement b/w openseize and scipy
+           only when scipys filtfilt is called with padtype=None. All
+           other padtypes will show slight differences at the leftmost and
+           rightmost samples along axis.
     """
 
     # get initial value from producer
     x0 = slice_along_axis(next(iter(pro)), 0, 1, axis=axis)
 
-    # build steady state initial condition
-    zss = sps.lfilter_zi(b, a)
+    # get steady state initial conditions
+    zi = sps.lfilter_zi(*coeffs) 
+    # reshape zi so zi * x0 broadcast to correct shape for zi param
+    s = [1] * len(pro.shape)
+    s[axis] = zi.size
+    zi = np.reshape(zi, s)
 
-    # create a producer of forward filtered values
-    forward = lfilter(pro, coeffs, chunksize, axis, zi=zss*x0)
+    # build generators of forward filtered with one advanced
+    x_gen = iter(lfilter(pro, coeffs, chunksize, axis, zi=zi*x0))
+    y_gen = iter(lfilter(pro, coeffs, chunksize, axis, zi=zi*x0))
+    next(y_gen)
 
-    # filter backwards for each forward produced arr
-    for arr in forward:
+    n = int(np.ceil(pro.shape[axis] / pro.chunksize))
+    for idx, x in enumerate(x_gen, 1):
 
-        flipped = np.flip(arr, axis=axis)
-        # get last value as initial cond. for backward pass
-        y0 = slice_along_axis(flipped, 0, 1, axis=axis)
-        z = zss * y0
+        if idx < n:
+
+            y = next(y_gen)
+            # for reverse filter, use final delay values from flipped
+            # advanced 'y' arr as initial values for current flipped x
+            yflipped = np.flip(y, axis=axis)
+            y0 = slice_along_axis(yflipped, 0, 1, axis=axis)
+            _, zf = sps.lfilter(*coeffs, yflipped, axis=axis, zi=zi*y0)
+
+            xflipped = np.flip(x, axis=axis)
+            rfilt, _ = sps.lfilter(*coeffs, xflipped, axis=axis, zi=zf)
+            yield np.flip(rfilt, axis=axis)
         
-        # filter flipped (backward pass), reflip and yield
-        revfilt, z = sps.lfilter(*coeffs, flipped, axis=axis, zi=z)
-        yield np.flip(revfilt, axis=axis)
+        else:
+
+            # for last segment the initial condition is last sample ss
+            xflipped = np.flip(x, axis=axis)
+            x0 = slice_along_axis(xflipped, 0, 1, axis=axis)
+            rfilt, _ = sps.lfilter(*coeffs, xflipped, axis=axis, zi=zi*x0)
+            yield np.flip(rfilt, axis=axis)
 
 
 @as_producer
