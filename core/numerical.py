@@ -280,14 +280,18 @@ def sosfiltfilt(pro, sos, chunksize, axis, **kwargs):
     nforward = _sosfilt(pro, sos, chunksize, axis, zi=zi*x0)
     next(nforward)
     n = np.int(np.ceil(pro.shape[axis] / pro.chunksize))
+    
     for idx, (arr,_) in enumerate(forward):
         
-
         print(idx, n)
 
         if idx < n-1:
 
-            _, zf = next(nforward)
+            next_arr, _ = next(nforward)
+            nflipped = np.flip(next_arr, axis=axis)
+            x = slice_along_axis(nflipped, 0, 1, axis=axis)
+            _, zf = sps.sosfilt(sos, nflipped, axis=axis, zi=zi*x)
+
             flipped = np.flip(arr, axis=axis)
             revfilt, _ = sps.sosfilt(sos, flipped, axis=axis, zi=zf)
             yield np.flip(revfilt, axis=axis)
