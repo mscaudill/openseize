@@ -344,7 +344,8 @@ def test_Notch_coeffs():
 
 
 def test_Notch_pros():
-    """Test if openseize Notch filter matches scipy notch."""
+    """Test if openseize Notch filter matches scipy notch for
+    a forward-backward filter in 'ba' fmt."""
 
     
     rng = np.random.default_rng(0)
