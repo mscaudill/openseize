@@ -275,4 +275,3 @@ class Notch(IIR):
         f0 = self.fstop[0]
         return sps.iirnotch(f0, f0/self.width, fs=self.fs)
 
-
