@@ -276,29 +276,3 @@ class Notch(IIR):
         return sps.iirnotch(f0, f0/self.width, fs=self.fs)
 
 
-if __name__ == '__main__':
-
-    fs = 5000
-
-    #butter = Butter(fpass=[400], fstop=[500], fs=fs) #lowpass
-    #butter = Butter(fpass=[500], fstop=[400], fs=fs) #highpass
-    #butter = Butter(fpass=[500, 700], fstop=[400, 800], fs=fs) #bandpass
-    #butter = Butter(fpass=[400, 800], fstop=[500, 700], fs=fs) #bandstop
-
-    #cheby1 = Cheby1(fpass=[400], fstop=[500], fs=fs) #lowpass
-    #cheby1 = Cheby1(fpass=[500], fstop=[400], fs=fs) #highpass
-    #cheby1 = Cheby1(fpass=[500, 700], fstop=[400, 800], fs=fs) #bandpass
-    #cheby1 = Cheby1(fpass=[400, 800], fstop=[500, 700], fs=fs) #bandstop
-
-    #cheby2 = Cheby2(fpass=[400], fstop=[500], fs=fs) #lowpass
-    #cheby2 = Cheby2(fpass=[500], fstop=[400], fs=fs) #highpass
-    #cheby2 = Cheby2(fpass=[500, 700], fstop=[400, 800], fs=fs) #bandpass
-    #cheby2 = Cheby2(fpass=[400, 800], fstop=[500, 700], fs=fs) #bandstop
-
-    #ellip = Ellip(fpass=[400], fstop=[500], fs=fs) #lowpass
-    #ellip = Ellip(fpass=[500], fstop=[400], fs=fs) #highpass
-    #ellip = Ellip(fpass=[500, 700], fstop=[400, 800], fs=fs) #bandpass
-    #ellip = Ellip(fpass=[400, 800], fstop=[500, 700], fs=fs) #bandstop
-
-    notch = Notch(60, width=6, fs=5000)
-

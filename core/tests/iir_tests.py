@@ -370,6 +370,33 @@ def test_Notch_pros():
         assert np.allclose(oresult, spresult)
 
 
+def test_Notch_pros_nophase():
+    """Test if openseize Notch filter matches scipy notch for
+    a forward-backward filter in 'ba' fmt. for a variety of producer sizes
+    without dephasing."""
+
+    
+    rng = np.random.default_rng(0)
+    axis = -1
+    fs = 500
+
+    lengths = rng.integers(10000, 230000, size=50) 
+
+    for length in lengths:
+
+        # build array and producer
+        arr = rng.random((6, 1, length))
+        pro = producer(arr, chunksize=1000, axis=axis)
+
+        filt = build_filter(iir.Notch, fstop=60, width=4, fs=fs)
+        pro_filt = filt(pro, chunksize=1000, axis=axis, dephase=False)
+        oresult = np.concatenate([arr for arr in pro_filt], axis=axis)
+
+        # filter with scipy
+        spresult = sps.lfilter(*filt.coeffs, arr, axis=axis)
+
+        assert np.allclose(oresult, spresult)
+
 
 
 
