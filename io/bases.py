@@ -286,7 +286,7 @@ class Annotations(abc.ABC):
 
     @abc.abstractmethod
     def channel(self, row):
-        """Retrurns the sensor this annotated event was detected on."""
+        """Returns the sensor this annotated event was detected on."""
 
     def read(self, labels=None):
         """Reads annotations with labels to a list of Annotation instances.

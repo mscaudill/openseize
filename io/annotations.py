@@ -93,7 +93,7 @@ def as_mask(annotations, size, fs, include=True):
         include: bool
             A boolean to determine if annotations should be set to True or
             False in the returned array. Default is True, meaning all values
-            are False in the returned array expect for samples where the
+            are False in the returned array except for samples where the
             annotations are located.
 
     Returns:
