@@ -20,14 +20,11 @@ This module contains the following classes and functions:
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from openseize.core import numerical as nm
 from openseize.core.resources import is_assignable
 from openseize import producer
 from openseize.core.producer import Producer
-from openseize.spectra.plotting import banded
-from openseize.spectra.metrics import power
 
 
 def psd(data, fs, axis=-1, resolution=0.5, window='hann', overlap=0.5,
@@ -102,35 +99,6 @@ def psd(data, fs, axis=-1, resolution=0.5, window='hann', overlap=0.5,
         result = result + 1 / cnt * (arr - result)
     
     return cnt, freqs, result
-
-
-def normalize(estimate, freqs, start=None, stop=None, axis=-1):
-    """Normalizes power spectral densities by the total power between 
-    start and stop frequencies.
-
-    Args:
-        estimate: ndarray
-            An ndarray of PSD values to normalize.
-        freqs: 1-D array
-            Array of frequency values at which PSD was estimated.
-        start: float
-            The start frequency to begin measuring power at. If not in
-            freqs, the closest value in freqs will be used. If None the
-            first frequency in freqs is used. Default is None.
-        stop: float
-            The stop frequency to stop measuring power at. If not in
-            freqs, the closest value in freqs will be used. If None the
-            last frequency in freqs is used. Default is None.
-        axis: int
-            The frequency axis of the psd ndarray.
-
-    Returns:
-        An array of normalized PSD values.
-    """
-        
-    norm = power(estimate, freqs, start, stop, axis)
-    norm = np.expand_dims(norm, axis=axis)
-    return estimate / norm
 
 
 def stft(data, fs, axis, resolution=0.5, window='hann', overlap=0.5,

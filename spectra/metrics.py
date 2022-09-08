@@ -48,6 +48,38 @@ def power(psd, freqs, start=None, stop=None, axis=-1):
     return result
 
 
+def power_norm(estimate, freqs, start=None, stop=None, axis=-1):
+    """Normalizes power spectral densities by the total power between 
+    start and stop frequencies.
+
+    This normalization may be applied to an averaged power spectral density
+    or the magnitude squared of the STFT scaled by spectral density.
+
+    Args:
+        estimate: ndarray
+            An ndarray of PSD values to normalize.
+        freqs: 1-D array
+            Array of frequency values at which PSD was estimated.
+        start: float
+            The start frequency to begin measuring power at. If not in
+            freqs, the closest value in freqs will be used. If None the
+            first frequency in freqs is used. Default is None.
+        stop: float
+            The stop frequency to stop measuring power at. If not in
+            freqs, the closest value in freqs will be used. If None the
+            last frequency in freqs is used. Default is None.
+        axis: int
+            The frequency axis of the psd ndarray.
+
+    Returns:
+        An array of normalized PSD values.
+    """
+        
+    norm = power(estimate, freqs, start, stop, axis)
+    norm = np.expand_dims(norm, axis=axis)
+    return estimate / norm
+
+
 def confidence_interval(psd, n, alpha=0.05):
         """Returns the 1-alpha level confidence interval for each signal in 
         a power spectrum estimate.
