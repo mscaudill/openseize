@@ -81,7 +81,6 @@ class StftViewer:
         self.add_high_limit(ax0_pos)
         
         plt.ion()
-        plt.show()
 
 
     def init_channels(self, chs):
@@ -238,6 +237,13 @@ class StftViewer:
         value = int(value)
         
         self.stride = value if value > 0 else self.stride
+        self.current = self.stride // 2
+
+        # on stride change the sliders min, max must change
+        self.slider.valmin = self.stride // 2
+        self.slider.valmax = self.data.shape[-1] - self.stride // 2
+
+        self.slider.set_val(self.current)
         self.update()
 
     
@@ -286,7 +292,7 @@ class StftViewer:
 
 
     def limit_submit(self, value):
-        """ """
+        """On freq. limit change update the stored limits & update plot."""
 
         low, high = int(self.low_limit.text), int(self.high_limit.text)
         self.limits = (low, high)
@@ -294,26 +300,29 @@ class StftViewer:
 
 
     def update(self):
-        """ """
+        """Updates the data displayed to this viewer plotting axes."""
 
         [ax.clear() for ax in self.axarr]
 
+        # slice the freqs, time vector & data around current time
         a = nearest1D(self.time, self.current - self.stride / 2) 
         b = nearest1D(self.time, self.current + self.stride / 2)
         x = self.data[self.chs]
         x = slice_along_axis(x, a, b, axis=-1)
-        t = slice_along_axis(time, a, b)
+        t = slice_along_axis(self.time, a, b)
 
-        vmin = np.amin(x)
-        vmax = np.amax(x)
+        low = nearest1D(self.freqs, self.limits[0])
+        high = nearest1D(self.freqs, self.limits[1])
+        f = slice_along_axis(self.freqs, low, high+1)
+        x = slice_along_axis(x, low, high+1, axis=-2)
 
         for idx, ch in enumerate(self.chs):
 
-            self.axarr[idx].pcolormesh(t, self.freqs, x[idx],
-            shading='nearest', vmin=vmin, vmax=vmax, rasterized=True)
+            self.axarr[idx].pcolormesh(t, f, x[idx], shading='nearest', 
+                                       rasterized=True)
             self.axarr[idx].xaxis.set_visible(False)
         
-        [ax.set_ylim(*self.limits) for ax in self.axarr]
+        #[ax.set_ylim(*self.limits) for ax in self.axarr]
         self.axarr[-1].set_ylabel('Frequency (Hz)', fontsize=12)
         for ax, name in zip(self.axarr, self.names):
             ax.annotate(name, (0.95, .85), xycoords='axes fraction',
@@ -348,7 +357,7 @@ if __name__ == '__main__':
     
     # easy to notch
     line_freq = nearest1D(freqs, 60)
-    data[:, line_freq-4:line_freq+4, :] = 0
+    data[:, line_freq-5:, :] = 0
 
     # get average power in each time bin
     #fnorm = power(data, freqs, None, None, axis=-1)
