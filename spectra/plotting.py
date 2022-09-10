@@ -35,29 +35,47 @@ def banded(x, upper, lower, ax, **kwargs):
     return ax   
 
 
-class StftViewer:
+class STFTViewer:
     """An interactive matplotlib figure for plotting the magnitude of
-    a Short-Time Fourier transform.
+    a Short-Time Fourier transform of multichannel eeg data.
 
     Attrs:
-        data:
-        freqs:
-        time:
-        chs:
-        kwargs:
+        data (ndarray):     The squared norm of the STFT array with 
+                            shape channels x frequencies x time.
+        freqs (1-D array):  An array of STFT frequencies in Hz.
+        time (1-D array):   An array of STFT times in secs.
+        scale (str):        String specifying a scaling function to apply to
+                            data prior to display. Default is the dB power 
+                            scale = 10 * np.log10(data).
+        chs (seq):          Sequence of channel indices to display. Default 
+                            None will plot all channels.
+        names (seq):        Sequence of channel names to display on
+                            subplots.
+        stride (int):       The amount of data in secs to display to each
+                            subplot of the viewer. This stride straddles the
+                            current time t: [t-stride//2, t+stride//2].
+                            Default is 120 secs - 60 secs before and after
+                            each time displayed.
+        figsize (tuple):    The shape tuple of the displayed matplotlib
+                            figure. Default is (8,6).
     """
 
-    def __init__(self, freqs, time, data, chs=None, stride=30,
-                 figsize=(8,6), names=None, **kwargs):
+    def __init__(self, freqs, time, data, scale='dB', chs=None, names=None, 
+                 stride=120, figsize=(8,6)):
         """Initialize this Viewer by creating the matploltib figure."""
 
         self.freqs = freqs
         self.time = time
-        self.data = data
+        self.data = self.rescale(data, scale)
+        self.scale = scale
         self.chs = self.init_channels(chs)
         self.names = self.init_names(names)
         self.stride = stride
         self.current = stride / 2
+
+        # min and max values for each channel
+        self.vmins = np.amin(self.data, axis=(1,2))
+        self.vmaxes = np.amax(self.data, axis=(1,2))
 
         # initialize viewer to display all frequencies
         self.limits = (freqs[0], freqs[-1])
@@ -81,7 +99,20 @@ class StftViewer:
         self.add_high_limit(ax0_pos)
         
         plt.ion()
+        plt.show()
 
+
+    def rescale(self, data, scale):
+        """Rescales the data for easier visualization."""
+        
+        if scale is None:
+            return data
+
+        elif scale == 'dB':
+            return 10 * np.log(data + 1)
+
+        else:
+            raise ValueError('Unknown scaling')
 
     def init_channels(self, chs):
         """Initialize the channels to display in this viewer."""
@@ -120,7 +151,7 @@ class StftViewer:
         
         # add slider widget setting its min, max & step
         vmin = self.stride // 2
-        vmax = time[-1] - self.stride // 2
+        vmax = self.time[-1] - self.stride // 2
         step = self.stride
         self.slider = widgets.Slider(self.slider_ax, 'Time', vmin, 
                                      vmax, valinit=self.current, 
@@ -223,7 +254,7 @@ class StftViewer:
         self.restride_ax = plt.axes([.45, 0.03, 0.04, 0.03])
 
         # add textbox setting its initial value
-        self.stride_entry = widgets.TextBox(self.restride_ax, 'Stride',
+        self.stride_entry = widgets.TextBox(self.restride_ax, 'Stride ',
                                             self.stride, '1', 
                                             textalignment='center')
 
@@ -289,7 +320,7 @@ class StftViewer:
                                           '1', textalignment='right')
         # define the callback of this limit entry
         self.high_limit.on_submit(self.limit_submit)
-
+ 
 
     def limit_submit(self, value):
         """On freq. limit change update the stored limits & update plot."""
@@ -304,68 +335,42 @@ class StftViewer:
 
         [ax.clear() for ax in self.axarr]
 
-        # slice the freqs, time vector & data around current time
-        a = nearest1D(self.time, self.current - self.stride / 2) 
-        b = nearest1D(self.time, self.current + self.stride / 2)
+        # get data for channels to display
         x = self.data[self.chs]
-        x = slice_along_axis(x, a, b, axis=-1)
-        t = slice_along_axis(self.time, a, b)
+        
+        # slice the frequency vector and data along 2nd (freq) axis
+        low_f = nearest1D(self.freqs, self.limits[0])
+        high_f = nearest1D(self.freqs, self.limits[1])
+        f = slice_along_axis(self.freqs, low_f, high_f + 1)
+        x = slice_along_axis(x, low_f, high_f + 1, axis=-2)
 
-        low = nearest1D(self.freqs, self.limits[0])
-        high = nearest1D(self.freqs, self.limits[1])
-        f = slice_along_axis(self.freqs, low, high+1)
-        x = slice_along_axis(x, low, high+1, axis=-2)
+        # slice the time vector & data along last (time) axis
+        time_a = nearest1D(self.time, self.current - self.stride / 2) 
+        time_b = nearest1D(self.time, self.current + self.stride / 2)
+        x = slice_along_axis(x, time_a, time_b, axis=-1)
+        t = slice_along_axis(self.time, time_a, time_b)
 
         for idx, ch in enumerate(self.chs):
 
-            self.axarr[idx].pcolormesh(t, f, x[idx], shading='nearest', 
-                                       rasterized=True)
-            self.axarr[idx].xaxis.set_visible(False)
+            # fetch subplot axis and display sliced data
+            ax = self.axarr[idx]
+            vmin, vmax = self.vmins[idx], self.vmaxes[idx]
+            ax.pcolormesh(t, f, x[idx], shading='nearest', vmin=vmin,
+                          vmax=vmax, rasterized=True)
+            
+            # configure ticks
+            ax.xaxis.set_visible(False)
         
-        #[ax.set_ylim(*self.limits) for ax in self.axarr]
+        # add labels to last axis
         self.axarr[-1].set_ylabel('Frequency (Hz)', fontsize=12)
+        self.axarr[-1].set_xlabel('Time (s)', fontsize=12)
+        self.axarr[-1].xaxis.set_visible(True)
+        
+        # add channel names
         for ax, name in zip(self.axarr, self.names):
             ax.annotate(name, (0.95, .85), xycoords='axes fraction',
                         color='white', fontsize=12)
-        self.axarr[-1].set_xlabel('Time (s)', fontsize=12)
-        self.axarr[-1].xaxis.set_visible(True)
+        
+        # update drawn data
         plt.draw()
-
-
-
-if __name__ == '__main__':
-
-    from openseize import demos
-    from openseize import producer
-    from openseize.io.edf import Reader
-    from openseize.resampling.resampling import downsample
-    from openseize.filtering.iir import Notch
-    from openseize.spectra.estimators import stft
-    from openseize.spectra.metrics import power_norm, power
-
-    fp = demos.paths.locate('recording_001.edf')
-    #fp ='/media/matt/Magnus/data/eigensort/'+\
-    #'DL00A1_P043_nUbe3a_15_53_3dayEEG_2019-04-03_13_41_20.edf'
-    reader = Reader(fp)
-    pro = producer(reader, chunksize=10e6, axis=-1)
-    
-    #downsample data
-    dpro = downsample(pro, M=25, fs=5000, chunksize=10e6, axis=-1)
-    
-    freqs, time, Z = stft(dpro, fs=200, axis=-1, asarray=True)
-    data = np.real(Z)**2 + np.imag(Z)**2
-    
-    # easy to notch
-    line_freq = nearest1D(freqs, 60)
-    data[:, line_freq-5:, :] = 0
-
-    # get average power in each time bin
-    #fnorm = power(data, freqs, None, None, axis=-1)
-    #fnorm = np.expand_dims(fnorm, axis=-1)
-    #norm = np.mean(fnorm, axis=-1, keepdims=True)
-    #normed = data / fnorm
-
-    #normed = power_norm(data, freqs, axis=1)
-    viewer = StftViewer(freqs, time, data, chs=[0, 1, 2], 
-                        names=['LFC', 'RVC', 'LSC'])
 
