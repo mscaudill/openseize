@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import widgets
+from functools import partial
 
 from openseize.core.arraytools import nearest1D, slice_along_axis
 from openseize.spectra.metrics import power_norm
@@ -94,10 +95,9 @@ class STFTViewer:
         self.update()
 
         # add low & high frequency limits
-        ax0_pos = self.axarr[0].get_position()
-        self.add_low_limit(ax0_pos)
-        self.add_high_limit(ax0_pos)
-        
+        self.add_low_limit(self.axarr[0])
+        self.add_high_limit(self.axarr[0])
+
         plt.ion()
         plt.show()
 
@@ -109,7 +109,7 @@ class STFTViewer:
             return data
 
         elif scale == 'dB':
-            return 10 * np.log(data + 1)
+            return 10 * np.log10(data + 1)
 
         else:
             raise ValueError('Unknown scaling')
@@ -278,21 +278,22 @@ class STFTViewer:
         self.update()
 
     
-    def add_low_limit(self, position):
+    def add_low_limit(self, ax):
         """Add a fully configured low freq. limit entry to this viewer.
         
         Args:
-            position (mpl bbox): A bounding box for the first axis displayed
-                                 in this viewer.
+            ax (mpl axis): A matplotlib axis instance where the low limit
+                           will be added.
         """
 
+        position = ax.get_position()
         # build entry axis container relative to first plotting axis 
         left = position.x0 - .06
         bottom = position.y0 - 0.015
         self.low_limit_ax = plt.axes([left, bottom, 0.05, 0.03])
         
         # add textbox setting init value to init limit of plot axis
-        low, _ = self.axarr[0].get_ylim()
+        low, _ = ax.get_ylim()
         low = str(int(low))
         self.low_limit = widgets.TextBox(self.low_limit_ax, '', low, '1',
                                          '1', textalignment='right')
@@ -300,21 +301,22 @@ class STFTViewer:
         self.low_limit.on_submit(self.limit_submit)
 
     
-    def add_high_limit(self, position):
+    def add_high_limit(self, ax):
         """Add a fully configured high freq. limit entry to this viewer.
         
         Args:
-            position (mpl bbox): A bounding box for the first axis displayed
-                                 in this viewer.
+            ax (mpl axis): A matplotlib axis instance where the high limit
+                           will be added.
         """
 
+        position = ax.get_position()
         # build entry axis container relative to first plotting axis 
         left = position.x0 - .06
         top = position.y1 - 0.015
         self.high_limit_ax = plt.axes([left, top, 0.05, 0.03])
 
         # add textbox setting init value to init limit of plot axis
-        _, high = self.axarr[0].get_ylim()
+        _, high = ax.get_ylim()
         high = str(int(high))
         self.high_limit = widgets.TextBox(self.high_limit_ax, '', high, '1',
                                           '1', textalignment='right')
@@ -328,6 +330,18 @@ class STFTViewer:
         low, high = int(self.low_limit.text), int(self.high_limit.text)
         self.limits = (low, high)
         self.update()
+
+
+    def fmt_coord(self, ax, x, y):
+        """When hovering over an axis display the x, y & stft magnitude for
+        each pcolormesh subplot."""
+
+        ax_idx = list(self.axarr).index(ax)
+        ch = self.chs[ax_idx]
+        x, y = int(np.round(x)), int(np.round(y))
+        z = self.data[ch, y, x]
+        msg = 'x={:d}, y={:d}, z={:.2f}'.format(x, y, z)
+        return msg
 
 
     def update(self):
@@ -360,7 +374,10 @@ class STFTViewer:
             
             # configure ticks
             ax.xaxis.set_visible(False)
-        
+            
+            # configure the string fmt for this axis disp at top right
+            ax.format_coord = partial(self.fmt_coord, ax)
+            
         # add labels to last axis
         self.axarr[-1].set_ylabel('Frequency (Hz)', fontsize=12)
         self.axarr[-1].set_xlabel('Time (s)', fontsize=12)
@@ -370,7 +387,38 @@ class STFTViewer:
         for ax, name in zip(self.axarr, self.names):
             ax.annotate(name, (0.95, .85), xycoords='axes fraction',
                         color='white', fontsize=12)
+
         
         # update drawn data
         plt.draw()
 
+
+if __name__ == '__main__':
+
+    from openseize.io.edf import Reader
+    from openseize import producer
+    from openseize.resampling.resampling import downsample
+    from openseize.spectra.estimators import stft
+    from isospectra.models import SpectralK
+
+    fp = '/home/matt/python/nri/openseize/demos/data/recording_001.edf'
+    reader = Reader(fp)
+
+    #FIXME ERROR encountered when channels passed as kwarg
+    pro = producer(reader, chunksize=10e6, axis=-1)
+
+    #downsample data
+    dpro = downsample(pro, M=25, fs=5000, chunksize=10e6, axis=-1)
+
+    # compute STFT and compute norm squared
+    freqs, time, Z = stft(dpro, fs=200, axis=-1, asarray=True)
+    data = np.real(Z)**2 + np.imag(Z)**2
+
+
+    
+    x = np.swapaxes(data, -1, -2)
+    model = SpectralK()
+    model.transform(x, L=10, channels=[0,1,2], scree=False)
+    model.fit(k=10)
+
+    v = STFTViewer(freqs, time, data, chs=[0, 1, 2])
