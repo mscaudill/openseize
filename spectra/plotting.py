@@ -332,18 +332,14 @@ class STFTViewer:
         self.update()
 
 
-    def fmt_coord(self, ax, x, y):
+    def fmt_coord(self, channel, x, y):
         """When hovering over an axis display the time, freq & stft 
         magnitude for each subplot."""
 
-        # get the channel for this ax
-        ax_idx = list(self.axarr).index(ax)
-        ch = self.chs[ax_idx]
-        
         # get nearest freq and time indices & stft scaled magnitude 
         f_idx = nearest1D(self.freqs, y)
         t_idx = nearest1D(self.time, x)
-        z = self.data[ch, f_idx, t_idx]
+        z = self.data[channel, f_idx, t_idx]
         scale = self.scale if self.scale else ''
 
         msg = '\ntime = {:.2f}, freq = {:.2f}, [{:.1f}] {scale}\n {blank:>100}'
@@ -382,7 +378,7 @@ class STFTViewer:
             ax.xaxis.set_visible(False)
             
             # configure the string fmt for this axis disp at top right
-            ax.format_coord = partial(self.fmt_coord, ax)
+            ax.format_coord = partial(self.fmt_coord, ch)
             
         # add labels to last axis
         self.axarr[-1].set_ylabel('Frequency (Hz)', fontsize=12)
@@ -398,3 +394,24 @@ class STFTViewer:
         # update drawn data
         plt.draw()
 
+if __name__ == '__main__':
+
+    from openseize.io.edf import Reader
+    from openseize import producer
+    from openseize.resampling.resampling import downsample
+    from openseize.spectra.estimators import stft
+    from isospectra.models import SpectralK
+
+    fp = '/home/matt/python/nri/openseize/demos/data/recording_001.edf'
+    reader = Reader(fp)
+
+    #FIXME ERROR encountered when channels passed as kwarg
+    pro = producer(reader, chunksize=10e6, axis=-1)
+
+    #downsample data
+    dpro = downsample(pro, M=25, fs=5000, chunksize=10e6, axis=-1)
+
+    # compute STFT and compute norm squared
+    freqs, time, Z = stft(dpro, fs=200, axis=-1, asarray=True)
+    data = np.real(Z)**2 + np.imag(Z)**2
+    v = STFTViewer(freqs, time, data, chs=[0,1,2])
