@@ -157,12 +157,26 @@ def oaconvolve(pro, window, axis, mode):
     #set producer chunksize to L & perform overlap add
     pro.chunksize = L
     for segment_num, subarr in enumerate(pro):
+
+        print('{} of {} complete'.format(segment_num, nsegments),
+              end='\r', flush=True)
         # pad the length L segment with M-1 zeros for overlap
         x = pad_along_axis(subarr, [0, M - 1], axis=axis)
-        
+       
+        #TODO 10-11-2022
+        # possibles
+        # the nfft used is wrong
+        # the as_producer may be taking time
+        # the if else below may be taking time
+        # replace slicing with slice _along_axis
+        # the if test for segment number also taking time
+        # need to get the multiply along axis correct below
+        # use slicing instead of np.split
+
         #perform circular convolution
-        xf = multiply_along_axis(fft.fft(x, nfft, axis=axis), H, axis=axis)
-        y = fft.ifft(xf, axis=axis).real
+        #xf = multiply_along_axis(fft.fft(x, nfft, axis=axis), H, axis=axis)
+        #y = fft.ifft(xf, axis=axis).real
+        y = fft.ifft(fft.fft(x, nfft, axis=axis) * H, axis=axis).real
         
         #split filtered segment and overlap
         if segment_num < nsegments - 1:
