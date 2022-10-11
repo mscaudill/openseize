@@ -133,7 +133,8 @@ class Viewer:
 
         return ax
     
-    def plot(self, size=(8,6), gridalpha=0.3, worN=2048, rope=-100):
+    def plot(self, size=(8,6), gridalpha=0.3, worN=2048, rope=-100,
+            axarr=None, show=True):
         """Plots the impulse and frequency response of this filter.
 
         Args:
@@ -149,9 +150,13 @@ class Viewer:
                 equivalence will be set to this value. Default is -100
                 dB. Any filter response smaller than this will be set to
                 -100 for plotting.
+            axarr: A Matplotlib axis array.
+                An optional axis array to plot the impulse and frequency
+                responses to. Default None means a new axis is created.
         """
 
-        fig, axarr = plt.subplots(3, 1, figsize=size)
+        if axarr is None:
+            fig, axarr = plt.subplots(3, 1, figsize=size)
         axarr[1].get_shared_x_axes().join(axarr[1], axarr[2])
         
         # Plot impulse response and configure axis
@@ -193,9 +198,13 @@ class Viewer:
 
         # Configure axes grids
         [ax.grid(alpha=gridalpha) for ax in axarr]
-        plt.ion() 
         plt.tight_layout()
-        plt.show()
+    
+        if show:
+            plt.show() 
+        else:
+            return axarr
+        
 
 
 class IIRViewer(Viewer):
