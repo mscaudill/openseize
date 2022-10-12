@@ -1,5 +1,5 @@
 import numpy as np
-
+from openseize.core.arraytools import slice_along_axis
 
 class FIFOArray:
     """A first-in-first-out queue-like data structure for collecting 
@@ -55,7 +55,14 @@ class FIFOArray:
     def get(self):
         """Pops an array of size chunksize along axis from this queue."""
 
+        """
         result, self.queue = np.split(self.queue, [self.chunksize],
+                                      axis=self.axis)
+        """
+
+        result = slice_along_axis(self.queue, 0, self.chunksize, 
+                                  axis=self.axis)
+        self.queue = slice_along_axis(self.queue, self.chunksize, 
                                       axis=self.axis)
         return result
 

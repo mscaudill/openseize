@@ -1,7 +1,6 @@
 import numpy as np
 import itertools
 from functools import partial
-from numpy import fft
 import scipy.signal as sps
 
 from openseize import producer
@@ -114,8 +113,114 @@ def _oa_mode(arr, window, side, axis, mode):
     return arr[tuple(slices)]
 
 
-@as_producer
+#@as_producer
 def oaconvolve(pro, window, axis, mode):
+    """Performs overlap-add circular convolution of a producer of 
+    ndarrays with a 1-dimensional window.
+
+    Args:
+        pro: producer of ndarrays
+            The data to be convolved.
+        window: 1-D array            
+            A 1-D window to convolve across data.
+        axis: int                 
+            The axis of data along which window should be convolved.
+        mode: str
+            A convolution mode matching one of 'full', 'same', 'valid'.
+            These modes are identical to numpy convolve modes.
+
+    Numpy & Scipy implementations of oaconvolve require that the input be an
+    in-memory array. Openseize utilizes a producer making it suitable for
+    convolving 1-D arrays across data that may not fit into memory.
+
+    Returns:
+    """
+
+    # compute the near optimal nfft number and FFT of window
+    nfft = optimal_nffts(window) * 32
+    wlen = len(window)
+    H = np.fft.rfft(window, nfft)
+
+    # set the step size based on optimal nfft and wlen
+    step = nfft - wlen + 1
+    nsegments = int(np.ceil(pro.shape[axis] / step))
+
+    # create the wlen-1 samples overlap
+    overlap_shape = list(pro.shape)
+    overlap_shape[axis] = wlen - 1
+    overlap = np.zeros(overlap_shape)
+
+    # FIFOArray holding chunksize arrays but yielding step size arrays
+    fifo = FIFOArray(step, axis)
+
+    def _cconvolve(arr, H, nfft, wlen, axis):
+        """ """
+        
+        # pad with wlen-1 zeros for overlap & FFT
+        x = pad_along_axis(arr, [0, wlen - 1], axis=axis)
+        xf = np.fft.rfft(x, nfft, axis=axis)
+            
+        # take product with window in freq. domain
+        product = multiply_along_axis(xf, H, axis=axis)
+
+        # back transform to sample domain
+        return  np.fft.irfft(product, axis=axis).real
+
+    segment = 0
+    for arr in pro:
+
+        fifo.put(arr)
+
+        while fifo.qsize() > step:
+           
+            arr = fifo.get()
+            
+            z = _cconvolve(arr, H, nfft, wlen, axis)
+            
+            #split segement and new overlap
+            if segment < nsegments - 1:
+                y, new_overlap = np.split(z, [step], axis=axis)
+
+            #add previous overlap to convolved and update overlap
+            slices = [slice(None)] * arr.ndim
+            slices[axis] = slice(0, wlen - 1)
+            y[tuple(slices)] += overlap
+            overlap = new_overlap
+
+            #apply the boundary mode to first and last segments
+            if segment == 0:
+                y = _oa_mode(y, window, 'left', axis, mode)
+        
+            #update segment
+            segment += 1
+        
+            yield y
+        
+        else:
+            # next iter of for loop
+            continue
+    else:
+        
+        if not fifo.empty():
+            
+            arr = fifo.queue
+
+            z = _cconvolve(arr, H, nfft, wlen, axis)
+
+            # last segment has wlen - 1 overhang
+            last = arr.shape[axis] + wlen - 1
+            y = slice_along_axis(z, 0, last, axis=axis)
+
+            #add previous overlap to convolved and update overlap
+            slices = [slice(None)] * arr.ndim
+            slices[axis] = slice(0, wlen - 1)
+            y[tuple(slices)] += overlap
+
+            yield _oa_mode(y, window, 'right', axis, mode)
+
+
+@as_producer
+def _oaconvolve(pro, window, axis, mode):
     """Performs overlap-add circular convolution of a producer of 
     ndarrays with a 1-dimensional window.
 
@@ -143,7 +248,7 @@ def oaconvolve(pro, window, axis, mode):
     #estimate optimal nfft and transform window
     nfft = optimal_nffts(window)
     M = len(window)
-    H = fft.fft(window, nfft)
+    H = np.fft.fft(window, nfft)
 
     #set the step size 'L' and compute num of segments
     L = nfft - M + 1
@@ -172,11 +277,12 @@ def oaconvolve(pro, window, axis, mode):
         # the if test for segment number also taking time
         # need to get the multiply along axis correct below
         # use slicing instead of np.split
+        # use new convolve slicer
 
         #perform circular convolution
-        #xf = multiply_along_axis(fft.fft(x, nfft, axis=axis), H, axis=axis)
-        #y = fft.ifft(xf, axis=axis).real
-        y = fft.ifft(fft.fft(x, nfft, axis=axis) * H, axis=axis).real
+        xf = multiply_along_axis(np.fft.fft(x, nfft, axis=axis), H, axis=axis)
+        y = np.fft.ifft(xf, axis=axis).real
+        #y = fft.ifft(fft.fft(x, nfft, axis=axis) * H, axis=axis).real
         
         #split filtered segment and overlap
         if segment_num < nsegments - 1:

@@ -372,6 +372,35 @@ class GenProducer(Producer):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
 
         collector = FIFOArray(self.chunksize, self.axis)
+
+        #10-12-2022
+        tmp = []
+        size = 0
+        for subarr in self.data(**self.kwargs):
+
+            tmp.append(subarr)
+            size += subarr.shape[self.axis]
+            
+            if size < self.chunksize:
+                
+                continue
+
+            else:
+
+                arr = np.concatenate(tmp, axis=self.axis)
+                collector.put(arr)
+
+                tmp = []
+                size = 0
+
+                while collector.full():
+                    yield collector.get()
+        else:
+            if collector.qsize() > 0:
+                yield collector.get()
+
+            
+        """
         for subarr in self.data(**self.kwargs):
             collector.put(subarr)
             while collector.full():
@@ -380,6 +409,7 @@ class GenProducer(Producer):
             # yield anything left in collector queue
             if collector.qsize() > 0:
                 yield collector.get()
+        """
 
 
 class MaskedProducer(Producer):
