@@ -134,8 +134,17 @@ class Reader(abc.ABC, mixins.ViewInstance):
         self.path = Path(path)
         self._fobj = open(path, mode)
 
+    @abc.abstractproperty
+    def channels(self):
+        """Returns the channels that this Reader will read."""
+
+    @channels.setter
     @abc.abstractmethod
-    def read(self, start, stop, channels, **kwargs):
+    def channels(self, val):
+        """Sets the channels that this Reader will read."""
+
+    @abc.abstractmethod
+    def read(self, start, stop, **kwargs):
         """Returns a numpy array of sample values between start and stop for
         each channel in channels.
 
@@ -144,8 +153,6 @@ class Reader(abc.ABC, mixins.ViewInstance):
                 Start sample index of file read.
             stop: int
                 Stop sample index of file read (exclusive).
-            channels: sequence
-                Sequence of channel indices to read.
             
         Returns: 
             A channels x (stop-start) array of sample values.

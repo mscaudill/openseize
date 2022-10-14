@@ -58,6 +58,7 @@ This module contains the following classes and functions:
 import numpy as np
 import copy
 from pathlib import Path
+from collections.abc import Sequence
 from openseize.io import bases
 
 
@@ -300,13 +301,30 @@ class Reader(bases.Reader):
 
         super().__init__(path, mode='rb')
         self.header = Header(path)
+        self._channels = self.header.channels
+
+    @property
+    def channels(self):
+        """Returns the channels that this Reader will read."""
+
+        return self._channels
+
+    @channels.setter
+    def channels(self, values):
+        """Sets the channels that this Reader will read."""
+
+        if not isinstance(values, Sequence):
+            msg = 'Channels must be type Sequence not {}'
+            raise ValueError(msg.format(type(value)))
+        
+        self._channels = values
 
     @property
     def shape(self):
         """Returns a 2-tuple containing the number of channels and 
         number of samples in this EDF."""
 
-        return len(self.header.channels), max(self.header.samples)
+        return len(self.channels), max(self.header.samples)
 
     def _decipher(self, arr, channels, axis=-1):
         """Converts an array of EDF integers to an array of voltage floats.
@@ -480,7 +498,7 @@ class Reader(bases.Reader):
         res = self._padstack(result, padvalue)
         return self._decipher(res, channels)
     
-    def read(self, start, stop=None, channels=None, padvalue=np.NaN):
+    def read(self, start, stop=None, padvalue=np.NaN):
         """Reads samples from this EDF for the specified channels.
 
         Args:
@@ -489,9 +507,6 @@ class Reader(bases.Reader):
             stop: int
                 The stop sample index to read (exclusive). If None, samples
                 will be read until the end of file. Default is None.
-            channels: sequence
-                Sequence of channels to read from EDF. If None, all channels
-                in the EDF will be read. Default is None.
             padvalue: float
                 Value to pad to channels that run out of samples to return.
                 Only applicable if sample rates of channels differ. Default
@@ -501,12 +516,11 @@ class Reader(bases.Reader):
             A float64 array of shape len(chs) x (stop-start) samples.
         """
 
-        channels = self.header.channels if not channels else channels
         if start > max(self.header.samples):
-            return np.empty((len(channels), 0))
+            return np.empty((len(self.channels), 0))
         if not stop:
             stop = max(self.header.samples)
-        return self._read_array(start, stop, channels, padvalue)
+        return self._read_array(start, stop, self.channels, padvalue)
 
 
 class Writer(bases.Writer):
@@ -567,7 +581,8 @@ class Writer(bases.Writer):
                 if isinstance(data, np.ndarray):
                     result.append(data[channel][start:stop])
                 else:
-                    result.append(data.read(start, stop, [channel]))
+                    data.channels = [channel]
+                    result.append(data.read(start, stop))
             
             yield result
 
