@@ -98,8 +98,11 @@ def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     elif inspect.isgeneratorfunction(data):
         result = GenProducer(data, chunksize, axis, shape, **kwargs)
 
-    elif isinstance(data, (np.ndarray, Sequence)):
-        x = np.array(data)
+    elif isinstance(data, np.ndarray):
+        result = ArrayProducer(data, chunksize, axis, **kwargs)
+
+    elif isinstance(data, Sequence):
+        x = np.concatenate(data, axis)
         result = ArrayProducer(x, chunksize, axis, **kwargs)
 
     else:
@@ -281,11 +284,13 @@ class ReaderProducer(Producer):
         # make generators of start, stop samples & exhaust reader
         starts = itertools.count(start=0, step=self.chunksize)
         stops = itertools.count(start=self.chunksize, step=self.chunksize)
+        
         for start, stop in zip(starts, stops): 
             arr = self.data.read(start, stop=stop, **self.kwargs)
             # if exhausted close reader and exit
             if arr.size == 0:
                 break
+            
             yield arr
 
     def close(self):
@@ -321,6 +326,7 @@ class ArrayProducer(Producer):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
 
         starts = range(0, self.data.shape[self.axis], self.chunksize)
+        
         for t in itertools.zip_longest(starts, starts[1:], fillvalue=None):
             yield self.data[self._slice(*t)]
 
@@ -372,45 +378,31 @@ class GenProducer(Producer):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
 
         collector = FIFOArray(self.chunksize, self.axis)
-
-        #10-12-2022
+        
         tmp = []
-        size = 0
+        tmp_size = 0
         for subarr in self.data(**self.kwargs):
 
             tmp.append(subarr)
-            size += subarr.shape[self.axis]
+            tmp_size += subarr.shape[self.axis]
             
-            if size < self.chunksize:
-                
-                continue
-
-            else:
-
+            if tmp_size >= self.chunksize:
                 arr = np.concatenate(tmp, axis=self.axis)
                 collector.put(arr)
 
-                tmp = []
-                size = 0
-
                 while collector.full():
                     yield collector.get()
-        else:
-            if collector.qsize() > 0:
-                yield collector.get()
 
+                tmp = [collector.queue]
+                tmp_size = collector.qsize()
+                collector.queue = np.array([])
             
-        """
-        for subarr in self.data(**self.kwargs):
-            collector.put(subarr)
-            while collector.full():
-                yield collector.get()
-        else:
-            # yield anything left in collector queue
-            if collector.qsize() > 0:
-                yield collector.get()
-        """
+            else:
+                continue
 
+        else:
+            yield np.concatenate(tmp, axis=self.axis)
+        
 
 class MaskedProducer(Producer):
     """A Producer of numpy arrays with values that have been filtered by
@@ -440,6 +432,7 @@ class MaskedProducer(Producer):
         included  = np.count_nonzero(self.mask.to_array(dtype=bool))
         #iteration stops when producer or mask runs out
         result[self.axis] = min(self.data.shape[self.axis], included)
+        
         return tuple(result)
 
     @property
@@ -462,9 +455,13 @@ class MaskedProducer(Producer):
         for arr, maskarr in zip(self.data, self.mask):
             filtered = np.take(arr, np.flatnonzero(maskarr), axis=self.axis)
             collector.put(filtered)
+            
             while collector.full():
+                
                 yield collector.get()
+        
         else:
             if collector.qsize() > 0:
+                
                 yield collector.get()
 
