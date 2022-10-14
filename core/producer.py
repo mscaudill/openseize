@@ -223,6 +223,7 @@ class Producer(Iterable, mixins.ViewInstance):
         self.data = data
         self._chunksize = int(chunksize)
         self.axis = axis
+        self._shape = self.data.shape
         self.kwargs = kwargs
 
     @property
@@ -240,6 +241,14 @@ class Producer(Iterable, mixins.ViewInstance):
     @abc.abstractproperty
     def shape(self):
         """Returns the shape of this producers data attribute."""
+
+    @shape.setter
+    @abc.abstractmethod
+    def shape(self, value):
+        """ """
+
+        #chk ndims match
+        # chk that only axis shape has changed
 
     def to_array(self, dtype=float):
         """Assign this Producer to an ndarray by concatenation along axis.
@@ -375,10 +384,18 @@ class GenProducer(Producer):
         self._shape = value
 
     def __iter__(self):
-        """Returns an iterator yielding ndarrays of chunksize along axis."""
+        """Returns an iterator yielding ndarrays of chunksize along axis.
 
+        Since the shape of the arrays yielded from the generating function
+        (i.e. data) may be very small compared to chunksize, we store
+        generated arrays to a temporary array to reduce the number of fifo
+        'put' calls (see note in FIFOArray.put).
+        """
+
+        # collector will fetch chunksize array for each 'get' call
         collector = FIFOArray(self.chunksize, self.axis)
         
+        # make tmp array to hold generated subarrs
         tmp = []
         tmp_size = 0
         for subarr in self.data(**self.kwargs):
@@ -386,21 +403,28 @@ class GenProducer(Producer):
             tmp.append(subarr)
             tmp_size += subarr.shape[self.axis]
             
+            # if tmp exceeds chunksize put in collector
             if tmp_size >= self.chunksize:
                 arr = np.concatenate(tmp, axis=self.axis)
                 collector.put(arr)
 
+                # fetch chunksize till not full
                 while collector.full():
                     yield collector.get()
 
+                # place leftover back into tmp and empty collector
                 tmp = [collector.queue]
                 tmp_size = collector.qsize()
                 collector.queue = np.array([])
             
             else:
+
+                # append to tmp again
                 continue
 
         else:
+
+            # yield whatever is left in tmp (its below chunksize)
             yield np.concatenate(tmp, axis=self.axis)
         
 
