@@ -15,12 +15,11 @@ from openseize.io.edf import Reader as openEDF
 from openseize.io.edf import Header as openHeader
 from openseize.io.edf import Writer as openWriter
 from openseize.io.edf import splitter
+from openseize.demos import paths
 
-# FIXME I NEED TO PROVIDE OR GENERATE TEST DATA AND THESE FILES ARE TOO
-# LARGE!
-DATAPATH = '/home/matt/python/nri/data/openseize/CW0259_P039.edf'
-WRITEPATH = '/home/matt/python/nri/data/openseize/test.edf'
-IRREGULARPATH = '/home/matt/python/nri/data/openseize/irregular.edf'
+DATAPATH = paths.locate('recording_001.edf')
+WRITEPATH = paths.data_dir.joinpath('write_test.edf')
+IRREGULARPATH = paths.data_dir.joinpath('irregular.edf')
 
 ################
 # HEADER TESTS #
@@ -114,31 +113,33 @@ def test_random_reads(fetches=100):
     openeeg = openEDF(DATAPATH)
 
     #build fetch numbers of start and stop sample indices
-    starts = np.random.randint(0, 5e8, fetches)
+    starts = np.random.randint(0, 5e6, fetches)
     stops = starts + np.random.randint(0, 5e5)
     
     for start, stop in zip(starts, stops):
         arr = openeeg.read(start, stop)
-        other = pyread(pyeeg, start, stop)
+        other = pyread(pyeeg, start, stop, channels)
         assert np.allclose(arr, other)
 
     openeeg.close()
     pyeeg.close()
 
-def test_random_reads_chs(fetches=100, channels=[0,2]):
+def test_random_reads_chs(fetches=100):
     """Compares randomly read arrays for a specifc set of channels from
     pyEDF and openseize."""
 
+    chs = [1,3]
     pyeeg = pyEDF(DATAPATH)
     openeeg = openEDF(DATAPATH)
+    openeeg.channels = chs
 
     #build fetch numbers of start and stop sample indices
-    starts = np.random.randint(0, 5e8, fetches)
+    starts = np.random.randint(0, 5e6, fetches)
     stops = starts + np.random.randint(0, 5e5)
     
     for start, stop in zip(starts, stops):
-        arr = openeeg.read(start, stop, channels=channels)
-        other = pyread(pyeeg, start, stop, channels=channels)
+        arr = openeeg.read(start, stop)
+        other = pyread(pyeeg, start, stop, channels=chs)
         assert np.allclose(arr, other)
 
     pyeeg.close()
@@ -175,7 +176,9 @@ def test_write_header(channels=[0,3]):
 
     openeeg = openEDF(DATAPATH)
     header = openeeg.header
-    
+   
+    print(WRITEPATH)
+
     with openWriter(WRITEPATH) as outfile:
         outfile.write(header, openeeg, channels=channels)
     
@@ -195,11 +198,11 @@ def test_write_data():
 
     #read data in steps of 5 million samples
     starts = np.arange(0, openeeg.shape[-1], int(5e6))
-    stops = starts + int(5e6)
+    stops = starts + int(5e3)
     for start, stop in zip(starts, stops):
-        arr = openeeg.read(start, stop, channels=[0,3])
+        arr = openeeg.read(start, stop)
         other = openeeg2.read(start, stop)
-        assert np.allclose(arr, other)
+        assert np.allclose(arr[[0, 3],:], other)
 
 #################################
 # IRREGULAR DATA READ AND WRITE #
@@ -288,10 +291,11 @@ def test_irr_random_chread(fetches=1000, channels=[1,3]):
     oarr = data(200, [50000, 10000, 20000, 50000], padval=np.NAN, seed=0)
     oarr = oarr[channels]
     reader = openEDF(IRREGULARPATH)
+    reader.channels = channels
     starts = np.random.randint(0, 9e6, fetches)
     stops = starts + np.random.randint(0, 1e6)
     for start, stop in zip(starts, stops):
-        x = reader.read(start, stop, channels=channels, padvalue=np.NAN)
+        x = reader.read(start, stop, padvalue=np.NAN)
         assert np.allclose(x, oarr[:, start:stop], equal_nan=True, atol=1)
     reader.close()
 
@@ -333,5 +337,4 @@ def test_data_split():
         with openEDF(fp) as infile:
             arr = infile.read(start=0)
         assert np.allclose(arr, unsplit_data[indices,:], equal_nan=True)    
-    
-
+   
