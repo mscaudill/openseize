@@ -41,6 +41,30 @@ def slice_along_axis(arr, start=None, stop=None, step=None, axis=-1):
     return arr[tuple(slicer)]
 
 
+def split_along_axis(arr, index, axis=-1):
+    """Returns two arrays by splitting arr along axis at index.
+
+    Args:
+        arr: ndarray
+            An ndarray to split.
+        index: int
+            The index to split on. It is excluded from first split array 
+            and included in second split arr.
+        axis: int
+            Axis along which to split the array.
+
+    Returns: Two ndarray split at index.
+    
+    Note: This method uses slicing instead of numpy split as its performance
+    is better.
+    """
+
+    first = slice_along_axis(arr, start=0, stop=index, axis=axis)
+    second = slice_along_axis(arr, start=index, stop=None, axis=axis)
+
+    return first, second
+
+
 def expand_along_axis(arr, l, value=0, axis=-1):
     """Inserts l-1 copies of value between samples in an array along axis.
 
