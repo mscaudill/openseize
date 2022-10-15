@@ -32,6 +32,41 @@ def optimal_nffts(arr):
     return int(8 * 2 ** np.ceil(np.log2(len(arr))))
 
 
+def convolved_shape(shape1, shape2, mode, axis):
+    """Computes the shape of the convolution of two ndarrays along axis.
+    
+    Args:
+        shape1: tuple
+            Shape of the first input used to construct the convolved arr.
+        shape2: tuple
+            Shape of the second input used to construct the convolved arr.
+        mode: str one of 'full', 'same', or 'valid'
+            A string defining the boundary handling mode. These modes
+            are the same as numpy's np.convolve mode argument.
+        axis: int
+            The convolution axis in arr.
+
+    Returns: A tuple for the shape of the resulting convolution.
+    """
+
+    m, n = shape1[axis], shape2[axis]
+    p, q = max(m,n), min(m,n)
+    
+    # find array with largest ndims
+    outshape = sorted([list(shape1), list(shape2)], key=len)[-1]
+
+    if mode == 'full':
+        outshape[axis] = m + n - 1
+    
+    elif mode == 'same':
+        outshape[axis] = p
+
+    elif mode == 'valid':
+        outshape[axis] = m + n - 1 - 2 * (q-1)
+
+    return tuple(outshape)
+
+
 def convolve_slicer(arr, shape1, shape2, mode, axis):
     """Applies a boundary mode to slice a convolved array along axis.
 
@@ -75,7 +110,7 @@ def convolve_slicer(arr, shape1, shape2, mode, axis):
         return slice_along_axis(arr, start, stop, axis=axis)
 
 
-def _oa_mode(arr, window, side, axis, mode):
+def _oa_boundary(arr, window, side, axis, mode):
     """Applies the numpy convolve mode to first or last segment yielded from
     oaconvolve.
 
@@ -114,7 +149,6 @@ def _oa_mode(arr, window, side, axis, mode):
     return arr[tuple(slices)]
 
 
-@as_producer
 def oaconvolve(pro, window, axis, mode, nfft_factor=32):
     """Performs overlap-add circular convolution of a producer of 
     ndarrays with a 1-dimensional window.
@@ -155,7 +189,7 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
     should be decreased if the window is large and increased if the window
     is small to improve performance.
 
-    Returns: A producer of convolved ndarrays.
+    Returns: A generator of convolved ndarrays.
     """
 
     # compute the near optimal nfft number and FFT of window
@@ -226,7 +260,7 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
 
             #apply the boundary mode to first and last segments
             if segment == 0:
-                y = _oa_mode(y, window, 'left', axis, mode)
+                y = _oa_boundary(y, window, 'left', axis, mode)
         
             #update segment
             segment += 1
@@ -251,22 +285,20 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
             #add previous overlap
             y = _add_overlap(y, overlap, wlen, axis)
 
-            yield _oa_mode(y, window, 'right', axis, mode)
+            yield _oa_boundary(y, window, 'right', axis, mode)
 
 
-@as_producer  
-def sosfilt(pro, sos, chunksize, axis, zi=None):
+@as_producer
+def sosfilt(pro, sos, axis, zi=None):
     """Batch applies a forward second-order-section fmt filter to a 
     producer of numpy arrays.
 
     Args:
         pro: producer of ndarrays
-            A producer of ndarrays to filter.
+            A producer of chunksize ndarrays along axis to filter.
         sos: 2-D array
             An n-sections x 6 array of numerator & denominator coeffs of the
             transfer function of an IIR filter.
-        chunksize: int
-            The amount of data along axis to filter per batch
         axis: int
             The axis along which to apply the filter in chunksize batches
         zi: ndarray
@@ -293,18 +325,16 @@ def sosfilt(pro, sos, chunksize, axis, zi=None):
 
 
 @as_producer
-def sosfiltfilt(pro, sos, chunksize, axis, **kwargs):
+def sosfiltfilt(pro, sos, axis, **kwargs):
     """Batch applies a forward-backward second order section fmt filter to
     a producer of numpy arrays.
 
     Args:
         pro: producer of ndarrays
-            A producer of ndarrays to filter.
+            A producer of ndarrays of shape chunksize along axis to filter.
         sos: 2-D array
             An n-sections x 6 array of numerator & denominator coeffs of the
             transfer function of an IIR filter.
-        chunksize: int
-            The amount of data along axis to filter per batch
         axis: int
             The axis along which to apply the filter in chunksize batches
 
@@ -341,8 +371,8 @@ def sosfiltfilt(pro, sos, chunksize, axis, **kwargs):
     zi = np.reshape(zi, (sos.shape[0], *s)) #nsections,1,2
 
     # build a generators of forward filtered with one advanced
-    a_gen = iter(sosfilt(pro, sos, chunksize, axis, zi=zi*x0))  
-    b_gen = iter(sosfilt(pro, sos, chunksize, axis, zi=zi*x0))
+    a_gen = iter(sosfilt(pro, sos, axis, zi=zi*x0))  
+    b_gen = iter(sosfilt(pro, sos, axis, zi=zi*x0))
     next(b_gen)
 
     n = int(np.ceil(pro.shape[axis] / pro.chunksize))
@@ -371,18 +401,16 @@ def sosfiltfilt(pro, sos, chunksize, axis, **kwargs):
 
 
 @as_producer
-def lfilter(pro, coeffs, chunksize, axis, zi=None):
+def lfilter(pro, coeffs, axis, zi=None):
     """Batch appliies a forward transfer function fmt (b,a) filter to
     a producer of numpy arrays.
 
     Args:
         pro: producer of ndarrays
-            A producer of ndarrays to filter.
+            A producer of ndarrays of shape chunksize along axis to filter.
         coeffs: tuple
             A tuple of numerator, denominator coefficient arrays of the
             transfer function fmt (b,a).
-        chunksize: int
-            The amount of data along axis to filter per batch
         axis: int
             The axis along which to apply the filter in chunksize batches
         zi: ndarray
@@ -408,7 +436,7 @@ def lfilter(pro, coeffs, chunksize, axis, zi=None):
 
 
 @as_producer
-def filtfilt(pro, coeffs, chunksize, axis, **kwargs):
+def filtfilt(pro, coeffs, axis, **kwargs):
     """Batch applies a forward-backward filter in transfer func fmt (b,a)
     to a producer of numpy arrays.
 
@@ -418,8 +446,6 @@ def filtfilt(pro, coeffs, chunksize, axis, **kwargs):
         coeffs: tuple
             A tuple of numerator, denominator coefficient arrays of the
             transfer function fmt (b,a).
-        chunksize: int
-            The amount of data along axis to filter per batch
         axis: int
             The axis along which to apply the filter in chunksize batches
 
@@ -454,8 +480,8 @@ def filtfilt(pro, coeffs, chunksize, axis, **kwargs):
     zi = np.reshape(zi, s)
 
     # build generators of forward filtered with one advanced
-    x_gen = iter(lfilter(pro, coeffs, chunksize, axis, zi=zi*x0))
-    y_gen = iter(lfilter(pro, coeffs, chunksize, axis, zi=zi*x0))
+    x_gen = iter(lfilter(pro, coeffs, axis, zi=zi*x0))
+    y_gen = iter(lfilter(pro, coeffs, axis, zi=zi*x0))
     next(y_gen)
 
     n = int(np.ceil(pro.shape[axis] / pro.chunksize))
@@ -483,14 +509,15 @@ def filtfilt(pro, coeffs, chunksize, axis, **kwargs):
             yield np.flip(rfilt, axis=axis)
 
 
-@as_producer
-def polyphase_resample(pro, L, M, fs, chunksize, fir, axis, **kwargs):
+def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
     """Resamples an array or producer of arrays by a rational factor (L/M)
     using the polyphase decomposition.
 
     Args:
         pro: A producer of ndarrays
-            The data producer to be resampled.
+            The data producer of arrays of shape chunksize along axis to 
+            be resampled. This method will require ~3 times chunksize in
+            memory. 
         L: int
             The expansion factor. L-1 interpolated values will be inserted
             between consecutive samples along axis.
@@ -499,9 +526,6 @@ def polyphase_resample(pro, L, M, fs, chunksize, fir, axis, **kwargs):
             data survive decimation. (E.g. M=10 -> every 10th survives)
         fs: int
             The sampling rate of produced data in Hz.
-        chunksize: int
-            The number of samples to hold in memory during upsampling.
-            This method will require ~ 3 times chunksize in memory.
         fir: FIR filter
             An openseize fir filter class
         axis: int
@@ -523,9 +547,9 @@ def polyphase_resample(pro, L, M, fs, chunksize, fir, axis, **kwargs):
                     The max attenuation in the stop band in dB. Defaults to
                     40 dB or 99%  amplitude attenuation.
 
-    Returns: a producer of resampled data. The chunksize of the yielded
+    Returns: a generator of resampled data. The chunksize of the yielded
              arrays along axis will be the nearest multiple of M closest to 
-             the supplied chunksize (e.g. if M=3 and chunksize=1000 the 
+             the pro.chunksize (e.g. if M=3 and chunksize=1000 the 
              yielded chunksize will be 1002 since 1002 % 3 == 0).
     """
 
@@ -534,7 +558,7 @@ def polyphase_resample(pro, L, M, fs, chunksize, fir, axis, **kwargs):
         raise ValueError(msg.format(M, axis, pro.shape[axis]))
 
     # pathological case: pro has  < 3 chunks  -> autoreduce csize
-    csize = chunksize
+    csize = pro.chunksize
     if csize > pro.shape[axis] // 3:
         csize = pro.shape[axis]  // 3
 
