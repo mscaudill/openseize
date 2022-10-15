@@ -1,4 +1,6 @@
 import abc
+from functools import partial
+
 import numpy as np
 import scipy.signal as sps
 
@@ -153,7 +155,7 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
                 filtfunc = nm.lfilter
        
         # zi is ignored if filtfunc is a forward/backward filtfilt
-        result = filtfunc(pro, self.coeffs, chunksize, axis, zi=zi)
+        result = filtfunc(pro, self.coeffs, axis, zi=zi)
         
         if isinstance(data, np.ndarray):
             # if data is an ndarray return an ndarray
@@ -309,8 +311,14 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         """
 
         pro = producer(data, chunksize, axis, **kwargs)
-        # convolve to get a new producer
-        result = nm.oaconvolve(pro, self.coeffs, axis, mode)
+        window = self.coeffs
+
+        # construct overlap-add generating function & get resultant shape
+        genfunc = partial(nm.oaconvolve, pro, self.coeffs, axis, mode)
+        shape = nm.convolved_shape(data.shape, window.shape, mode, axis)
+
+        # build producer from generating func. 
+        result = producer(genfunc, chunksize, axis, shape=shape)
         
         # return array if input data is array
         if isinstance(data, np.ndarray):
