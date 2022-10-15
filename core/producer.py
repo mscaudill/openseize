@@ -77,12 +77,11 @@ def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
             producer will produce all values from object.
         kwargs: dict
             Keyword arguments specific to data type that ndarrays will be
-            produced from. 
-            For Reader instances, valid kwargs are channels
-            and padvalue (see io.bases.Readers and io.edf.Reader)
-            For generating functions, all the positional and keyword
-            arguments must be passed to the function through these kwargs to
-            avoid name collisions with the producer func arguments.
+            produced from. For Reader instances, valid kwargs are padvalue 
+            (see io.bases.Readers and io.edf.Reader) For generating 
+            functions, all the positional and keyword arguments must be
+            passed to the function through these kwargs to avoid name 
+            collisions with the producer func arguments.
 
     Returns: An iterable of ndarrays of shape chunksize along axis.  
     """
@@ -123,14 +122,20 @@ def as_producer(func):
     are 'one-shot' transversal objects. Therefore to support multiple data
     transversals, Producers can be built from generating functions. 
     This decorater converts any generating function that accepts a producer
-    as its first argument into a Producer instance. It assumes that the
-    cumulative shape of the yielded arrays from 'func' matches the shape of
-    the input producer to 'func'. If this is False, the producer's shape
-    should be updated after construction by caller.
+    as its first argument into a Producer instance.
+
+    Caveats:
+        This decorator assumes that the generating function yields arrays
+        whose cumulative shape matches the input producers shape. If this is
+        False, it is advised to construct the producer from the producer
+        function passing an explicit shape argument. 
+            >>> producer(genfunc, chunksize, axis, shape, **kwargs)
+
+        The chunksize of the resultant producer will match the chunksize of
+        the input producer to the generating function
 
     Returns: func
-        A new function that creates a Producer instance in place of the
-        decorated generating func.
+        A func. that creates a Producer instance from a generating func.
     """
 
     # only decorate generator functions
@@ -146,7 +151,7 @@ def as_producer(func):
             msg = ("First positional argument of decorated function"
                    " must be of type {} not {}")
             msg.format('Producer', type(pro))
-   
+
         genfunc = functools.partial(func, pro, *args, **kwargs)
         return producer(genfunc, pro.chunksize, pro.axis, shape=pro.shape)
 
@@ -167,9 +172,6 @@ def pad_producer(pro, pad, value):
             The constant value to pad the producer with. Defaults to zero.
 
     Returns: A producer yielding ndarrays.
-
-    Note: Since shape will be changed @as_producer does not work here and we
-    fallback to building a generating func.
     """
 
     #convert int pad to seq. of pads & place along axis of pads
@@ -222,8 +224,7 @@ class Producer(Iterable, mixins.ViewInstance):
 
         self.data = data
         self._chunksize = int(chunksize)
-        self.axis = axis
-        self._shape = self.data.shape
+        self.axis = axis  
         self.kwargs = kwargs
 
     @property
@@ -240,15 +241,7 @@ class Producer(Iterable, mixins.ViewInstance):
 
     @abc.abstractproperty
     def shape(self):
-        """Returns the shape of this producers data attribute."""
-
-    @shape.setter
-    @abc.abstractmethod
-    def shape(self, value):
-        """ """
-
-        #chk ndims match
-        # chk that only axis shape has changed
+        """Returns the shape of this producers data attr."""
 
     def to_array(self, dtype=float):
         """Assign this Producer to an ndarray by concatenation along axis.
@@ -372,16 +365,6 @@ class GenProducer(Producer):
         """Returns the summed shape of arrays in this Producer."""
 
         return self._shape
-
-    @shape.setter
-    def shape(self, value):
-        """Sets the summed shape of the arrays in this Producer."""
-
-        if len(value) != len(self._shape):
-            msg = 'Cannot change the dimensionsality of producer'
-            raise ValueError(msg)
-
-        self._shape = value
 
     def __iter__(self):
         """Returns an iterator yielding ndarrays of chunksize along axis.
