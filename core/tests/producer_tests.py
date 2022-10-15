@@ -16,6 +16,8 @@ from openseize.io.edf import Reader
 from openseize import demos
 from openseize.core.arraytools import slice_along_axis
 
+DATAPATH = demos.paths.locate('recording_001.edf')
+
 def test_fromarray():
     """Verify that a producer built from an array produces the correct
     subarrays on each iteration."""
@@ -238,10 +240,35 @@ def test_fromreader():
     """Verifies that a producer from an EDF file reader produces the correct
     subarrays in each iteration."""
 
-    fp = demos.paths['M5872_Left_group_A.edf']
+    fp = DATAPATH
     reader = Reader(fp)
     # read all the data of this small file
     arr = reader.read(0)
+
+    #build a producer and test equality
+    chunksize=10023
+    pro = producer(reader, chunksize=chunksize, axis=-1)
+    starts = range(0, arr.shape[-1], chunksize)
+    segments = zip_longest(starts, starts[1:], fillvalue=arr.shape[-1])
+    for (start, stop), pro_arr in zip(segments, pro):
+        slicer = [slice(None)] * arr.ndim #slice obj to slice arr
+        slicer[-1] = slice(start, stop)
+        assert np.allclose(arr[tuple(slicer)], pro_arr)
+
+def test_from_chReader():
+    """Test if the produced data from a reader that only reads a subset of
+    the channels produces the correct arrays."""
+
+    fp = DATAPATH
+    CHS = [1,3]
+    reader = Reader(fp)
+
+    #read all channels and then restrict to CHS
+    arr = reader.read(0)
+    arr = arr[CHS, :]
+    
+    #set the reader to read only CHS
+    reader.channels = CHS
 
     #build a producer and test equality
     chunksize=10023
@@ -257,7 +284,7 @@ def test_frommaskedreader():
     """Verify that a producer from an EDF file reader with a mask produces
     the correct subarrays in each iteration."""
 
-    fp = demos.paths['M5872_Left_group_A.edf']
+    fp = DATAPATH
     reader = Reader(fp)
     # read all the data of this small file
     arr = reader.read(0)
@@ -304,19 +331,20 @@ def test_asproducer1():
     lens = np.random.randint(21100, high=80092, size=68)
     arrs = [np.random.random((l, 4, 9)) for l in lens]
     arr = np.concatenate(arrs, axis=0)
+    print(arr.shape)
 
     pro = producer(arrs, chunksize=10000, axis=0)
 
     @as_producer
     def avg_gen(pro):
-        """An averager that averages every 400 samples of the produced
-        values."""
+        #An averager that averages every 400 samples of the produced
+        #values.
         
         # temporarily change the chunksize and average
         pro.chunksize = 400
         for arr in pro:
             yield np.mean(arr, axis=0, keepdims=True)
-
+    
     # Build the ground truth array where we have averaged every 400-samples
     mstarts = range(0, arr.shape[0], 400)
     msegments = zip_longest(mstarts, mstarts[1:], fillvalue=arr.shape[0])
@@ -332,10 +360,12 @@ def test_asproducer1():
     # back to callers at the original requested size.
     starts = range(0, meaned.shape[0], 10000)
     segments = zip_longest(starts, starts[1:], fillvalue=meaned.shape[0])
-    for (start, stop), pro_arr in zip(segments, my_gen(pro)):
+    for (start, stop), pro_arr in zip(segments, avg_gen(pro)):
         slicer = [slice(None)] * arr.ndim #slice obj to slice arr
         slicer[0] = slice(start, stop)
         assert np.allclose(meaned[tuple(slicer)], pro_arr)
+
+    return avg_gen(pro)
 
 
 def test_padproducer0():
@@ -376,8 +406,10 @@ def test_padproducer1():
 
 
 
+if __name__ == '__main__':
 
 
+    pro = test_asproducer1()
 
 
 

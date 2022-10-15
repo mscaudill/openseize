@@ -22,14 +22,15 @@ def test_oaconvolve_pros():
     # convolve with a hann window of 203 samples
     window = sps.get_window('hann', 203)
     for l in lengths:
-
         # build arr and producer
         arr = np.random.random((3, 4, l)) 
-        pro = producer(arr, chunksize=len(window), axis=-1)
+        #pro = producer(arr, chunksize=len(window), axis=-1)
+        pro = producer(arr, chunksize=5000, axis=-1)
 
         # compute openseize convolve
-        osz_pro = nm.oaconvolve(pro, window, axis=-1, mode='same')
-        osz_result = np.concatenate([x for x in osz_pro], axis=-1)
+        osz_gen = nm.oaconvolve(pro, window, axis=-1, mode='same',
+                nfft_factor=16)
+        osz_result = np.concatenate([x for x in osz_gen], axis=-1)
 
         # compute scipy convolve, window dims must match arr dims
         win = np.expand_dims(window, (0,1))
@@ -52,8 +53,8 @@ def test_oaconvolve_mode():
     for mode in ('full','same','valid'):
 
         # compute openseize convolve
-        osz_pro = nm.oaconvolve(pro, window, axis=axis, mode='same')
-        osz_result = np.concatenate([x for x in osz_pro], axis=axis)
+        osz_gen = nm.oaconvolve(pro, window, axis=axis, mode='same')
+        osz_result = np.concatenate([x for x in osz_gen], axis=axis)
 
         # compute scipy convolve, window dims must match arr dims
         win = np.expand_dims(window, (0, 2, 3))
@@ -85,8 +86,8 @@ def test_oaconvolve_windows():
             window = sps.get_window(win, l)
 
             # compute openseize convolve
-            osz_pro = nm.oaconvolve(pro, window, axis=axis, mode=mode)
-            osz_result = np.concatenate([x for x in osz_pro], axis=axis)
+            osz_gen = nm.oaconvolve(pro, window, axis=axis, mode=mode)
+            osz_result = np.concatenate([x for x in osz_gen], axis=axis)
 
             # compute scipy convolve, window dims must match arr dims
             win = np.expand_dims(window, 1)
@@ -106,4 +107,4 @@ def test_oaconvolve_windows():
 
 if __name__ == "__main__":
 
-    ores, spres = test_oaconvolve_mode()
+    test_oaconvolve_pros()
