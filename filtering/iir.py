@@ -32,7 +32,8 @@ class Butter(IIR):
     """A callable digital Butterworth IIR filter.
 
     Designs a minimum order Butterworth filter that meets both pass and
-    stop band attenuation criteria.
+    stop band attenuation criteria. A Butterworth filter is maximally flat
+    in the passband.
 
     Attrs:
         fpass, fstop: float or 2-el sequence
