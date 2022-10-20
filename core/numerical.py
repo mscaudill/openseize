@@ -509,6 +509,7 @@ def filtfilt(pro, coeffs, axis, **kwargs):
             yield np.flip(rfilt, axis=axis)
 
 
+# FIXME kaiser should have cutoff at fs/2M
 def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
     """Resamples an array or producer of arrays by a rational factor (L/M)
     using the polyphase decomposition.
