@@ -393,25 +393,3 @@ class STFTViewer:
         
         # update drawn data
         plt.draw()
-
-if __name__ == '__main__':
-
-    from openseize.io.edf import Reader
-    from openseize import producer
-    from openseize.resampling.resampling import downsample
-    from openseize.spectra.estimators import stft
-    from isospectra.models import SpectralK
-
-    fp = '/home/matt/python/nri/openseize/demos/data/recording_001.edf'
-    reader = Reader(fp)
-
-    #FIXME ERROR encountered when channels passed as kwarg
-    pro = producer(reader, chunksize=10e6, axis=-1)
-
-    #downsample data
-    dpro = downsample(pro, M=25, fs=5000, chunksize=10e6, axis=-1)
-
-    # compute STFT and compute norm squared
-    freqs, time, Z = stft(dpro, fs=200, axis=-1, asarray=True)
-    data = np.real(Z)**2 + np.imag(Z)**2
-    v = STFTViewer(freqs, time, data, chs=[0,1,2])
