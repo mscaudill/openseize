@@ -7,10 +7,6 @@ This module contains the following classes and functions:
         A function for estimating the power spectrum of a producer or
         ndarray using Welch's method.
 
-    normalize:
-        A function that normalizes an array of PSDs by the total power in
-        a band (see spectra.metrics.power)
-
     stft:
         A function for estimating the Short-time Fourier Transform of
         a producer or ndarray. 
