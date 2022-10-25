@@ -509,7 +509,6 @@ def filtfilt(pro, coeffs, axis, **kwargs):
             yield np.flip(rfilt, axis=axis)
 
 
-# FIXME kaiser should have cutoff at fs/2M
 def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
     """Resamples an array or producer of arrays by a rational factor (L/M)
     using the polyphase decomposition.
@@ -537,10 +536,12 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
 
                 fstop: int
                     The stop band edge frequency. 
-                    Defaults to fs // max(L,M).
+                    Defaults to cutoff + cutoff / 10 where cutoff = 
+                    fs //(2 * max(L,M)).
                 fpass: int
                     The pass band edge frequency. Must be less than fstop.
-                    Defaults to fstop - fstop // 10.
+                    Defaults to cutoff - cutoff / 10 where cutoff = fs //
+                    (2 * max(L,M)).
                 gpass: int
                     The pass band attenuation in dB. Defaults to a max loss
                     in the passband of 1 dB ~ 11% amplitude loss.
@@ -564,9 +565,10 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
         csize = pro.shape[axis]  // 3
 
     # kaiser antialiasing & interpolation filter coeffecients
-    fstop = kwargs.pop('fstop', fs // max(L, M))
-    fpass = kwargs.pop('fpass', fstop - fstop // 10)
-    gpass, gstop = kwargs.pop('gpass', 1), kwargs.pop('gstop', 40)
+    cutoff = fs // (2*max(L, M))
+    fstop = kwargs.pop('fstop', cutoff + cutoff / 10)
+    fpass = kwargs.pop('fpass', cutoff - cutoff / 10)
+    gpass, gstop = kwargs.pop('gpass', 0.05), kwargs.pop('gstop', 40)
     h = fir(fpass, fstop, fs, gpass, gstop).coeffs
 
     # ensure decimation of each produced array is integer samples
