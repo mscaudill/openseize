@@ -36,7 +36,7 @@ For further details on implementation please see:
 """
 
 import numpy as np
-import functools
+from functools import partial
 
 from openseize import producer
 from openseize.filtering.fir import Kaiser
@@ -87,13 +87,17 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
             values for this antialiasing filter are:
 
                 fstop: int
-                    The stop band edge frequency. Defaults to fs // M.
+                    The stop band edge frequency. 
+                    Defaults to cutoff + cutoff / 10 where cutoff = 
+                    fs // (2 * M).
                 fpass: int
                     The pass band edge frequency. Must be less than fstop.
-                    Defaults to fstop - fstop // 10.
+                    Defaults to cutoff - cutoff / 10 where cutoff = fs //
+                    (2 * M).
+
                 gpass: int
                     The pass band attenuation in dB. Defaults to a max loss
-                    in the passband of 1 dB ~ 11% amplitude loss.
+                    in the passband of 0.05 dB amplitude loss.
                 gstop: int
                     The max attenuation in the stop band in dB. Defaults to
                     40 dB or 99%  amplitude attenuation.
@@ -107,13 +111,14 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
     """
    
     pro = producer(data, chunksize, axis)
-    result = polyphase_resample(pro, 1, M, fs, chunksize, Kaiser, axis, 
-                                **kwargs)
 
-    # compute new downsampled shape and set new shape
+    # construct polyphase-resampling generating func & get resultant shape
+    genfunc = partial(polyphase_resample, pro, 1, M, fs, Kaiser, axis)
     shape = resampled_shape(pro, L=1, M=M, axis=axis)
-    result.shape = shape
-    
+
+    #build producer from generating function
+    result = producer(genfunc, chunksize, axis, shape=shape)
+
     return result.to_array() if isinstance(data, np.ndarray) else result
 
 
@@ -139,13 +144,16 @@ def upsample(data, L, fs, chunksize, axis=-1, **kwargs):
             values for this interpolation filter are:
 
                 fstop: int
-                    The stop band edge frequency. Defaults to fs // L.
+                    The stop band edge frequency. 
+                    Defaults to cutoff + cutoff / 10 where cutoff = 
+                    fs // (2 * L).
                 fpass: int
                     The pass band edge frequency. Must be less than fstop.
-                    Defaults to fstop - fstop // 10.
+                    Defaults to cutoff - cutoff / 10 where cutoff = fs //
+                    (2 * L).
                 gpass: int
                     The pass band attenuation in dB. Defaults to a max loss
-                    in the passband of 1 dB ~ 11% amplitude loss.
+                    in the passband of 0.05 dB amplitude loss.
                 gstop: int
                     The max attenuation in the stop band in dB. Defaults to
                     40 dB or 99%  amplitude attenuation.
@@ -159,12 +167,13 @@ def upsample(data, L, fs, chunksize, axis=-1, **kwargs):
     """
     
     pro = producer(data, chunksize, axis)
-    result = polyphase_resample(pro, L, 1, fs, chunksize, Kaiser, axis,
-                                **kwargs)
-   
-    # compute new upsampled shape and set new shape
+
+    # construct polyphase-resampling generating func & get resultant shape
+    genfunc = partial(polyphase_resample, pro, L, 1, fs, Kaiser, axis)
     shape = resampled_shape(pro, L=L, M=1, axis=axis)
-    result.shape = shape
+
+    #build producer from generating function
+    result = producer(genfunc, chunksize, axis, shape=shape)
 
     return result.to_array() if isinstance(data, np.ndarray) else result
 
