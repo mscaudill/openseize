@@ -544,7 +544,7 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
                     (2 * max(L,M)).
                 gpass: int
                     The pass band attenuation in dB. Defaults to a max loss
-                    in the passband of 1 dB ~ 11% amplitude loss.
+                    in the passband of 0.1 dB ~ 1.1% amplitude loss.
                 gstop: int
                     The max attenuation in the stop band in dB. Defaults to
                     40 dB or 99%  amplitude attenuation.
@@ -554,6 +554,15 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
              the pro.chunksize (e.g. if M=3 and chunksize=1000 the 
              yielded chunksize will be 1002 since 1002 % 3 == 0).
     """
+
+    # reduce the rational L/M
+    g = np.gcd(L, M)
+    L //= g
+    M //= g
+
+    # no resample requested
+    if L == M == 1:
+        return pro
 
     if M >= pro.shape[axis]:
         msg = 'Decimation factor must M={} be < pro.shape[{}] = {}'
@@ -568,7 +577,7 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
     cutoff = fs // (2*max(L, M))
     fstop = kwargs.pop('fstop', cutoff + cutoff / 10)
     fpass = kwargs.pop('fpass', cutoff - cutoff / 10)
-    gpass, gstop = kwargs.pop('gpass', 0.05), kwargs.pop('gstop', 40)
+    gpass, gstop = kwargs.pop('gpass', 0.1), kwargs.pop('gstop', 40)
     h = fir(fpass, fstop, fs, gpass, gstop).coeffs
 
     # ensure decimation of each produced array is integer samples
