@@ -97,7 +97,7 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
 
                 gpass: int
                     The pass band attenuation in dB. Defaults to a max loss
-                    in the passband of 0.05 dB amplitude loss.
+                    in the passband of 0.1 dB = ~1.1% amplitude loss.
                 gstop: int
                     The max attenuation in the stop band in dB. Defaults to
                     40 dB or 99%  amplitude attenuation.
@@ -113,7 +113,8 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
     pro = producer(data, chunksize, axis)
 
     # construct polyphase-resampling generating func & get resultant shape
-    genfunc = partial(polyphase_resample, pro, 1, M, fs, Kaiser, axis)
+    genfunc = partial(polyphase_resample, pro, 1, M, fs, Kaiser, axis,
+                      **kwargs)
     shape = resampled_shape(pro, L=1, M=M, axis=axis)
 
     #build producer from generating function
@@ -153,7 +154,7 @@ def upsample(data, L, fs, chunksize, axis=-1, **kwargs):
                     (2 * L).
                 gpass: int
                     The pass band attenuation in dB. Defaults to a max loss
-                    in the passband of 0.05 dB amplitude loss.
+                    in the passband of 0.1 dB = ~1.1% amplitude loss.
                 gstop: int
                     The max attenuation in the stop band in dB. Defaults to
                     40 dB or 99%  amplitude attenuation.
@@ -169,7 +170,8 @@ def upsample(data, L, fs, chunksize, axis=-1, **kwargs):
     pro = producer(data, chunksize, axis)
 
     # construct polyphase-resampling generating func & get resultant shape
-    genfunc = partial(polyphase_resample, pro, L, 1, fs, Kaiser, axis)
+    genfunc = partial(polyphase_resample, pro, L, 1, fs, Kaiser, axis,
+                      **kwargs)
     shape = resampled_shape(pro, L=L, M=1, axis=axis)
 
     #build producer from generating function
@@ -210,10 +212,14 @@ def resample(data, L, M, fs, chunksize, axis=-1, **kwargs):
                     Defaults to fstop - fstop // 10.
                 gpass: int
                     The pass band attenuation in dB. Defaults to a max loss
-                    in the passband of 1 dB ~ 11% amplitude loss.
+                    in the passband of 0.1 dB = ~1.1% amplitude loss.
                 gstop: int
                     The max attenuation in the stop band in dB. Defaults to
                     40 dB or 99%  amplitude attenuation.
+
+    Note:
+    The resampling factor L/M may be reducible. If so, L and M are reduced
+    prior to resampling.
 
     Returns: An array or producer of arrays depending on data's datatype.
 
@@ -224,11 +230,13 @@ def resample(data, L, M, fs, chunksize, axis=-1, **kwargs):
     """
 
     pro = producer(data, chunksize, axis)
-    result = polyphase_resample(pro, L, M, fs, chunksize, Kaiser, axis, 
-                                **kwargs)
-   
-    # compute new upsampled shape and set new shape
+
+    # construct polyphase-resampling generating func & get resultant shape
+    genfunc = partial(polyphase_resample, pro, L, M, fs, Kaiser, axis,
+                      **kwargs)
     shape = resampled_shape(pro, L=L, M=M, axis=axis)
-    result.shape = shape
+
+    #build producer from generating function
+    result = producer(genfunc, chunksize, axis, shape=shape)
 
     return result.to_array() if isinstance(data, np.ndarray) else result
