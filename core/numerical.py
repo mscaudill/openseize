@@ -555,15 +555,6 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
              yielded chunksize will be 1002 since 1002 % 3 == 0).
     """
 
-    # reduce the rational L/M
-    g = np.gcd(L, M)
-    L //= g
-    M //= g
-
-    # no resample requested
-    if L == M == 1:
-        return pro
-
     if M >= pro.shape[axis]:
         msg = 'Decimation factor must M={} be < pro.shape[{}] = {}'
         raise ValueError(msg.format(M, axis, pro.shape[axis]))
@@ -574,7 +565,7 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
         csize = pro.shape[axis]  // 3
 
     # kaiser antialiasing & interpolation filter coeffecients
-    cutoff = fs // (2*max(L, M))
+    cutoff = fs / (2*max(L, M))
     fstop = kwargs.pop('fstop', cutoff + cutoff / 10)
     fpass = kwargs.pop('fpass', cutoff - cutoff / 10)
     gpass, gstop = kwargs.pop('gpass', 0.1), kwargs.pop('gstop', 40)

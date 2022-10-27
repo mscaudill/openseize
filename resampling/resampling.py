@@ -110,6 +110,10 @@ def downsample(data, M, fs, chunksize, axis=-1, **kwargs):
         2. Polyphase implementation: scipy.signal.resample_poly
     """
    
+   # no downsample requested
+    if M == 1:
+        return data
+
     pro = producer(data, chunksize, axis)
 
     # construct polyphase-resampling generating func & get resultant shape
@@ -166,7 +170,11 @@ def upsample(data, L, fs, chunksize, axis=-1, **kwargs):
            Wiley & Sons. Chapter 12 "Multirate Signal Processing"
         2. Polyphase implementation: scipy.signal.resample_poly
     """
-    
+
+    # no upsample requested
+    if L == 1:
+        return data
+
     pro = producer(data, chunksize, axis)
 
     # construct polyphase-resampling generating func & get resultant shape
@@ -203,13 +211,15 @@ def resample(data, L, M, fs, chunksize, axis=-1, **kwargs):
         kwargs:
             Any valid keyword for a Kaiser lowpass filter. The default 
             values for combined antialiasing & interpolation filter are:
-
+                
                 fstop: int
                     The stop band edge frequency. 
-                    Defaults to fs // max(L,M).
+                    Defaults to cutoff + cutoff / 10 where cutoff = 
+                    fs / (2 * max(L,M)).
                 fpass: int
                     The pass band edge frequency. Must be less than fstop.
-                    Defaults to fstop - fstop // 10.
+                    Defaults to cutoff - cutoff / 10 where cutoff = fs /
+                    (2 * max(L,M)).
                 gpass: int
                     The pass band attenuation in dB. Defaults to a max loss
                     in the passband of 0.1 dB = ~1.1% amplitude loss.
@@ -229,10 +239,18 @@ def resample(data, L, M, fs, chunksize, axis=-1, **kwargs):
         2. Polyphase implementation: scipy.signal.resample_poly
     """
 
-    pro = producer(data, chunksize, axis)
+    # reduce the rational L/M
+    g = np.gcd(L, M)
+    l = L // g
+    m = M // g
 
+    # no resample requested
+    if l == m == 1:
+        return data
+
+    pro = producer(data, chunksize, axis)
     # construct polyphase-resampling generating func & get resultant shape
-    genfunc = partial(polyphase_resample, pro, L, M, fs, Kaiser, axis,
+    genfunc = partial(polyphase_resample, pro, l, m, fs, Kaiser, axis,
                       **kwargs)
     shape = resampled_shape(pro, L=L, M=M, axis=axis)
 
