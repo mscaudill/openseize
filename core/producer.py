@@ -406,9 +406,11 @@ class GenProducer(Producer):
                 continue
 
         else:
-
+            
             # yield whatever is left in tmp (its below chunksize)
-            yield np.concatenate(tmp, axis=self.axis)
+            remaining = np.concatenate(tmp, axis=self.axis)
+            if remaining.size > 0:
+                yield remaining
         
 
 class MaskedProducer(Producer):
