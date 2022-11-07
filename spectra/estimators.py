@@ -171,10 +171,13 @@ def stft(data, fs, axis, resolution=0.5, window='hann', overlap=0.5,
     Returns: 
         freqs: A 1-D array of frequencies at the requested resolution.
         time: A 1-D array of times for the segments used in the estimate.
-        X: A producer of STFT segments. Stacking these estimates along last
-           axis will create the STFT estimate with segment times along last 
-           axis. The length of each produced array along axis will be 
-           nfft - overlap * nfft where nfft = fs // resolution.
+        X: A producer of STFT segments or a 2-D array depending on data's 
+           type. If data is a producer, X is also a producer yielding STFT
+           estimates. Each estimated array will be nfft - overlap * nfft + 1
+           samples along axis where nfft = fs // resolution. These estimates 
+           can then be stacked along axis to get an array of STFT values. If
+           data type is ndarray, X will be an ndarray where each estimate
+           has been stacked along axis.
 
     References:
     (1) Oppenheim, Alan V., Ronald W. Schafer, John R. Buck “Discrete-Time 
