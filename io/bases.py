@@ -273,6 +273,8 @@ class Annotations(abc.ABC):
                 file at path
         """
 
+        self.path = path
+        self.kwargs = kwargs
         self._fobj, self._reader = self.open(path, **kwargs)
     
     @abc.abstractmethod
@@ -306,15 +308,24 @@ class Annotations(abc.ABC):
         Returns:
             A list of Annotation dataclass instances (see Annotation).
         """
+
+        labels = [labels] if isinstance(labels, str) else labels
         
         result = []
         names = ['label', 'time', 'duration', 'channel']
         for row in self._reader:
             ann = Annotation(*[getattr(self, name)(row) for name in names])
+            
             if labels is None:
                 result.append(ann)
+            
             else:
                 result.append(ann) if ann.label in labels else None
+
+        # support multiple read calls when non Context Manager mode
+        self.close()
+        self.__init__(self.path, **self.kwargs)
+        
         return result
 
     def __enter__(self):
