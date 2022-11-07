@@ -47,7 +47,7 @@ class STFTViewer:
         time (1-D array):   An array of STFT times in secs.
         scale (str):        String specifying a scaling function to apply to
                             data prior to display. Default is the dB power 
-                            scale = 10 * np.log10(data).
+                            scale = 10 * np.log10(data). May be None.
         chs (seq):          Sequence of channel indices to display. Default 
                             None will plot all channels.
         names (seq):        Sequence of channel names to display on
