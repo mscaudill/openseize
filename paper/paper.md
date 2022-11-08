@@ -1,4 +1,3 @@
-
 ---
 title: 'Openseize: A signal processing package for large EEG datasets in Python'
 tags:
@@ -26,4 +25,4 @@ bibliography: paper.bib
 
 # Summary
 
-
+This is the summary
