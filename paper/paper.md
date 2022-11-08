@@ -20,7 +20,6 @@ affiliations:
   - name: Jan and Dan Duncan Neurological Research Institute at Texas Childrens Hospital, Houston, TX, USA
   - index: 2
 date: 8 November 2022
-#bibliography: paper.bib
 ---
 
 # Summary
