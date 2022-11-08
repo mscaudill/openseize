@@ -9,16 +9,16 @@ tags:
   - time series analysis
 authors:
   - name: Matthew S. Caudill
-  - orcid: 0000-0002-3656-9261
-  - affiliation: "1, 2" # (multiple affiliations must be quoted)
+    orcid: 0000-0002-3656-9261
+    affiliation: "1, 2" # (multiple affiliations must be quoted)
   - name: Josh Baker
-  - orcid: 0000-0002-1403-1479
-  - affiliation: "2"
+    orcid: 0000-0002-1403-1479
+    affiliation: "2"
 affiliations:
   - name: Department of Neuroscience, Baylor College of Medicine, Houston, TX, USA
-  - index: 1
+    index: 1
   - name: Jan and Dan Duncan Neurological Research Institute at Texas Childrens Hospital, Houston, TX, USA
-  - index: 2
+    index: 2
 date: 8 November 2022
 bibliography: paper.bib
 ---
