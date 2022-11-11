@@ -42,3 +42,5 @@ A consequence of this functional programming approach is that DSP algorithms in 
 # Acknowledgements
 
 We thank Josh Baker for help in debugging and testing Openseize on real-world EEG datasets. We also would like to thank the Texas Children's NRI and their fantastic donors for generously supporting this project.
+
+# References
