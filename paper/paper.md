@@ -23,7 +23,7 @@ bibliography: paper.bib
 # Summary
 
 Electroencencepholgraphy (EEG) is an indispensable clinical and research
-tool used to diagnose neurological disease [@matplotlib] and discover brain circuit mechanisms that support sensory, mnemonic and cognitive processing tasks. Mechanistically, EEGs are non-stationary time-series that reflect on-going changes in the brain's electromagnetic field. This field is maintained and modulated by synchronous changes of potential at many millions of individual synapses. To understand these time-series, linear digital signal processing (DSP) tools are routinely used to reduce noise, resample the data, remove artifacts, expose the data's spatio-temporal frequency content, and much more. Openseize is a DSP software package written in pure Python that scales to very large EEG datasets, uses an extensible object-oriented architecture, and provides a familiar Scipy-like API.
+tool used to diagnose neurological disease [@Tierney:2012, @matplotlib] and discover brain circuit mechanisms that support sensory, mnemonic and cognitive processing tasks. Mechanistically, EEGs are non-stationary time-series that reflect on-going changes in the brain's electromagnetic field. This field is maintained and modulated by synchronous changes of potential at many millions of individual synapses. To understand these time-series, linear digital signal processing (DSP) tools are routinely used to reduce noise, resample the data, remove artifacts, expose the data's spatio-temporal frequency content, and much more. Openseize is a DSP software package written in pure Python that scales to very large EEG datasets, uses an extensible object-oriented architecture, and provides a familiar Scipy-like API.
 
 # Statement of need
 
