@@ -102,7 +102,7 @@ If you have used Openseize in a publication please cite it using:</br>
 ```
 Citation from Joss
 ```
-And if you really like Openseize, please consider staring this repository<span>&#128512;</span>
+And if you really like Openseize, you can star this repository <span>&#11088;</span>
 
 # Contributions
 
