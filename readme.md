@@ -27,7 +27,7 @@
 ## from source
 
 # Dependencies
-Openseize requires <b>Python >= 3.6</b> and has the following dependencies:
+Openseize requires <b>Python <span>&#8805;</span> 3.6</b> and has the following dependencies:
 
 <table>
   
