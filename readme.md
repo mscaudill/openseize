@@ -60,16 +60,16 @@ Openseize has the following dependencies:
     <td>https://pypi.org/project/scipy/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
-  
-  <tr>
-    <td><a href="https://https://scipy.org/">scipy</a></td>
-    <td>https://pypi.org/project/scipy/</td>
-    <td align='center'><span>&#10003;</span></td>
-  </tr>
 
   <tr>
     <td><a href="https://matplotlib.org/">matplotlib</a></td>
     <td>https://pypi.org/project/matplotlib/</td>
+    <td align='center'><span>&#10003;</span></td>
+  </tr>
+  
+  <tr>
+    <td><a href="https://ipython.org/">ipython</a></td>
+    <td>https://pypi.org/project/ipython/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
   
