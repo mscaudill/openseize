@@ -98,6 +98,12 @@ Openseize has the following dependencies:
 
 # Attribution
 
+If you have used Openseize in a publication please cite it using:</br>
+```
+Citation from Joss
+```
+And if you really like Openseize, please consider staring this repository <p>I will display &#1F600;</p>
+
 # Contributions
 
 # Issues
