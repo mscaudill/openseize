@@ -5,7 +5,7 @@
 </h1>
 
 <p align="center">
-  <b>This repository contains the <strong> Openseize </strong> source code, an iterative digital signal processing package for big EEG data in Python. </b>
+  <b>This repository contains the Openseize source code, an iterative digital signal processing package for big EEG data in Python. </b>
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@
 ## from source
 
 # Dependencies
-Openseize has the following dependencies:
+Openseize requires <b>Python >= 3.6</b> and has the following dependencies:
 
 <table>
   
