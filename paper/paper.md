@@ -51,6 +51,6 @@ In summary, Openseize fulfills a need in neuroscience research for DSP tools tha
 
 # Acknowledgements
 
-We thank Josh Baker for help in debugging and testing Openseize on real-world EEG data as well as critical reading of the manuscript. This work was generously supported through the Ting Tsung and Wei Fong Chao Foundation at Texas Children's Hospital.
+We thank Josh Baker for help in debugging and testing Openseize on real-world EEG data as well as critical reading of the manuscript. This work was generously supported through the Ting Tsung and Wei Fong Chao Foundation.
 
 # References
