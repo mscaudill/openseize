@@ -47,10 +47,10 @@ A consequence of this functional programming approach is that Openseize's algori
 
  Finally, Openseize has an intuitive application programming interface (API). While under the hood, Openseize is using a functional programming approach, from the end-user's perspective, the calling of its functions are nearly identical to Scipy's DSP call signatures. The only noticeable difference is that DSP processed values in a producer are not immediately returned when the producer is created. Rather, the values are generated when the producer is iterated over. To guide new users, documentation that includes in-depth discussions about DSP algorithms and their implementations in Openseize are included as a series of Jupyter notebooks [@jupyter]. To maintain the clarity and extensibility Openseize's API, graphical user interfaces (GUIs) have been avoided. This decision reflects the fact that many current DSP packages have inconsistent APIs depending on whether the modules are invoked from the command-line or a GUI.   
 
-In summary, Openseize fulfills a need in neuroscience research for DSP tools that can scale with increasing EEG data sizes, are extensible enough to handle new data types and methods, and be intuitive for both neuroscience experimenters as well as developers.
+In summary, Openseize fulfills a need in neuroscience research for DSP tools that can scale with increasing EEG data sizes, are extensible enough to handle new data types and methods, and are accessible to both end-users and developers.
 
 # Acknowledgements
 
-We thank Josh Baker for help in debugging and testing Openseize on real-world EEG data as well as critical reading of the manuscript. We also would like to thank the Texas Children's NRI and their donors for generously supporting this project.
+We thank Josh Baker for help in debugging and testing Openseize on real-world EEG data as well as critical reading of the manuscript. This work was generously supported through the Ting Tsung and Wei Fong Chao Foundation at Texas Children's Hospital.
 
 # References
