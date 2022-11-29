@@ -1,0 +1,34 @@
+# requirements for openseize's development environment
+name: openseize-dev
+dependencies:
+    - requests
+    - pywget
+    - psutil
+    - numpy
+    - scipy
+    - matplotlib
+    - ipython
+    - notebook
+    # testing
+    - pytest
+    - pytest-cov
+    # Linting & format
+    - black
+    - pylint
+    # pypi packages
+    - pip
+    - pip:
+        # versioning and precommit
+        - bumpver
+        - pre-commit
+        # doc builders
+        - mkdocs
+        - mkdocs-material
+        - "mkdocstrings[python]"
+        - mkdocs-jupyter
+        # packaging
+        - pip-tools
+        - build
+        - twine
+
+
