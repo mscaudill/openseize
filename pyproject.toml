@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openseize"
+version = "1.0.0"
+dynamic = ["dependencies"]
+authors =[{ name="Matthew Caudill", email="mscaudill@gmail.com" }]
+description = "Digital Signal Processing for Large EEG Datasets"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE.txt"}
+keywords = ["EEG", "signal processing", "seizure", "DSP", "EDF"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering"
+]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[project.optional-dependencies]
+dev = ["isort",
+    "black", 
+    "pylint", 
+    "bumpver", 
+    "pip-tools", 
+    "pytest", 
+    "pytest-cov",
+    "pre-commit"
+]
+
+[project.urls]
+Homepage = "https://github.com/mscaudill/openseize"
+

@@ -1,4 +1,4 @@
-#requirements for the openseize package
+# conda environment for the openseize package
 name: openseize
 dependencies:
     - requests
@@ -8,5 +8,5 @@ dependencies:
     - matplotlib
     - ipython
     - notebook
-    - pytest
     - psutil
+
