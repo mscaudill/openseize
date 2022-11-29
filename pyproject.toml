@@ -36,3 +36,19 @@ dev = ["isort",
 [project.urls]
 Homepage = "https://github.com/mscaudill/openseize"
 
+
+
+[tool.bumpver]
+current_version = "1.0.0"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = false
+tag = false
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"', 
+    'version = "{version}"'
+]
+"src/openseize/__init__.py" = ["{version}"]
