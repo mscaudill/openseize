@@ -7,7 +7,7 @@ name = "openseize"
 version = "1.0.0"
 dynamic = ["dependencies"]
 authors =[{ name="Matthew Caudill", email="mscaudill@gmail.com" }]
-description = "Digital Signal Processing for Large EEG Datasets"
+description = "Digital Signal Processing for Big EEG Datasets"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE.txt"}
@@ -42,9 +42,9 @@ Homepage = "https://github.com/mscaudill/openseize"
 current_version = "1.0.0"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "bump version {old_version} -> {new_version}"
-commit = false
-tag = false
-push = false
+commit = true
+tag = true
+push = true
 
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [

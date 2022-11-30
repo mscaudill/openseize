@@ -10,8 +10,18 @@ plugins:
     - mkdocstrings:
         handlers:
             python:
-                paths: [src/]
+                paths: [src]
+                options:
+                    members_order: source
     - mkdocs-jupyter
+
+# declare extensions
+markdown_extensions:
+    - pymdownx.highlight:
+        anchor_linenums: true
+    - pymdownx.inlinehilite
+    - pymdownx.snippets
+    - pymdownx.superfences
 
 # use standard material theme
 theme:
@@ -20,17 +30,19 @@ theme:
     # two toggleable color palettes
     palette:
         - scheme: space
-          toggle: material/brightness-7
-          name: Dark Mode
+          toggle:
+            icon: material/brightness-7
+            name: Dark Mode
 
         - scheme: slate
+          primary: black
           toggle:
               icon: material/brightness-4
               name: Light Mode
 
     # logos at site name & window tab
     logo: 'imgs/tinylogo.png'
-    favivon: 'imgs/tinylogo.png'
+    favicon: 'imgs/tinylogo.png'
 
     features:
         # add tabs to header & keep visible on scroll
@@ -41,12 +53,12 @@ theme:
     icon:
         repo: fontawesome/brands/github
 
-    # link to github repository
-    repo_url: https://github.com/mscaudill/openseize
-    repo_name: mscaudill/openseize
+# link to github repository
+repo_url: https://github.com/mscaudill/openseize
+repo_name: mscaudill/openseize
 
-# remove editable 'pencil' from imgs
-edit_uri: "blob/main/docs"
+# make pages non-editable
+edit_uri: ""
 
 # configure navigation pane
 nav:
@@ -62,8 +74,18 @@ nav:
     - Reference:
         - Filters:
             - 'FIR Filters': 
-                - Bartlett: bartlett.md
+              - Bartlett: bartlett.md
             - 'IIR Filters': iir_filters.md
     - About: about.md
+
+# reflect changes immediately during dev.
+watch: 
+    - src/openseize/
+
+# Footer icon components
+extra:
+    social:
+        - icon: fontawesome/brands/github 
+          link: https://github.com/mscaudill
 
 
