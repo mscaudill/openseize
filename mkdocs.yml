@@ -1,0 +1,69 @@
+site_name: OPENSEIZE
+
+# custom color scheme
+extra_css:
+    - stylesheets/extra_styles.css
+
+# declare plugins
+plugins:
+    - search
+    - mkdocstrings:
+        handlers:
+            python:
+                paths: [src/]
+    - mkdocs-jupyter
+
+# use standard material theme
+theme:
+    name: material
+
+    # two toggleable color palettes
+    palette:
+        - scheme: space
+          toggle: material/brightness-7
+          name: Dark Mode
+
+        - scheme: slate
+          toggle:
+              icon: material/brightness-4
+              name: Light Mode
+
+    # logos at site name & window tab
+    logo: 'imgs/tinylogo.png'
+    favivon: 'imgs/tinylogo.png'
+
+    features:
+        # add tabs to header & keep visible on scroll
+        - navigation.tabs
+        - navigation.tabs.sticky
+
+    # add icon to header for github repo link
+    icon:
+        repo: fontawesome/brands/github
+
+    # link to github repository
+    repo_url: https://github.com/mscaudill/openseize
+    repo_name: mscaudill/openseize
+
+# remove editable 'pencil' from imgs
+edit_uri: "blob/main/docs"
+
+# configure navigation pane
+nav:
+    - Home: index.md
+    - Quickstart: quickstart.ipynb
+    - Tutorials:
+        - 'Producers': 'tutorials/producers.ipynb'
+        - 'File Reading': 'tutorials/file_reading.ipynb'
+        - 'Filtering': 'tutorials/filtering.ipynb'
+        - 'Resampling': 'tutorials/resampling.ipynb'
+        - 'Fourier Transform & Aliasing': 'tutorials/fourier_transform.ipynb'
+        - 'Spectral Analysis': 'tutorials/spectra.ipynb'
+    - Reference:
+        - Filters:
+            - 'FIR Filters': 
+                - Bartlett: bartlett.md
+            - 'IIR Filters': iir_filters.md
+    - About: about.md
+
+
