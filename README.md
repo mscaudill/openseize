@@ -4,7 +4,7 @@
 </h1>
 
 <p align="center">
-  <i><font size="24", color="grey">Digital Signal Processing for Big EEGs</font></i>
+  <font size="24", color="blue"><i>Digital Signal Processing for Big EEGs<i></font>
 </p>
 
 
