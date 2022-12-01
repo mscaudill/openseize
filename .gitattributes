@@ -1,2 +1,1 @@
-# reclassify jupyter notebooks as python code for linguist
 *.ipynb linguist-language=Python
