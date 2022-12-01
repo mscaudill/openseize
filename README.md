@@ -70,10 +70,7 @@ in-depth discussions of iterative DSP processing and its implementation.
 </ul>
 </font>
 
-<hr>
-
 # Installation
-
 For each installation guide below, we **strongly** recommend creating a 
 virtual environment. This environment will isolate external dependencies 
 that may conflict with packages you already have installed on your system. 
@@ -90,17 +87,17 @@ href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environme
 
 ### Python Virtual Environment
 1. Create your virtual environment, Here we name it `my_venv`. 
-```console
+```Shell
 $ python -m venv my_venv
 ```
 
 2. Activate your 'my_venv' environment
-```console
+```Shell
 $ source my_venv/bin/activate
 ```
 
 3. Install openseize into your virtual environment
-```console
+```Shell
 (my_venv)$ python -m pip install openseize
 ```
 
@@ -122,17 +119,17 @@ target=_blank>configuration yaml</a>
 
 
 2. Create a conda openseize environment.
-```console
+```Shell
 $ conda env create --file environment.yml
 ```
 
 3. Activate the `openseize` environment.
-```console
+```Shell
 $ conda activate openseize
 ```
 
 4. Install openseize from pypi into your openseize environment.
-```
+```Shell
 (openseize)$ pip install openseize
 ```
 
@@ -143,16 +140,14 @@ and all development dependencies. Here are the steps:
 1. Create a virtual environment 
 
 2. Get the source code move into the project directory
-```
+```Shell
 $ git clone https://github.com/mscaudill/openseize.git
 ```
 
 3. Create an editable install with `pip`.
-```
+```Shell
 $ pip install -e .
 ```
-
-<hr>
 
 # Dependencies
 
@@ -235,7 +230,6 @@ Openseize requires <b>Python <span>&#8805;</span> 3.10</b> and has the following
 Openseize provides both tutorials and extensive reference documentation.
 
 # Attribution
-
 ```
 Citation from Joss
 ```
