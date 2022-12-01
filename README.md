@@ -3,9 +3,9 @@
     style="width:450px;height:auto;"/>
 </h1>
 
-<h1 align="center">
-  <i>Digital Signal Processing for Big EEGs<i>
-</h1>
+<h2 align="center">
+  <i><font color='gray'>Digital Signal Processing for Big EEGs</font></i>
+</h2>
 
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)
