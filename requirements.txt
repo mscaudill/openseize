@@ -1,0 +1,9 @@
+# dependencies for openseize project
+requests
+pywget
+numpy
+scipy
+matplotlib
+ipython
+notebook
+psutil
