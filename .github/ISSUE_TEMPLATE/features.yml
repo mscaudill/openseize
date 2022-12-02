@@ -1,0 +1,57 @@
+name: 💡 Feature Request
+description: Suggest an idea for Openseize
+labels: [enhancement]
+title: "[FEAT]: <Title>"
+body:
+
+  # validate if this issue already exist
+  - type: checkboxes
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please search to see if this issue already exists for this bug.
+      options:
+      - label: I have searched the existing issues
+        required: true
+
+  # Describe your idea
+  - type: textarea
+    attributes:
+      label: Describe the Feature Request
+      description: A concise description of what the proposed feature does.
+    validations:
+        required: true
+
+  # Describe its use
+  - type: textarea
+    attributes:
+      label: Describe the Use Case
+      description: A concise use case for what problem this feature would solve.
+    validations:
+      required: true
+  
+  # Preferred solution
+  - type: textarea
+    attributes:
+      label: Describe Preferred Solution
+      description: A concise description of how to implement this feature.
+
+  # Any other info?
+  - type: textarea
+    attributes:
+      label: Additional Information
+      description: | 
+        Provide stack traces, related issues, suggestions on how to implement, 
+        Stack Overflow links, etc.
+
+  # Code of Conduct
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: > 
+        By submitting this issue, you agree to follow our 
+        [Code of Conduct](
+        https://github.com/mscaudill/openseize/blob/master/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
