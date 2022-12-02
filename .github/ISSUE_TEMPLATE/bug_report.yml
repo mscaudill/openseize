@@ -1,0 +1,85 @@
+name: 🐞 BUG
+description: File a bug report
+labels: [Bug]
+title: "[BUG]: <Title>"
+body:
+
+  # validate if this issue already exist
+  - type: checkboxes
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please search to see if this issue already exists for this bug.
+      options:
+      - label: I have searched the existing issues
+        required: true
+
+  # What user is experiencing box
+  - type: textarea
+    attributes:
+      label: Current Behavior
+      description: A concise description of what you're experiencing.
+    validations:
+      required: false
+
+  # What user was expecting box
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+      description: A concise description of what you expected to happen.
+    validations:
+      required: false
+
+  # Steps to reproduce box
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. In this environment...
+        2. With this config...
+        3. Run '...'
+        4. See error...
+    validations:
+      required: false
+  
+  # log outputs
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: >
+        Please copy and paste any relevant log output. This will be 
+        automatically formatted into code, so no need for backticks.
+      render: shell
+
+  # input for users OS
+  - type: input
+    attributes:
+      label: Environment
+      placeholder: "Ubuntu 20.04"
+    validations:
+      required: false
+
+  # Anything else
+  - type: textarea
+    attributes:
+      label: Anything else?
+      description:  "Tip:  You can attach images or log files by clicking 
+        this area to highlight it and then dragging files in."
+      placeholder: >
+        Links, references, images that will give us more context about the 
+        issue?
+    validations:
+      required: false
+
+  # Code of Conduct
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: > 
+        By submitting this issue, you agree to follow our 
+        [Code of Conduct](https://example.com)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
