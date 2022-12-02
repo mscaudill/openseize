@@ -10,6 +10,7 @@
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)
 ](https://github.com/psf/black)
+![GitHub last commit](https://img.shields.io/github/last-commit/mscaudill/rett_memory?color=blue&style=plastic)
 
 <p align="center"  style="font-size: 20px">
 <a href="#key-features">Key Features</a>   |  
