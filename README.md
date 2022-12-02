@@ -241,6 +241,10 @@ href=https://github.com/mscaudill/openseize>repository</a>
 # Contributions
 
 # Issues
+Openseize provides custom issue templates for filing bugs, requesting
+feature enhancements, suggestions to improve documentations, or just asking
+questions. *Ready to discuss?* File an issue <a
+href=https://github.com/mscaudill/openseize/issues/new/choose>here</a>. 
 
 # License
 Openseize is licensed under the terms of the 3-Clause BSD License.
