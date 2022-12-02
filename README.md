@@ -10,6 +10,7 @@
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)
 ](https://github.com/psf/black)
+https://img.shields.io/badge/<PRs>-<welcome>-<yellow>
 ![GitHub](https://img.shields.io/github/license/mscaudill/openseize?color=green&logo=BSD-3)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6799475.svg)
 ](https://doi.org/10.5281/zenodo.6799475)
