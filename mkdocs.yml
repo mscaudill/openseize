@@ -69,7 +69,7 @@ nav:
         - 'File Reading': 'tutorials/file_reading.ipynb'
         - 'Filtering': 'tutorials/filtering.ipynb'
         - 'Resampling': 'tutorials/resampling.ipynb'
-        - 'Fourier Transform & Aliasing': 'tutorials/fourier_transform.ipynb'
+        - 'Fourier Transform': 'tutorials/fourier_transform.ipynb'
         - 'Spectral Analysis': 'tutorials/spectra.ipynb'
     - Reference:
         - Filters:
