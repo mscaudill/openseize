@@ -16,7 +16,7 @@
     options:    
         members_order:
             source
-        members: 
+        members:
             - btype
             - ftype
             - pass_attenuation
