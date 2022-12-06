@@ -73,8 +73,15 @@ nav:
         - 'Spectral Analysis': 'tutorials/spectra.ipynb'
     - Reference:
         - Filters:
-            - 'FIR Filters': 
-              - Bartlett: bartlett.md
+            - 'FIR Filters':
+              - Introduction: 'firs/info.md' 
+              - Kaiser: 'firs/kaiser.md'
+              - Rectangular: 'firs/rectangular.md'
+              - Bartlett: 'firs/bartlett.md'
+              - Hann: 'firs/hann.md'
+              - Hamming: 'firs/hamming.md'
+              - Blackman: 'firs/blackman.md'
+              - Remez: 'firs/remez.md'
             - 'IIR Filters': iir_filters.md
     - About: about.md
 

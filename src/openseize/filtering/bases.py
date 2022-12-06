@@ -1,11 +1,12 @@
 import abc
 from functools import partial
+from typing import Union, Sequence
 
 import numpy as np
 import scipy.signal as sps
 
 from openseize.core import mixins
-from openseize.core.producer import producer
+from openseize.core.producer import producer, Producer
 from openseize.core import numerical as nm
 from openseize.filtering.mixins import IIRViewer, FIRViewer
 
@@ -80,8 +81,10 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
         fp, fs = self.fpass, self.fstop
         if len(fp) < 2:
             btype = 'lowpass' if fp < fs else 'highpass'
+        
         else:
             btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
+        
         return btype
     
     @abc.abstractproperty
@@ -167,32 +170,59 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
 class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
     """Base class for finite impulse response filters.
 
-    This base class designs an FIR filter using pass and stop band edge 
-    frequencies and attenuations. It defines the common and expected 
-    methods of all concrete FIR filters in the openseize.filtering.fir 
-    module. Inheritors in that module must overide abstract methods &
-    properties of this base to be instantiable.
+    Attributes:
+        fpass (np.ndarray):
+            1-D numpy array of start and stop edge frequencies of this 
+            filter's passband(s).
+        fstop (np.ndarray):
+            1-D numpy array of start and stop edge frequencies of this 
+            filter's stopband(s).
+        gpass (float):
+            Maximum loss in the passband(s) in dB.
+        gstop (float):
+            Minimum attenuation in the stopbands in dB.
+        fs (int):
+            The sampling rate of the digital system.
+        nyq (float):
+            The nyquist rate of the digital sytem, fs/2.
+        width (float):
+            The minimum transition width between the pass and stopbands.
+        coeffs (np.ndarray):
+            A 1-D numpy array of filter coeffecients.
+
+    Notes:
+        This FIR ABC defines the common and expected methods of all concrete
+        FIR filters in the openseize.filtering.fir module. Inheritors must
+        overide abstract methods & properties of this base to be
+        instantiable.
     """
 
-    def __init__(self, fpass, fstop, gpass, gstop, fs, **kwargs):
+    def __init__(self, 
+                 fpass: Union[float, Sequence[float]], 
+                 fstop: Union[float, Sequence[float]], 
+                 gpass: float, 
+                 gstop: float, 
+                 fs: float, 
+                 **kwargs):
         """Initialize this FIR.
 
         Args:
-            fpass, fstop: float or 2-el sequence
-                Pass and stop band edge frequencies in units of Hz.
-                For example:
-                - Lowpass: fpass = 1000, fstop = 1100
-                - Highpass: fpass = 2000, fstop = 1800 
-                - Bandpass: fpass = [400, 800], fstop = [300, 900]
-                - Bandstop: fpass = [100, 200], fstop = [120, 180]
-            gpass: float
+            fpass:
+                The pass band edge frequency in the same units as fs OR
+                a sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fstop:
+                The stop band edge frequency in the same units as fs OR
+                a sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            gpass:
                 The maximum loss in the passband (dB).
-            gstop: float
+            gstop:
                 The minimum attenuation in the stop band (dB).
-            fs: int
-                The sampling rate of the signal to be filtered.
-            kwargs: dict
-                These are currently unused.
+            fs:
+                The sampling rate of the digital system.
+            kwargs:
+                Currently unused.
         """
 
         self.fpass = np.atleast_1d(fpass)
@@ -213,37 +243,37 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
 
     @property
     def ftype(self):
-        """Returns the name of this FIR filter."""
+        """Returns the string name of this FIR filter."""
 
         return type(self).__name__.lower()
 
     @property
     def btype(self):
-        """Returns the band type from the pass & stop edge frequencies."""
+        """Returns the string band type of this filter."""
        
         fp, fs = self.fpass, self.fstop
         if len(fp) < 2:
             btype = 'lowpass' if fp < fs else 'highpass'
+        
         elif len(fp) == 2:
             btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
+        
         else:
             msg = '{} supports only lowpass, highpass, bandpass & bandstop.'
             raise ValueError(msg.format(type(self)))
+        
         return btype
 
     @property
     def pass_attenuation(self):
-        """Returns the pass band attenuation in dB.
-
-        The gpass attr of this FIR is the maximum loss in the passband. 
-        This function converts this loss to a pass band attenuation.
-        """
+        """Converts the max passband ripple, gpass, into a pass band 
+        attenuation in dB."""
         
         return -20 * np.log10(1 - 10 ** (-self.gpass / 20))
     
     @property
     def cutoff(self):
-        """Returns the -6 dB point at the center of each transition band."""
+        """Returns the -6 dB center point of each transition band."""
 
         delta = abs(self.fstop - self.fpass) / 2
         return delta + np.min(np.stack((self.fpass, self.fstop)), axis=0)
@@ -252,10 +282,11 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
     def window_params(self):
         """Returns parameters needed to specify the window of this FIR.
 
-        Some of the windows used to truncate this FIRs coeffecients may
-        require more than just the number of taps. For these parameterized
-        windows, subclasses should override this method and return the
-        additional parameters as a sequence. 
+        Note:
+            Some of the windows used to truncate this FIRs coeffecients may
+            require more than just the number of taps. For these
+            parameterized windows, subclasses should override this method
+            and return the additional parameters as a sequence. 
         """
 
         return tuple()
@@ -274,40 +305,44 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
                           window=window, pass_zero=self.btype,
                           scale=True, fs=self.fs)
  
-    def __call__(self, data, chunksize, axis, mode='same', **kwargs):
+    def __call__(self, 
+                 data: Union[Producer, np.ndarray],
+                 chunksize: int, 
+                 axis: int = -1, 
+                 mode: str = 'same', 
+                 **kwargs) -> Union[Producer, np.ndarray]:
         """Apply this filter to an ndarray or producer of ndarrays.
 
         Args:
-            data: ndarray or producer of ndarrays
+            data:
                 The data to be filtered.
-            chunksize: int
+            chunksize:
                 The number of samples to hold in memory during filtering.
-            axis: int
+            axis:
                 The axis of data along which to apply the filter. If data is
                 multidimensional, the filter will be independently applied
-                along all slices along axis.
-            mode: str
+                along all slices of axis.
+            mode:
                 A numpy convolve mode; one of 'full', 'same', 'valid'.
-                    Full:
-                        This mode includes all points of the convolution of
-                        the filter window and data. This mode does not 
-                        compensate for the delay introduced by the filter.
-                    Same:
-                        This mode (Default) returns data of the same size
-                        as the input. This mode adjust for the delay
-                        introduced by the filter.
-                    Valid: 
-                        This mode returns values only when the filter and
-                        data completely overlap. The result using this mode
-                        is to shift the data (num_taps - 1) / 2 samples to
-                        the left of the input data. 
-            kwargs: dict
+
+                - Full:
+                    This mode includes all points of the convolution of
+                    the filter window and data. This mode does not 
+                    compensate for the delay introduced by the filter.
+                - Same:
+                    This mode (Default) returns data of the same size
+                    as the input. This mode adjust for the delay
+                    introduced by the filter.
+                - Valid: 
+                    This mode returns values only when the filter and
+                    data completely overlap. The result using this mode
+                    is to shift the data (num_taps - 1) / 2 samples to
+                    the left of the input data. 
+            kwargs:
                 Any valid keyword argument for the producer constructor.
-                Please type help(openseize.producer) for more details.
 
         Returns:
-            An ndarray of filtered data or a producer of ndarrays of
-            filtered data. The output type will match the input data type.
+            Filtered result with type matching input 'data' parameter.
         """
 
         pro = producer(data, chunksize, axis, **kwargs)

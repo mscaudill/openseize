@@ -1,94 +1,123 @@
 """A collection of callable Finite Impulse Response filters.
 
-This collection includes the Kaiser parametric filter, non-parametric 
-general cosine window filters, and an optimal 'minimax' filter. Each
-filter inherits the ability to plot itself and can be called on an ndarray
-or a producer of ndarrays.Please see the FIR base class in 
-openseize.filtering.bases for inherited properties and methods.
+This module contains three distint types of FIR Filters.
 
-The Kaiser windows can be designed to meet the stricter of the pass and stop
-band attenuation criteria within the specified transition width. The general
-cosine windows (GCW) FIRS (Rectangular, Hanning, Hamming, Bartlett & 
-Blackman) do not allow for tuning of the attenuation as these are inherent 
-to the window shape. Thus to use the GCWs it is necessary to pick a specific
-GCW that meets the peak error spec. These are provided in the documentation
-for each windowed FIR. As such the Kaiser FIR is the simpler choice for
-general filtering unless some specific need (such as fast roll-offs) is 
-required. If multibands are required in a single filter desing or if minimal
-number of taps are required Remez may be used. 
-
-Typical usage example:
+## General Cosine window (GCW) FIRs
+A filter design that allows for the specification of pass and stop bands but
+*not* attenuations. The amplitude response of the filter is determined by
+the window shape alone. The following table list the GCWs available:
     
-    # build a lowpass Kaiser FIR with and edge frequencies of 500 and 600 Hz
-    # that has a maximum passband loss of 1 dB ~ 11 % & a minimum stop band
-    # attenuation of 40 dB ~ 99% amplitude attenuation.
-    kfir = Kaiser(fpass=500, fstop=600, fs=5000, gpass=1.0, gstop=40)
+    - Rectangular
+    - Bartlett
+    - Hann
+    - Hamming
+    - Blackman
 
-    # plot this filter's impulse and frequency response
-    kfir.plot()
+## Kaiser Parameterized window FIR
+A filter design with an additional parameter that specifies the window shape.
+These filters can be designed to meet to the strictest criteria in the
+pass and stop bands. **This filter design is the recommended FIR type in
+Openseize.**
 
-    # finally apply the filter to a producer of ndarrays called 'data'.
-    # and account for the group delay of the filter with mode='same'
-    filtered = kfir(data, chunksize=10e6, axis=-1, mode='same')
+## Remez (Parks-McClellan) Optimal FIRs
+A filter design that minimizes the difference between the amplitude response
+of a approximating Chebyshev filter from the desired amplitude response
+using the Chebyshev approximation. This filter is optimal in the sense that
+it yields the lowest number of coeffecients at the cost of instability. It
+supports multiple pass and stop bands.
 
-    # process each filtered chunk
-    for arr in filtered:
-        # do something with filtered chunk 
+Examples:
+
+    >>> # Design a lowpass Kaiser FIR with a passband edge at 500 Hz and
+    ... # transition width of 200 Hz. It should have no more than 0.5 dB
+    ... # ripple in the pass band and reach 40 dB attenuation in the stop
+    ... # band
+    >>> kaiser = Kaiser(fpass=500, fstop=600, fs=5000, gpass=0.5, gstop=40)
+    >>> # print the filter to see its attributes
+    >>> print(kaiser)
+    >>> # plot the filter to see its design
+    >>> kaiser.plot()
+    >>> # apply the filter to a producer of ndarrays
+    >>> result = kaiser(pro, chunksize=10000, axis=-1, mode='same')
 """
 
+from typing import Union, Sequence, Tuple
 import numpy as np
 import scipy.signal as sps
 
 from openseize.filtering.bases import FIR
 
 class Kaiser(FIR):
-    """A callable Type I FIR Filter using a Kaiser window. 
+    """A callable Type I FIR Filter using the parametric Kaiser window. 
 
-    Designs a Kaiser windowed filter that meets the stricter of the pass and
-    stop band attenuation criteria.
+    A parameterized window allows for Kaiser filters to be designed to meet
+    the stricter of user supplied pass or stop band attenuation criteria.
+    Given this increased flexibility compared to general cosine windows
+    (Hamming, Hann etc), **Kaiser filters are the recommended FIR filter
+    design in Openseize.**
 
-    Attrs:
-        fpass, fstop: float or length 2 sequence
-            Pass and stop band edge frequencies (Hz).
-            For example:
-                - Lowpass: fpass = 1000, fstop = 1100
-                - Highpass: fpass = 2000, fstop = 1800 
-                - Bandpass: fpass = [400, 800], fstop = [300, 900]
-                - Bandstop: fpass = [100, 200], fstop = [120, 180]
-        fs: int
-            The sampling rate of the data to be filtered.
-        gpass: float
-            The maximum loss in the pass band (dB). Default is 1.0 dB which
-            is an amplitude loss of ~ 11%.
-        gstop: float
-            The minimum attenuation in the stop band (dB). The default is 40
-            dB which is an amplitude loss of 99%
+    Attributes:
+        :see FIR Base for attributes
+    
+    Examples:
+        >>> # design a low pass filter with a max ripple of 1 dB and minimum
+        ... # attenuation of 40 dB
+        >>> kaiser = Kaiser(fpass=300, fstop=350, fs=5000, gpass=1,
+        ...                 gstop=40)
+        >>> kaiser.btype
+        'lowpass'
+        >>> kaiser = Kaiser(fpass=600, fstop=400, fs=1800, gpass=0.5,
+        ...                 gstop=40)
+        >>> rect.btype
+        'highpass'
+        >>> rect = Rectangular(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> rect.btype
+        'bandpass'
+        >>> rect = Rectangular(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> rect.btype
+        'bandstop'
 
     References:
         1. Ifeachor E.C. and Jervis, B.W. (2002). Digital Signal Processing:
            A Practical Approach. Prentice Hall
-        2. Oppenheim, Schafer, "Discrete-Time Signal Processing".
+        2. Oppenheim, A.V. and Schafer, R.W. (2009) "Discrete-Time Signal
+           Processing" 3rd Edition. Pearson.
     """
 
-    def __init__(self, fpass, fstop, fs, gpass=1.0, gstop=40, **kwargs):
-        """Initialize this Kaiser windowed FIR filter."""
-
-        super().__init__(fpass, fstop, gpass, gstop, fs, **kwargs)
+    def __init__(self, 
+                 fpass: Union[float, Tuple[float, float]], 
+                 fstop: Union[float, Tuple[float, float]], 
+                 fs: int, 
+                 gpass: float = 1.0,
+                 gstop: float = 40.0
+    ) -> None:
+        """Initialize this Kaiser windowed FIR.
+        
+        Args:
+            fpass:
+                The pass band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fstop:
+                The stop band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fs:
+                The sampling rate of the digital system.
+            gpass:
+                The maximum allowable ripple in the pass band in dB.
+                Default of 1.0 dB is ~ 11% amplitude ripple.
+            gstop:
+                The minimum attenuation required in the stop band in dB.
+                Default of 40 dB is a 99% amplitude attenuation.
+        """
+        
+        super().__init__(fpass, fstop, gpass, gstop, fs)
 
     @property
     def numtaps(self):
         """Returns the number of taps needed to meet the stricter of the
-        pass and stop band criteria and the kaiser window parameter beta.
-
-        The gpass attr of this FIR is the max loss in the passband. This is
-        not the same as the attenuation in the pass band so we first compute
-        the attenuation in the passband and compare against the attenuation
-        in the stop band. The largest attenuation is then used to compute
-        the minimum number of taps.
-
-        References:
-            Oppenheim, Schafer, "Discrete-Time Signal Processing", 
-            pp.475-476.
+        pass and stop band criteria.
         """
         
         ripple = max(self.pass_attenuation, self.gstop)
@@ -98,8 +127,7 @@ class Kaiser(FIR):
 
     @property
     def window_params(self):
-        """Returns the additional beta paramater required to create this 
-        FIRs Kaiser window."""
+        """Returns the beta parameter of this filter."""
         
         ripple = max(self.pass_attenuation, self.gstop)
         return [sps.kaiser_beta(ripple)]
@@ -108,30 +136,55 @@ class Kaiser(FIR):
 class Rectangular(FIR):
     """A callable type I FIR using a rectangular window.
 
-    Attrs:
-        fpass, fstop: float or length 2 sequence.
-            Pass and stop band edge frequencies (Hz).
-            For example:
-                - Lowpass: fpass = 1000, fstop = 1100
-                - Highpass: fpass = 2000, fstop = 1800 
-                - Bandpass: fpass = [400, 800], fstop = [300, 900]
-                - Bandstop: fpass = [100, 200], fstop = [120, 180]
-        fs: int
-            The sampling rate of the data to be filtered.
+    The rectangular window has the narrowest main lobe but the highest side
+    lobes. Thus, this filter has very large ripples in the pass and stop
+    bands. Its main use should be for perfectly periodic signals shorter
+    than the window length. It is NOT a good general purpose window. 
 
-    Characteristics:
-        main lobe width (MLW) = 4 pi / len(taps) 
-        side lobe height (SLH) = -13.3 dB
-        side lobe roll-off rate (SLRR) = -6 dB/octave
-        approximate peak error (APE) = -21 dB
-        
-    It has large spectral leakage and its primary use case is for working with
-    periodic signals whose frequencies are multiples of the window length.
+    Attributes:
+        :see FIR Base for attributes
+
+    Window Characteristics:
+        - main lobe width (MLW) = 4 pi / len(taps) 
+        - side lobe height (SLH) = -13.3 dB
+        - side lobe roll-off rate (SLRR) = -6 dB/octave
+        - approximate peak error (APE) = -21 dB
+    
+    Examples:
+        >>> rect = Rectangular(fpass=300, fstop=350, fs=5000)
+        >>> rect.btype
+        'lowpass'
+        >>> rect = Rectangular(fpass=600, fstop=400, fs=1800)
+        >>> rect.btype
+        'highpass'
+        >>> rect = Rectangular(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> rect.btype
+        'bandpass'
+        >>> rect = Rectangular(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> rect.btype
+        'bandstop'
     """
 
-    def __init__(self, fpass, fstop, fs):
-        """Initialize this Rectangular Windowed FIR."""
+    def __init__(self, 
+                 fpass: Union[float, Tuple[float, float]], 
+                 fstop: Union[float, Tuple[float, float]], 
+                 fs: int
+    ) -> None:
+        """Initialize this Rectangular windowed FIR.
         
+        Args:
+            fpass:
+                The pass band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fstop:
+                The stop band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fs:
+                The sampling rate of the digital system.
+        """
+
         # for plotting, provide a gpass calculated from the peak error
         peak_err = -21
         gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
@@ -146,33 +199,127 @@ class Rectangular(FIR):
         return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
 
-class Hanning(FIR):
-    """A callable type I FIR using a Hann window.
+class Bartlett(FIR):
+    """A callable type I FIR using a Bartlett (triangular) window.
 
-    Attrs:
-        fpass, fstop: float or length 2 sequence
-            Pass and stop band edge frequencies (Hz).
-            For example:
-                - Lowpass: fpass = 1000, fstop = 1100
-                - Highpass: fpass = 2000, fstop = 1800 
-                - Bandpass: fpass = [400, 800], fstop = [300, 900]
-                - Bandstop: fpass = [100, 200], fstop = [120, 180]
-        fs: int
-            The sampling rate of the data to be filtered.
+    A Bartlett window has an increased main lobe width but decrease side
+    lobe height compared to a rectangular window. Thus, this filter has
+    lower passband ripple and stronger stop band attenuation. This filter is
+    NOT recommended as a general purpose filter due to larger side lobes
+    compared with Hamming and Hann windowed filters. 
 
-    Characteristics:
-        main lobe width (MLW) = 8 pi / len(taps) 
-        side lobe height (SLH) = -31.5 dB
-        side lobe roll-off rate (SLRR) = -18 dB/octave
-        approximate peak error (APE) = -44 dB
-        
-    The Hann window is a good general purpose window with reduced spectral
-    leakage.
+    Attributes:
+        :see FIR Base for attributes
+
+    Window Characteristics:
+        - main lobe width (MLW) = 8 pi / len(taps) 
+        - side lobe height (SLH) = -26.5 dB
+        - side lobe roll-off rate (SLRR) = -12 dB/octave
+        - approximate peak error (APE) = -25 dB
+    
+    Examples:
+        >>> bartlett = Bartlett(fpass=300, fstop=350, fs=5000)
+        >>> bartlett.btype
+        'lowpass'
+        >>> bartlett = Bartlett(fpass=600, fstop=400, fs=1800)
+        >>> bartlett.btype
+        'highpass'
+        >>> bartlett = Bartlett(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> bartlett.btype
+        'bandpass'
+        >>> bartlett = Bartlett(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> bartlett.btype
+        'bandstop'
     """
 
-    def __init__(self, fpass, fstop, fs):
-        """Initialize this Rectangular Windowed FIR."""
+    def __init__(self, 
+                 fpass: Union[float, Tuple[float, float]], 
+                 fstop: Union[float, Tuple[float, float]], 
+                 fs: int
+    ) -> None:
+        """Initialize this Bartlett windowed FIR.
         
+        Args:
+            fpass:
+                The pass band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fstop:
+                The stop band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fs:
+                The sampling rate of the digital system.
+
+        """
+        
+        # for plotting, provide a gpass calculated from the peak error
+        peak_err = -25
+        gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
+        super().__init__(fpass, fstop, gpass=gpass, gstop=peak_err, fs=fs)
+
+    @property
+    def numtaps(self):
+        """Returns the integer number of taps needed to meet the transition 
+        width."""
+        
+        ntaps = int(8 / (self.width / self.nyq))
+        # odd tap number to ensure group delay is integer samples
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
+
+
+class Hann(FIR):
+    """A callable type I FIR using a Hann window.
+
+    The Hann window has higher side lobe heights than the Hamming window but
+    a faster roll-off. Thus, this filter has higher ripple than the Hamming
+    but it attenuates faster. It is a good general purpose window with
+    strong attenuation and fast roll-off.
+
+    Attributes:
+        :see FIR Base for attributes
+
+    Window Characteristics:
+        - main lobe width (MLW) = 8 pi / len(taps) 
+        - side lobe height (SLH) = -31.5 dB
+        - side lobe roll-off rate (SLRR) = -18 dB/octave
+        - approximate peak error (APE) = -44 dB
+    
+    Examples:
+        >>> hann = Hann(fpass=300, fstop=350, fs=5000)
+        >>> hann.btype
+        'lowpass'
+        >>> hann = Hann(fpass=600, fstop=400, fs=1800)
+        >>> hann.btype
+        'highpass'
+        >>> hann = Hann(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> hann.btype
+        'bandpass'
+        >>> hann = Hann(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> hann.btype
+        'bandstop'
+    """
+
+    def __init__(self, 
+                 fpass: Union[float, Tuple[float, float]], 
+                 fstop: Union[float, Tuple[float, float]], 
+                 fs: int
+    ) -> None:
+        """Initialize this Hann windowed FIR.
+        
+        Args:
+            fpass:
+                The pass band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fstop:
+                The stop band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fs:
+                The sampling rate of the digital system.
+        """
+
         # for plotting, provide a gpass calculated from the peak error
         peak_err = -44
         gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
@@ -190,73 +337,57 @@ class Hanning(FIR):
 class Hamming(FIR):
     """A callable type I FIR using a Hamming window.
 
-    Attrs:
-        fpass, fstop: float or length 2 sequence
-            Pass and stop band edge frequencies (Hz).
-            For example:
-                - Lowpass: fpass = 1000, fstop = 1100
-                - Highpass: fpass = 2000, fstop = 1800 
-                - Bandpass: fpass = [400, 800], fstop = [300, 900]
-                - Bandstop: fpass = [100, 200], fstop = [120, 180]
-        fs: int
-            The sampling rate of the data to be filtered.
+    The Hamming window has lower side lobe heights than the Rectangular or
+    hamming windows. Thus, this filter has low ripple & strong attenuation
+    in its pass and stop bands but its at the cost of slower roll-off. It is
+    a good general purpose window.
 
-    Characteristics:
-        main lobe width (MLW) = 8 pi / len(taps) 
-        side lobe height (SLH) = -43.8 dB
-        side lobe roll-off rate (SLRR) = -6 dB/octave
-        approximate peak error (APE) = -53 dB
-        
-    The Hamming window is a good general purpose window with strong
-    attenuation in the pass and stop bands.
+    Attributes:
+        :see FIR Base for attributes
+
+    Window Characteristics:
+        - main lobe width (MLW) = 8 pi / len(taps) 
+        - side lobe height (SLH) = -43.8 dB
+        - side lobe roll-off rate (SLRR) = -6 dB/octave
+        - approximate peak error (APE) = -53 dB
+    
+    Examples:
+        >>> hamming = Hamming(fpass=300, fstop=350, fs=5000)
+        >>> hamming.btype
+        'lowpass'
+        >>> hamming = Hamming(fpass=600, fstop=400, fs=1800)
+        >>> hamming.btype
+        'highpass'
+        >>> hamming = hamming(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> hamming.btype
+        'bandpass'
+        >>> hamming = hamming(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> hamming.btype
+        'bandstop'
     """
 
-    def __init__(self, fpass, fstop, fs):
-        """Initialize this Rectangular Windowed FIR."""
+    def __init__(self, 
+                 fpass: Union[float, Tuple[float, float]], 
+                 fstop: Union[float, Tuple[float, float]], 
+                 fs: int
+    ) -> None:
+        """Initialize this Hamming windowed FIR.
         
+        Args:
+            fpass:
+                The pass band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fstop:
+                The stop band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fs:
+                The sampling rate of the digital system.
+        """
+
         # for plotting, provide a gpass calculated from the peak error
         peak_err = -53
-        gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
-        super().__init__(fpass, fstop, gpass=gpass, gstop=peak_err, fs=fs)
-
-    @property
-    def numtaps(self):
-        """Return the number of taps to meet the transition width."""
-        
-        ntaps = int(8 / (self.width / self.nyq))
-        # odd tap number to ensure group delay is integer samples
-        return ntaps + 1 if ntaps % 2 == 0 else ntaps
-
-
-class Bartlett(FIR):
-    """A callable type I FIR using a Bartlett (triangular) window.
-
-    Attrs:
-        fpass, fstop: float or length 2 sequence
-            Pass and stop band edge frequencies (Hz).
-            For example:
-                - Lowpass: fpass = 1000, fstop = 1100
-                - Highpass: fpass = 2000, fstop = 1800 
-                - Bandpass: fpass = [400, 800], fstop = [300, 900]
-                - Bandstop: fpass = [100, 200], fstop = [120, 180]
-        fs: int
-            The sampling rate of the data to be filtered.
-
-    Characteristics:
-        main lobe width (MLW) = 8 pi / len(taps) 
-        side lobe height (SLH) = -26.5 dB
-        side lobe roll-off rate (SLRR) = -12 dB/octave
-        approximate peak error (APE) = -25 dB
-        
-    The Bartlett window has a narrow main lobe but higher side lobes and
-    thus leakage.
-    """
-
-    def __init__(self, fpass, fstop, fs):
-        """Initialize this Rectangular Windowed FIR."""
-        
-        # for plotting, provide a gpass calculated from the peak error
-        peak_err = -25
         gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
         super().__init__(fpass, fstop, gpass=gpass, gstop=peak_err, fs=fs)
 
@@ -272,30 +403,57 @@ class Bartlett(FIR):
 class Blackman(FIR):
     """A callable type I FIR using a Blackman window.
 
-    Attrs:
-        fpass, fstop: float or length 2 sequence
-            Pass and stop band edge frequencies (Hz).
-            For example:
-                - Lowpass: fpass = 1000, fstop = 1100
-                - Highpass: fpass = 2000, fstop = 1800 
-                - Bandpass: fpass = [400, 800], fstop = [300, 900]
-                - Bandstop: fpass = [100, 200], fstop = [120, 180]
-        fs: int
-            The sampling rate of the data to be filtered.
+    A Blackman window has a wide main lobe but very low side-lobes. Thus
+    this filter has very low ripple and strong attenuation in the pass and
+    stop bands but at the cost of wider transition bands. This filter
+    typically leads to overdesigned filters (i.e. large tap numbers) to
+    reduce the transition width. Its main use is for signals in which
+    very attenuation is needed.
 
-    Characteristics:
-        main lobe width (MLW) = 12 pi / len(taps) 
-        side lobe height (SLH) = -58.2 dB
-        side lobe roll-off rate (SLRR) = -18 dB/octave
-        approximate peak error (APE) = -74 dB
-        
-    The Blackman window has a wider main lobe but greater attenuation in the
-    pass and stop bands with a good roll-off.
+    Attributes:
+        :see FIR Base for attributes
+
+    Window Characteristics:
+        - main lobe width (MLW) = 12 pi / len(taps) 
+        - side lobe height (SLH) = -58.2 dB
+        - side lobe roll-off rate (SLRR) = -18 dB/octave
+        - approximate peak error (APE) = -74 dB
+    
+    Examples:
+        >>> bman = Blackman(fpass=300, fstop=350, fs=5000)
+        >>> bman.btype
+        'lowpass'
+        >>> bman = Blackman(fpass=600, fstop=400, fs=1800)
+        >>> bman.btype
+        'highpass'
+        >>> bman = Blackman(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> bman.btype
+        'bandpass'
+        >>> bman = Blackman(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> bman.btype
+        'bandstop'
     """
 
-    def __init__(self, fpass, fstop, fs):
-        """Initialize this Rectangular Windowed FIR."""
+    def __init__(self, 
+                 fpass: Union[float, Tuple[float, float]], 
+                 fstop: Union[float, Tuple[float, float]], 
+                 fs: int
+    ) -> None:
+        """Initialize this Blackman windowed FIR.
         
+        Args:
+            fpass:
+                The pass band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fstop:
+                The stop band edge frequency in the same units as fs OR
+                a 2-el sequence of edge frequencies that are monotonically
+                increasing and in [0, fs/2].
+            fs:
+                The sampling rate of the digital system.
+        """
+
         # for plotting, provide a gpass calculated from the peak error
         peak_err = -74
         gpass = -20 * np.log10(1 - 10 ** (peak_err / 20))
@@ -311,71 +469,113 @@ class Blackman(FIR):
 
 
 class Remez(FIR):
-    """The Parks-McClellan optimal filter obtained with the Remez 
-    exchange algorithm.
+    """A Parks-McClellan optimal Chebyshev FIR filter.
+
+    This FIR is designed by minimizing: 
     
-    This FIR is designed by minimizing: E(f) = W(f) |A(f) - D(f)|
+    ```math
+    E(f) = W(f) |A(f) - D(f)|
+    ```
+    
     where E(f) is a the weighted difference of the actual frequency 
     response A(F) from the desired frequency response D(f) for f in 
-    [0, nyquist] (see scipy.signal.remez). As an optimal design method it
-    can result in a FIR with a lower number of taps than the Kaiser method.
-    To construct this filter a sequence of bands and the desired gains D(f) 
-    for each band must supplied. This parameterization allows for the
-    specification of mixed bands (e.g. lowpass with a bandstop) in contrast 
-    to other FIRS such as Kaiser.
+    [0, nyquist] and W(f) is a set of weights.
 
-    Attrs:
-        bands: 1-D array like
-            A monotonically increasing sequence of pass & stop band edge
-            frequencies than includes the 0 and nyquist frequencies.
-        desired: 1-D array like
-            A sequence containing the desired gains (1 or 0) in each band.
-        fs: int
-           The sampling rate of the data to be filtered. 
-        gpass: float
-            The maximum loss in the pass band (dB). Default is .5 dB which
-            is an amplitude loss of ~ 1.2%. If more than 1 pass band is
-            supplied in bands, the same maximum loss will be applied to all
-            bands.
+    Attributes:
+        bands (Sequence):
+            A monitonically increaing sequence of pass and stop band edge
+            frequencies that must include 0 and the nyquist frequencies.
+        desired (Sequence):
+            A sequence of desired gains in each band of bands.
+        fs (int):
+            The sampling rate of the digital system.
+        gpass (float):
+           The maximum ripple in the pass band(s) (dB). 
         gstop: float
-            The minimum attenuation in the stop band (dB). The default is 40
-            dB which is an amplitude loss of 99%. If more than 1 stop band
-            is supplied in bands, the same minimum attenuation is applied to
-            all stop bands.
-        kwargs: dict
-            Any valid kwarg for scipys remez (see scipy.signal.remez)
-                numtaps: int
-                    The number of taps to build this filter with. Note this
-                    overrides the Bellanger estimate.
-                weight: sequnce
-                    A sequence the same length as desired with weights to
-                    relatively weight each band. This can reduce attenuation
-                    without increasing the tap number. If no value is passed
-                    the weights are the inverse of the percentage loss and
-                    attenuation in the pass and stop bands respectively.
-                maxiter: int
-                    The number of iterations to test for convergence.
-                    Defaults to 25 iterations.
-                grid_density: int
-                    Resolution of the grid remez uses to minimize E(f). If
-                    algorithm converges but has unexpected ripple,
-                    increasing this value can help. The default is 16.
+            The minimum attenuation in the stop band(s) (dB). 
+        kwargs:
+            Any valid kwarg for scipy's signal.remez function.
 
-    The Remez FIR is more difficult to construct because the algorithm may
-    fail to converge. It also has more parameters such as the fitting
-    weights W(f) that control how much to weight the gains of each frequency
-    band. It is recommended that any filter designed with Remez be
-    visually inspected before use.
+            - numtaps (int):
+                The number of taps used to construct this filter. This
+                overrides Remez's internal numtaps property.
+            - weight (Sequnce):
+                A sequence the same length as desired with weights to
+                relatively weight each band. If no value is passed
+                the weights are the inverse of the percentage loss and
+                attenuation in the pass and stop bands respectively.
+            - maxiter (int):
+                The number of iterations to test for convergence.
+            - grid_density (int):
+                Resolution of the grid remez uses to minimize E(f). If
+                algorithm converges but has unexpected ripple, increasing 
+                this value can help. The default is 16.
 
+    Examples:
+        >>> # Design a bandpass filter that passes 400 to 800 Hz
+        >>> bands = [0, 300, 400, 800, 900, 2500]
+        >>> desired = [0, 1, 0]
+        >>> filt = Remez(bands, desired, fs=5000, gpass=.5, gstop=40)
+        >>> filt.plot()
+   
+    Notes:
+        The Remez algorithm may fail to converge. It is recommended that any
+        filter designed with Remez be visually inspected before use.
+ 
     References:
         1. J. H. McClellan and T. W. Parks, “A unified approach to the 
            design of optimum FIR linear phase digital filters”, IEEE Trans. 
            Circuit Theory, vol. CT-20, pp. 697-701, 1973.
         2. Remez algorithm: https://en.wikipedia.org/wiki/Remez_algorithm
+
     """
 
-    def __init__(self, bands, desired, fs, gpass=.1, gstop=40, **kwargs):
-        """Initialize this Remez FIR."""
+    def __init__(self, 
+                 bands: Sequence[float], 
+                 desired: Sequence[float],
+                 fs: int, 
+                 gpass: float = 1, 
+                 gstop: float = 40, 
+                 **kwargs):
+        """Initialize this Remez FIR.
+
+        Args:
+            bands:
+                A monotonically increasing sequence of pass & stop band edge
+                frequencies than includes the 0 and nyquist frequencies.
+            desired:
+                A sequence containing the desired gains (1 or 0) for each
+                band in bands.
+            fs:
+                The sampling rate of the digital system
+            gpass:
+                The maximum ripple in the pass band (dB). Default is 1 dB
+                which is an amplitude loss of ~ 11%. If more than 1 pass
+                band is supplied in bands, the same maximum loss will be
+                applied to all bands.
+            gstop:
+                The minimum attenuation in the stop band (dB). The default
+                is 40 dB which is an amplitude loss of 99%. If more than
+                1 stop band is supplied in bands, the same minimum
+                attenuation is applied to all stop bands.
+            kwargs:
+                Any valid kwarg for scipy's signal.remez function.
+
+                - numtaps (int):
+                    The number of taps used to construct this filter. This
+                    overrides Remez's internal numtaps property.
+                - weight (Sequnce):
+                    A sequence the same length as desired with weights to
+                    relatively weight each band. If no value is passed
+                    the weights are the inverse of the percentage loss and
+                    attenuation in the pass and stop bands respectively.
+                - maxiter (int):
+                    The number of iterations to test for convergence.
+                - grid_density (int):
+                    Resolution of the grid remez uses to minimize E(f). If
+                    algorithm converges but has unexpected ripple, increasing 
+                    this value can help. The default is 16.
+        """
         
         self.bands = np.array(bands).reshape(-1,2)
         self.desired = np.array(desired, dtype=bool)
@@ -396,7 +596,7 @@ class Remez(FIR):
 
     @property
     def btype(self):
-        """Overide FIR bandtype to include a 'multiband' option."""
+        """Return the string band type of this filter."""
 
         fp, fs = self.fpass, self.fstop
         if len(fp) < 2:

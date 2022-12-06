@@ -4,6 +4,7 @@ figure called the 'Viewer'.
 
 For usage, please see opensieze.filtering.iir or fir modules
 """
+from typing import Sequence, Tuple, Optional
 
 import numpy as np
 import scipy.signal as sps
@@ -133,8 +134,14 @@ class Viewer:
 
         return ax
     
-    def plot(self, size=(8,6), gridalpha=0.3, worN=2048, rope=-100,
-            axarr=None, show=True):
+    def plot(self, 
+            size: Tuple(int, int) = (8,6), 
+            gridalpha: float = 0.3, 
+            worN: int = 2048, 
+            rope: float = -100,
+            axarr: Optional[Sequence[plt.Axes]] = None, 
+            show: bool = True
+        ) -> Optional[Sequence[plt.Axes]]:
         """Plots the impulse and frequency response of this filter.
 
         Args:
