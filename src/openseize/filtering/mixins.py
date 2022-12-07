@@ -4,6 +4,7 @@ figure called the 'Viewer'.
 
 For usage, please see opensieze.filtering.iir or fir modules
 """
+import typing
 from typing import Sequence, Tuple, Optional
 
 import numpy as np
@@ -134,14 +135,15 @@ class Viewer:
 
         return ax
     
+    @typing.no_type_check #mypy missing frequency_response attr.
     def plot(self, 
-            size: Tuple(int, int) = (8,6), 
-            gridalpha: float = 0.3, 
-            worN: int = 2048, 
-            rope: float = -100,
-            axarr: Optional[Sequence[plt.Axes]] = None, 
-            show: bool = True
-        ) -> Optional[Sequence[plt.Axes]]:
+             size: Tuple[int, int] = (8,6), 
+             gridalpha: float = 0.3, 
+             worN: int = 2048, 
+             rope: float = -100,
+             axarr: Optional[Sequence[plt.Axes]] = None, 
+             show: bool = True
+    ) -> Optional[Sequence[plt.Axes]]:
         """Plots the impulse and frequency response of this filter.
 
         Args:
@@ -212,7 +214,6 @@ class Viewer:
         else:
             return axarr
         
-
 
 class IIRViewer(Viewer):
     """A mixin for IIR filters with methods for plotting the impulse
