@@ -43,6 +43,7 @@ dev = ["isort",
 [project.urls]
 Homepage = "https://github.com/mscaudill/openseize"
 
+# bumpver configuration
 [tool.bumpver]
 current_version = "1.0.0"
 version_pattern = "MAJOR.MINOR.PATCH"
@@ -58,11 +59,27 @@ push = true
 ]
 "src/openseize/__init__.py" = ["{version}"]
 
+# mypy configuration
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["scipy.*", "matplotlib.*"]
+# 3rd party's without annotations
+module = ["scipy.*", "matplotlib.*", "openseize.*"]
 ignore_missing_imports = true
+
+# pylint configuration
+#[tool.pylint.messages_control]
+#max-line-length = 76
+#disable = "too-many-arguments"
+
+[tool.pylint.design]
+max-attributes = 10
+max-args = 10
+
+[tool.pylint.basic]
+argument-naming-style = "any"
+variable-naming-style = "any"
+attr-naming-style = "any"
