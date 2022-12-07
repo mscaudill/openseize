@@ -14,9 +14,9 @@ the window shape alone. The following table list the GCWs available:
     - Blackman
 
 ## Kaiser Parameterized window FIR
-A filter design with an additional parameter that specifies the window shape.
-These filters can be designed to meet to the strictest criteria in the
-pass and stop bands. **This filter design is the recommended FIR type in
+A filter design with an additional parameter that specifies the window
+shape.  These filters can be designed to meet to the strictest criteria in
+the pass and stop bands. **This filter design is the recommended FIR type in
 Openseize.**
 
 ## Remez (Parks-McClellan) Optimal FIRs
@@ -29,7 +29,7 @@ supports multiple pass and stop bands.
 Examples:
 
     >>> # Design a lowpass Kaiser FIR with a passband edge at 500 Hz and
-    ... # transition width of 200 Hz. It should have no more than 0.5 dB
+    ... # transition width of 100 Hz. It should have no more than 0.5 dB
     ... # ripple in the pass band and reach 40 dB attenuation in the stop
     ... # band
     >>> kaiser = Kaiser(fpass=500, fstop=600, fs=5000, gpass=0.5, gstop=40)
@@ -68,13 +68,15 @@ class Kaiser(FIR):
         >>> kaiser.btype
         'lowpass'
         >>> kaiser = Kaiser(fpass=600, fstop=400, fs=1800, gpass=0.5,
-        ...                 gstop=40)
+        ... gstop=40)
         >>> rect.btype
         'highpass'
-        >>> rect = Rectangular(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> rect = Rectangular(fpass=[400, 1000], fstop=[200, 1200],
+        ... fs=4000)
         >>> rect.btype
         'bandpass'
-        >>> rect = Rectangular(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> rect = Rectangular(fpass=[200, 1200], fstop=[400, 1000],
+        ... fs=5000)
         >>> rect.btype
         'bandstop'
 
@@ -157,10 +159,12 @@ class Rectangular(FIR):
         >>> rect = Rectangular(fpass=600, fstop=400, fs=1800)
         >>> rect.btype
         'highpass'
-        >>> rect = Rectangular(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> rect = Rectangular(fpass=[400, 1000], fstop=[200, 1200],
+        ... fs=4000)
         >>> rect.btype
         'bandpass'
-        >>> rect = Rectangular(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> rect = Rectangular(fpass=[200, 1200], fstop=[400, 1000],
+        ... fs=5000)
         >>> rect.btype
         'bandstop'
     """
@@ -224,10 +228,12 @@ class Bartlett(FIR):
         >>> bartlett = Bartlett(fpass=600, fstop=400, fs=1800)
         >>> bartlett.btype
         'highpass'
-        >>> bartlett = Bartlett(fpass=[400, 1000], fstop=[200, 1200], fs=4000)
+        >>> bartlett = Bartlett(fpass=[400, 1000], fstop=[200, 1200],
+        ... fs=4000)
         >>> bartlett.btype
         'bandpass'
-        >>> bartlett = Bartlett(fpass=[200, 1200], fstop=[400, 1000], fs=5000)
+        >>> bartlett = Bartlett(fpass=[200, 1200], fstop=[400, 1000],
+        ... fs=5000)
         >>> bartlett.btype
         'bandstop'
     """
@@ -572,8 +578,8 @@ class Remez(FIR):
                     The number of iterations to test for convergence.
                 - grid_density (int):
                     Resolution of the grid remez uses to minimize E(f). If
-                    algorithm converges but has unexpected ripple, increasing
-                    this value can help. The default is 16.
+                    algorithm converges but has unexpected ripple,
+                    increasing this value can help. The default is 16.
         """
 
         self.bands = np.array(bands).reshape(-1, 2)
