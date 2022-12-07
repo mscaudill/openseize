@@ -3,16 +3,18 @@ name: openseize-dev
 dependencies:
     - requests
     - pywget
-    - psutil
     - numpy
     - scipy
     - matplotlib
     - ipython
     - notebook
+    - psutil
     # testing
     - pytest
     - pytest-cov
     # Linting & format
+    - isort
+    - mypy
     - black
     - pylint
     # pypi packages
