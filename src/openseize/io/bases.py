@@ -1,7 +1,7 @@
 """A collection of base classes for reading & writing EEG data & annotations
 
 The abstract base classes of this module define interfaces for reading and
-writing EEG data and associated annotations. Inheritors of these classes 
+writing EEG data and associated annotations. Inheritors of these classes
 must supply all abstract methods to create a fully instantiable object.
 
 Typical usage example:
@@ -12,64 +12,75 @@ be instantiated.
 
 import abc
 import pprint
+import typing
+from dataclasses import dataclass
 from inspect import getmembers
 from pathlib import Path
-from dataclasses import dataclass
-from typing import Any
+
+import numpy as np
+
 from openseize.core import mixins
 
 
 class Header(dict):
-    """Base class for reading & storing an EEG file's header data.
+    """An extended dictionary base class for reading EEG headers.
 
-    This base class defines the expected interface for all format specific
-    headers. It is not instantiable. Inheriting classes must override the
-    bytemap method.
+    This base class defines the expected interface for all readers of EEG
+    headers.  Inheriting classes are required to override the bytemap method
+    to be instantiable. The bytemap method is required to return a dict that
+    specifies the header field string, the number of integer bytes encoding
+    the value and the datatype of the value. An example bytemap dict
+    looks like:
+    {field_name1: (bytes_to_read, dtype), fieldname2: ...}
+
+    Attributes:
+        path:
+            A python path instance to an EEG datafile with header.
     """
 
-    def __init__(self, path):
+    def __init__(self, path: typing.Union[str, Path]) -> None:
         """Initialize this Header.
 
         Args:
-            path: Path instance or str
-                A path to eeg data file.
+            path:
+                A string or python Path instance to an EEG file.
         """
 
         self.path = Path(path) if path else None
         dict.__init__(self)
         self.update(self.read())
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         """Provides '.' notation access to this Header's values.
-        
+
         Args:
-            name: str
-                String name of a header bytemap key or header property.
+            name:
+                Name of field to access in this Header.
         """
 
         try:
             return self[name]
-        except:
+        except Exception as exc:
             msg = "'{}' object has not attribute '{}'"
-            raise AttributeError(msg.format(type(self).__name__, name))
+            msg.format(type(self).__name__, name)
+            raise AttributeError(msg) from exc
 
     def bytemap(self):
-        """Returns a format specific mapping specifying byte locations 
+        """Returns a format specific mapping specifying byte locations
         in an eeg file containing header data."""
 
         raise NotImplementedError
 
-    def read(self, encoding='ascii'):
+    def read(self, encoding: str = 'ascii') -> dict:
         """Reads the header of a file into a dict using a file format
         specific bytemap.
 
         Args:
-            encoding: str         
-                The encoding used to write the header data. Default is ascii
-                encoding.
+            encoding:
+                The encoding used to represent the values of each field.
         """
 
-        header = dict()
+        header: typing.Dict[str, typing.Tuple] = {}
         if not self.path:
             return header
 
@@ -82,23 +93,23 @@ class Header(dict):
         return header
 
     @classmethod
-    def from_dict(cls, dic):
-        """Alternative constructor that creates a Header instance from
-        a dictionary.
+    def from_dict(cls, dic: typing.Dict) -> 'Header':
+        """Alternative constructor that creates Header instance from a
+        bytemap dictionary.
 
         Args:
-            dic: dictionary 
-                A dictionary containing all expected bytemap keys.
+            dic:
+                A bytemap dictionary to construct a Header instance from.
         """
 
         raise NotImplementedError
 
-    def _isprop(self, attr):
+    def _isprop(self, attr: str) -> bool:
         """Returns True if attr is a property of this Header.
 
         Args:
-            attr: str
-                The name of a Header attribute.
+            attr:
+                The name of a attribute field.
         """
 
         return isinstance(attr, property)
@@ -114,47 +125,60 @@ class Header(dict):
 
 
 class Reader(abc.ABC, mixins.ViewInstance):
-    """Base class for reading EEG data.
+    """Abstract base class for reading EEG data.
 
-    This ABC defines all EEG data readers as context managers that read data
-    from a file path. Inheritors must override the 'read' abstract method.
+    This ABC defines a protocol for reading EEG data from any file type.
+    Specifically, all EEG readers support opening EEG files under context
+    management or as an open file whose resources should be closed when
+    finished. Inheritors must override the 'read' abstract method.
+
+    Attributes:
+        path:
+            Python path instance to EEG file.
+        mode:
+            String file mode option for 'open' builtin. Must be 'r' for
+            plain text files or 'rb' for binary file types.
     """
 
-    def __init__(self, path, mode):
+    def __init__(self, path: typing.Union[str, Path], mode: str) -> None:
         """Initialize this reader.
 
         Args:
-            path: Path instance or str
-                A path to eeg file.
-            mode: str
+            path:
+                Python path instance to an EEG data file.
+            mode:
                 A mode for reading the eeg file. Must be 'r' for plain
-                string files and 'rb' for binary files.
+                text files and 'rb' for binary files.
         """
 
         self.path = Path(path)
+        # allow Readers to read with or without context management
+        # the file may be raw bytes so leave encoding unspecified
+        # pylint: disable-next=consider-using-with, unspecified-encoding
         self._fobj = open(path, mode)
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def channels(self):
         """Returns the channels that this Reader will read."""
 
     @channels.setter
     @abc.abstractmethod
-    def channels(self, val):
+    def channels(self, val: int):
         """Sets the channels that this Reader will read."""
 
     @abc.abstractmethod
-    def read(self, start, stop, **kwargs):
+    def read(self, start: int, stop:int, **kwargs) -> np.ndarray:
         """Returns a numpy array of sample values between start and stop for
         each channel in channels.
 
         Args:
-            start: int
+            start:
                 Start sample index of file read.
-            stop: int
+            stop:
                 Stop sample index of file read (exclusive).
-            
-        Returns: 
+
+        Returns:
             A channels x (stop-start) array of sample values.
         """
 
@@ -176,64 +200,74 @@ class Reader(abc.ABC, mixins.ViewInstance):
 
 
 class Writer(abc.ABC, mixins.ViewInstance):
-    """Base class for all writers of EEG data.
+    """Abstract base class for all writers of EEG data.
 
-    This ABC defines all EEG writers as context managers that use a 'write'
-    method to write data to a path."""
+    This ABC defines all EEG writers as context managers that write data to
+    a file path. Inheritors must override the 'write' method.
 
-    def __init__(self, path, mode):
+    Attributes:
+        path:
+            Python path instance to an EEG data file.
+        mode:
+            A str mode for writing the eeg file. Must be 'r' for plain
+            text files and 'rb' for binary files.
+    """
+
+    def __init__(self, path: typing.Union[str, Path], mode: str) -> None:
         """Initialize this Writer.
 
         Args:
-            path: str or Path instance
-                A path where edf file will be written to.
-            mode: str
-                A mode string describing if data is text format ('w') or
-                binary ('wb') format. 
+            path:
+                A Python path instance of where data will be written to.
+            mode:
+                String mode indicating if written file type should be
+                plain text 'w' or binary 'wb'.
         """
 
         self.path = Path(path)
-        self._fobj = open(path, mode)
-
-    @abc.abstractmethod
-    def write(self, header, data, channels, **kwargs):
-        """Writes a header and numerical data for each channel in channels
-        to this Writer's opened file instance.
-
-        Args:
-            header: dict
-                A mapping of file specific metadata. See io.headers for
-                further details.
-            data: array or reader like
-                A 2-D array instance, memmap file or Reader like iterable
-                that returns arrays of shape channels X samples.
-            channels: sequence
-                A sequence of channel indices that will be written to this
-                Writer's save path.
-        """
+        self.mode = mode
+        self._fobj = None
 
     def __enter__(self):
         """Return instance as target variable of this context."""
 
+        # the file may be raw bytes so leave encoding unspecified
+        # pylint: disable-next=unspecified-encoding
+        self._fobj = open(self.path, self.mode, encoding=None)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """Close this instances file object & propagate any error by 
+        """Close this instances file object & propagate any error by
         returning None."""
 
-        self.close()
+        if self._fobj:
+            self._fobj.close()
 
-    def close(self):
-        """Close this instance's opened file object."""
+    @abc.abstractmethod
+    def write(self,
+              header: Header,
+              data: typing.Union[np.ndarray, typing.Iterable[np.ndarray]],
+              channels: typing.Sequence[int],
+              **kwargs,
+    ) -> None:
+        """Writes the metadata & data for each specified channel to this
+        Writer's opened file instance.
 
-        self._fobj.close()
+        Args:
+            header:
+                A mapping of file specific metadata.
+            data:
+                The data to be written by this Writer.
+            channels:
+                The channel indices of metadata and data to be written.
+        """
 
 
 @dataclass
 class Annotation:
     """An object for storing a predefined set of annotation attributes that
     can be updated with user defined attributes after object creation.
-    
+
     Attributes:
         label: str
             The string name of this annotation.
@@ -250,19 +284,25 @@ class Annotation:
     label: str
     time: float
     duration: float
-    channel: Any
+    channel: typing.Any
 
 
 class Annotations(abc.ABC):
-    """Base class for reading annotation data.
+    """Abstract base class for reading annotation data.
 
     Annotation data may be stored in a variety of formats; csv files,
-    pickled objects, etc. This ABC defines the interface expected of all
-    annotation readers. Specifically, all Annotations are context managers
-    and all inheritors must supply abstract methods.
+    pickled objects, etc. This ABC defines all annotation readers as context
+    managers that read annotation files. Inheritors must override: open,
+    label, time, duration and channel methods.
+
+    Attributes:
+        path:
+            Python path instance to an annotation file.
+        kwargs:
+            Any valid kwarg for Python's open builtin.
     """
 
-    def __init__(self, path, **kwargs):
+    def __init__(self, path: typing.Union[str, Path], **kwargs) -> None:
         """Initialize this Annotations reader.
 
         Args:
@@ -275,29 +315,44 @@ class Annotations(abc.ABC):
 
         self.path = path
         self.kwargs = kwargs
-        self._fobj, self._reader = self.open(path, **kwargs)
-    
+
+    def __enter__(self):
+        """Return this instance as target variable of this context."""
+
+        # pylint: disable-next=attribute-defined-outside-init
+        self._fobj, self._reader = self.open(self.path, **self.kwargs)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Closes this instance's file obj. & propagate errors by returning
+        None."""
+
+        if self._fobj:
+            self._fobj.close()
+
     @abc.abstractmethod
-    def open(self, path, **kwargs):
+    def open(self, path: Path) -> typing.Tuple[typing.IO, typing.Iterable]:
         """Opens a file at path returning a file handle & row iterator."""
 
     @abc.abstractmethod
-    def label(self, row):
+    def label(self, row: typing.Iterable) -> str:
         """Reads the annotation label at row in this file."""
-        
+
     @abc.abstractmethod
-    def time(self, row):
+    def time(self, row: typing.Iterable) -> float:
         """Reads annotation time in secs from recording start at row."""
 
     @abc.abstractmethod
-    def duration(self, row):
+    def duration(self, row: typing.Iterable) -> float:
         """Returns the duration of the annotated event in secs."""
 
     @abc.abstractmethod
-    def channel(self, row):
-        """Returns the sensor this annotated event was detected on."""
+    def channel(self, row: typing.Iterable) -> typing.Union[int, str]:
+        """Returns the channel this annotated event was detected on."""
 
-    def read(self, labels=None):
+    def read(self,
+             labels: typing.Optional[typing.Sequence[str]] = None,
+    ) -> typing.List[Annotation]:
         """Reads annotations with labels to a list of Annotation instances.
 
         Args:
@@ -310,37 +365,19 @@ class Annotations(abc.ABC):
         """
 
         labels = [labels] if isinstance(labels, str) else labels
-        
+
         result = []
         names = ['label', 'time', 'duration', 'channel']
         for row in self._reader:
             ann = Annotation(*[getattr(self, name)(row) for name in names])
-            
+
             if labels is None:
                 result.append(ann)
-            
+
+            elif ann.label in labels:
+                result.append(ann)
+
             else:
-                result.append(ann) if ann.label in labels else None
+                continue
 
-        # support multiple read calls when non Context Manager mode
-        self.close()
-        self.__init__(self.path, **self.kwargs)
-        
         return result
-
-    def __enter__(self):
-        """Return this instance as target variable of this context."""
-
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """Closes this instance's file obj. & propagate errors by returning
-        None."""
-
-        self.close()
-
-    def close(self):
-        """Closes this instance's opened file object."""
-
-        self._fobj.close()
-

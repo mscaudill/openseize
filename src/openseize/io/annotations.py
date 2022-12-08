@@ -27,7 +27,8 @@ from openseize.core import arraytools
 
 
 class Pinnacle(Annotations):
-    """A Pinnacle Technologies© annotations file reader.
+    """A context manager for reading Pinnacle Technologies© annotation
+    files.
 
     Pinnacle files store annotation data to a plain text file. This
     reader reads each row of this file extracting and storing annotation

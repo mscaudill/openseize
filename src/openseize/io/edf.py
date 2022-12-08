@@ -524,7 +524,7 @@ class Reader(bases.Reader):
 
 
 class Writer(bases.Writer):
-    """A writer of European Data Format (EDF) files.
+    """A Context Manager for writing of European Data Format (EDF) files.
 
     This writer does not support writing annotations to an EDF file.
     """
