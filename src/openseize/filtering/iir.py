@@ -33,11 +33,10 @@ Examples:
     >>> result = butter(pro, chunksize=10000, axis=-1, dephase=False)
 """
 
-from typing import Union, Tuple
+from typing import Tuple, Union
 
 import numpy as np
 import scipy.signal as sps
-
 from openseize.filtering.bases import IIR
 
 
@@ -101,9 +100,13 @@ class Butter(IIR):
                 Default of 40 dB is a 99% amplitude attenuation.
             fmt:
                 A scipy filter format specification. Must be one of:
-                    - 'sos': This format is recommended due to stability
-                    - 'ba'
-                    - 'zpk'
+
+                - 'sos': The second-order section cascade format. This
+                  format is recommended as it is more stable than 'ba'.
+                - 'ba': Transfer function format. This format is less stable
+                  but requires fewer computations compared with 'sos'.
+                - 'zpk': This format is not used and will be converted to
+                  'sos'.
         """
 
         super().__init__(fpass, fstop, gpass, gstop, fs, fmt)
@@ -174,9 +177,13 @@ class Cheby1(IIR):
                 Default of 40 dB is a 99% amplitude attenuation.
             fmt:
                 A scipy filter format specification. Must be one of:
-                    - 'sos': This format is recommended due to stability
-                    - 'ba'
-                    - 'zpk'
+
+                - 'sos': The second-order section cascade format. This
+                  format is recommended as it is more stable than 'ba'.
+                - 'ba': Transfer function format. This format is less stable
+                  but requires fewer computations compared with 'sos'.
+                - 'zpk': This format is not used and will be converted to
+                  'sos'.
         """
 
         super().__init__(fpass, fstop, gpass, gstop, fs, fmt)
@@ -247,9 +254,13 @@ class Cheby2(IIR):
                 Default of 40 dB is a 99% amplitude attenuation.
             fmt:
                 A scipy filter format specification. Must be one of:
-                    - 'sos': This format is recommended due to stability
-                    - 'ba'
-                    - 'zpk'
+
+                - 'sos': The second-order section cascade format. This
+                  format is recommended as it is more stable than 'ba'.
+                - 'ba': Transfer function format. This format is less stable
+                  but requires fewer computations compared with 'sos'.
+                - 'zpk': This format is not used and will be converted to
+                  'sos'.
         """
 
         super().__init__(fpass, fstop, gpass, gstop, fs, fmt)
@@ -320,9 +331,13 @@ class Ellip(IIR):
                 Default of 40 dB is a 99% amplitude attenuation.
             fmt:
                 A scipy filter format specification. Must be one of:
-                    - 'sos': This format is recommended due to stability
-                    - 'ba'
-                    - 'zpk'
+
+                - 'sos': The second-order section cascade format. This
+                  format is recommended as it is more stable than 'ba'.
+                - 'ba': Transfer function format. This format is less stable
+                  but requires fewer computations compared with 'sos'.
+                - 'zpk': This format is not used and will be converted to
+                  'sos'.
         """
 
         super().__init__(fpass, fstop, gpass, gstop, fs, fmt)

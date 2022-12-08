@@ -4,15 +4,14 @@ Abstract Base Classes for all of Openseize's IIR and FIR filters.
 
 import abc
 from functools import partial
-from typing import Union, Sequence, Tuple, Optional
+from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
 import scipy.signal as sps
-
 from openseize.core import mixins
-from openseize.core.producer import producer, Producer
 from openseize.core import numerical as nm
-from openseize.filtering.mixins import IIRViewer, FIRViewer
+from openseize.core.producer import Producer, producer
+from openseize.filtering.mixins import FIRViewer, IIRViewer
 
 
 class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
@@ -34,9 +33,13 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
         fmt:
             A scipy filter coeffecient format specification. Must be one
             of:
-                - 'sos': This format is recommended due to stability
-                - 'ba'
-                - 'zpk'
+
+            - 'sos': The second-order section cascade format. This format is
+              recommended as it is more stable than 'ba'.
+            - 'ba': Transfer function format. This format is less stable but
+              requires fewer computations compared with 'sos'.
+            - 'zpk': This format is not used and will be converted to 'sos'.
+        
         nyq (float):
             The nyquist rate of the digital sytem, fs/2.
         coeffs (np.ndarray):
@@ -77,10 +80,13 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
             fmt:
                 A scipy filter coeffecient format specification. Must be one
                 of:
-
-                    - 'sos': This format is recommended due to stability
-                    - 'ba'
-                    - 'zpk'
+                
+                - 'sos': The second-order section cascade format. This
+                  format is recommended as it is more stable than 'ba'.
+                - 'ba': Transfer function format. This format is less stable
+                  but requires fewer computations compared with 'sos'.
+                - 'zpk': This format is not used and will be converted to
+                  'sos'.
 
         Raises:
             ValueError: An error if pass & stop bands lens are unequal.

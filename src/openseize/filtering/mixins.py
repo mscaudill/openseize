@@ -5,13 +5,13 @@ figure called the 'Viewer'.
 For usage, please see opensieze.filtering.iir or fir modules
 """
 import typing
-from typing import Sequence, Tuple, Optional
+from typing import Optional, Sequence, Tuple
 
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as sps
-import matplotlib.pyplot as plt
-
 from matplotlib.patches import Rectangle
+
 
 class Viewer:
     """A collection of common plotting methods for both IIR, FIR and 
