@@ -82,7 +82,13 @@ nav:
               - Hamming: 'firs/hamming.md'
               - Blackman: 'firs/blackman.md'
               - Remez: 'firs/remez.md'
-            - 'IIR Filters': iir_filters.md
+            - 'IIR Filters':
+              - Introduction: 'iirs/info.md'
+              - Butterworth: 'iirs/butter.md'
+              - 'Chebyshev I': 'iirs/cheby1.md'
+              - 'Chebyshev II': 'iirs/cheby2.md'
+              - Elliptical: 'iirs/ellip.md'
+              - Notch: 'iirs/notch.md'
     - About: about.md
 
 # reflect changes immediately during dev.
