@@ -1,115 +1,75 @@
-"""Tools for reading, writing and splitting EDF headers and data.
+"""Tools for reading and writing EEG metadata and data in the European Data
+Format (EDF/EDF+).
 
-This module contains the following classes and functions:
+This module contains:
 
-    Header:
-        An extended dict (inherits from bases.Header) for reading and storing
-        all header information from an EDF file.
+    - Header: An extended dictionary that reads and stores the header
+      component of an EDF file.
+    - Reader: A reader of EDF data and metadata
+    - Writer: A writer of EDF data and metadata
+    - disjoin: A function to split EDF files into multiple EDF files.
 
-        Typical usage example:
-
-        header = Header(<*.edf>)
-        #As an extended dict, attrs can be accessed with dot notation.
-        header.names
-
-    Reader:
-        A context manager for reading the header and data records from an
-        edf file. Inherits from bases.Reader.
-
-        Typical usage examples:
-
-        #Without context management
-        reader = Reader(<*.edf>)
-        #read samples 10 to 332 for channels 0 and 2
-        arr = reader.read(start=10, stop=332, channels=[0,2])
-        reader.close()
-
-        #Opened as context manager
-        with Reader(<*.edf>) as infile:
-            arr = infile.read(10, 332, channels=[0,2]
-
-    Writer:
-        A context manager for writing EDF headers and data to an edf file.
-        Inherits from bases.Writer
-
-        Typical usage example:
-
-        #create an EDF reader to an edf file stored on disk 
-        data = Readers.EDF(<*.edf path>)
-
-        #select a subset of channels
-        chs = [0,3]
-
-        #write a new EDF file to path containing a subset of original chs
-        with EDF(<save path>) as outfile:
-            outfile.write(header, data, channels=chs)
-
-    splitter:
-        A function for splitting an EDF's header and data sections into
-        multiple files.
-
-        Typical usage example:
-        
-        #split an edf into two files with fil0.edf containing channels 0,1,2
-        #and file1.edf containing channels 3,4 and 5.
-        splitter(<*.edf>, {'file0': [0,1,2], 'file1':[3,4,5]})
+The Reader supports reading data from an EDF file with or without context
+management. The Writer only supports writing data within a context managed
+protocol.
 """
 
-import numpy as np
 import copy
 from pathlib import Path
-from collections.abc import Sequence
+from typing import Dict, Generator, List, Optional, Sequence, Tuple, Union
+
+import numpy as np
+
 from openseize.io import bases
 
 
 class Header(bases.Header):
-    """An extended dictionary representation of an EDF Header."""
+    """An extended dictionary representation of an EDF Header.
 
-    def bytemap(self, num_signals=None):
-        """Specifies the number of bytes to sequentially read for each field
-        in an EDF header and dataype conversions to apply.
+    The Header section of an EDF file is partitioned into sequential
+    sections containing metadata. Each section has a specified number of
+    bytes used to encode an an 'ascii' string. For example the first two
+    sections of the header are:
 
-        The header of an EDF file is partitioned into sections. Each section
-        spans a number of bytes and contains a specific piece of header
-        data. Below is the first two sections of an .edf file header:
+                ***************************************
+                * 8 bytes | 80 bytes | ................
+                ***************************************
 
-        *************************************** 
-        * 8 bytes ** 80 bytes .................
-        ***************************************
+    The first 8 bytes are the EDF version string and the next 80 bytes are
+    the patient_id string. The full specification of the EDF header can be
+    found here: https://www.edfplus.info/specs/edf.html. This Header, is an
+    extended dictionary keyed on the field name from the EDF specification
+    (i.e. version, patient, etc) with a value that has been decoded from the
+    file at path.
 
-        The first 8 bytes correspond to the edf version string and the next
-        80 bytes corresponds to a patient id string. A bytemap specifies the
-        name, number of bytes, and datatype as dict of tuples like so:
+    Attributes:
+        path: (Path)
+            A python path instance to the EDF file.
+    """
+
+    def bytemap(self, num_signals: Optional[int] = None) -> Dict:
+        """A dictionary keyed on fields from the EDF specification whose
+        values are a tuple containing the number of bytes used to encode the
+        field's value and the datatype of the value. For example:
 
         {'version': (8, str), 'patient': (80, str), ....}
 
-        This mapping defines the name of what is read, the number of bytes
-        to read (relative to last byte position) and the type casting to
-        apply to the read bytes. The number of bytes of some of the sections 
-        in the header depend on the number of signals the EDF data records.
-
-        The EDF file specification defining this bytemap can be found @
-        https://www.edfplus.info/specs/edf.html
-
         Args:
-            num_signals: int
+            num_signals:
                 The number of signals (channels & annotation) in the file.
-                If None the number of signals will be read automatically
-                from the opened path instance. Default is to read this
-                automatically.
+                If None, this value will be read from the file.
 
-        Returns: 
-            A dictionary keyed on EDF specification field names with tuple
-            values specifying the number of bytes to read from the last byte
-            position and the type casting that should be applied to the read 
-            bytes.
+        Returns:
+            A dictionary of EDF field names and tuples ([bytes], dtype)
+            specifying the number of bytes to read and the data type of the
+            value.
         """
 
         if num_signals is None:
             num_signals = self.count_signals()
-        
-        return {'version': ([8], str), 
-                'patient': ([80], str), 
+
+        return {'version': ([8], str),
+                'patient': ([80], str),
                 'recording': ([80], str),
                 'start_date': ([8], str),
                 'start_time': ([8], str),
@@ -129,21 +89,22 @@ class Header(bases.Header):
                 'samples_per_record': ([8] * num_signals, int),
                 'reserved_1': ([32] * num_signals, str)}
 
-    def count_signals(self):
-        """Returns the number of signals, including possible annotations,
-        in this EDF."""
+    def count_signals(self) -> int:
+        """Returns the signal count in the EDF's header.
+
+        The signal count will include annotation signals if present.
+        """
 
         with open(self.path, 'rb') as fp:
             fp.seek(252) # edf specifies num signals at 252nd byte
             return int(fp.read(4).strip().decode())
 
     @classmethod
-    def from_dict(cls, dic):
-        """Alternative constructor that creates a Header instance from
-        a dictionary.
+    def from_dict(cls, dic: Dict) -> 'Header':
+        """Alternative constructor for creating a Header from a bytemap.
 
         Args:
-            dic: dictionary 
+            dic:
                 A dictionary containing all expected bytemap keys.
         """
 
@@ -152,37 +113,38 @@ class Header(bases.Header):
         # validate dic contains all bytemap keys
         if set(dic) == set(instance.bytemap(1)):
             return instance
-        else:
-            msg='Missing keys required to create a header of type {}.'
-            raise ValueError(msg.format(cls.__name__))
+
+        msg='Missing keys required to create a header of type {}.'
+        raise ValueError(msg.format(cls.__name__))
 
     @property
-    def annotated(self):
-        """Returns True if this is EDF contains annotations."""
+    def annotated(self) -> bool:
+        """Returns True if the EDF header contains annotations."""
 
-        return True if 'EDF Annotations' in self.names else False
-        
+        return 'EDF Annotations' in self.names
+
     @property
-    def annotation(self):
-        """Returns annotations signal index if present & None otherwise."""
-        
+    def annotation(self) -> Optional[int]:
+        """Returns the index of the annotation signal or None if EDF header
+        does not contain annotations."""
+
         result = None
         if self.annotated:
-            result = self.names.index('EDF Annotations') 
+            result = self.names.index('EDF Annotations')
         return result
 
     @property
-    def channels(self):
-        """Returns the 'ordinary signal' indices."""
+    def channels(self) -> Sequence[int]:
+        """Returns the non-annotation 'ordinary signal' indices."""
 
         signals = list(range(self.num_signals))
-        if self.annotated:
+        if self.annotation:
             signals.pop(self.annotation)
         return signals
 
     @property
-    def samples(self):
-        """Returns summed sample count across records for each channel.
+    def samples(self) -> Sequence[int]:
+        """Returns the total sample count of each channels in EDF header.
 
         The last record of the EDF may not be completely filled with
         recorded signal values depending on the software that created it.
@@ -193,42 +155,39 @@ class Header(bases.Header):
         return [samples[ch] for ch in self.channels]
 
     @property
-    def record_map(self):
-        """Returns a list of slices corresponding to the start, stop sample
-        indices within a record for each channel.
+    def record_map(self) -> Sequence[slice]:
+        """Returns a list of slice objects holding the start, stop samples
+        for each channel within a data record.
 
-        Within a record each channel is sequentially listed like so:
+        Data records in the EDF data section following the header contain
+        data organized like so
 
-        Record:
-        ******************************************************
-        * Ch0 samples, Ch1 samples, Ch2 samples, Ch3 samples *
-        ******************************************************
+        --------------------------------------------------------------
+        Ch0 samples | Ch1 samples | Ch2 samples | ... | Annotations
+        --------------------------------------------------------------
+        (start, stop)|(start, stop)|(start, stop)| ... |(start, stop)
+        --------------------------------------------------------------
 
-        This function returns the start, stop indices for each channel as
-        a list of slices.
+        Returns:
+            A slice object from start to stop for each signal in a record.
         """
 
-        scnts = np.insert(self.samples_per_record,0,0)
+        scnts = np.insert(self.samples_per_record, 0, 0)
         cum = np.cumsum(scnts)
         return list(slice(a, b) for (a, b) in zip(cum, cum[1:]))
 
     @property
     def slopes(self):
-        """Returns the slope (gain) of each channel in this Header.
+        """Returns a 1-D array of channel slopes (i.e channel gains).
 
-        The EDF file specification asserts that the physical voltage 
-        values 'p' are linearly mapped from the integer digital values 'd'
-        in the EDF according to:
+        Notes:
+            The EDF specification asserts that the physical voltage values
+            'p' are linearly mapped from the integer digital values 'd'
+            according to:
 
-            p = slope * d + offset
-            slope = (pmax -pmin) / (dmax - dmin)
-            offset = p - slope * d for any (p,d)
-        
-        This function computes the slope term from the physical and digital
-        values stored in the header for each channel.
-
-        Returns: 
-            A 1-D array of slope values one per signal in EDF.
+                p = slope * d + offset
+                slope = (pmax -pmin) / (dmax - dmin)
+                offset = p - slope * d for any (p,d)
         """
 
         pmaxes = np.array(self.physical_max)[self.channels]
@@ -239,35 +198,33 @@ class Header(bases.Header):
 
     @property
     def offsets(self):
-        """Returns the offset of each channel in this Header.
+        """Returns a 1-D array of channel offsets (i.e. intercepts).
 
-        See slopes property.
-
-        Returns: 
-            A 1-D array of offset values one per signal in EDF.
+        Notes:
+            See slopes property for offset definition.
         """
 
         pmins = np.array(self.physical_min)[self.channels]
         dmins = np.array(self.digital_min)[self.channels]
-        return (pmins - self.slopes * dmins)
-    
-    def filter(self, indices):
-        """Filters this Header keeping only data that pertains to each
-        channel index in indices.
+        return pmins - self.slopes * dmins
+
+    def filter(self, indices: Sequence[int]) -> 'Header':
+        """Returns a new Header instance that contains only the metadata for
+        each signal index in indices.
 
         Args:
-            indices: sequence of ints
-                Integer channel indices to retain in this Header.
+            indices:
+                Signal indices to retain in this Header.
 
-        Returns: 
-            A new header instance.
+        Returns:
+            A new Header instance.
         """
-        
+
         header = copy.deepcopy(self)
         for key, value in header.items():
             if isinstance(value, list):
                 header[key] = [value[idx] for idx in indices]
-        
+
         # update header_bytes and num_signals
         bytemap = self.bytemap(len(indices))
         nbytes = sum(sum(tup[0]) for tup in bytemap.values())
@@ -280,23 +237,61 @@ class Header(bases.Header):
 class Reader(bases.Reader):
     """A reader of European Data Format (EDF/EDF+) files.
 
-    The EDF specification has a header section followed by data records
-    Each data record contains all signals stored sequentially. EDF+
-    files include an annotation signal within each data record. To
-    distinguish these signals we refer to data containing signals as
-    channels and annotation signals as annotation. Currently, this reader
-    does not support the reading of annotation signals.
-
-    For details on the EDF/+ file specification please see:
-
-    https://www.edfplus.info/specs/index.html
+    This reader supports reading EEG data and metadata from an EDF file with
+    and without context management (see module examples). If opened outside
+    of context management, you should close this Reader's instance manually
+    by calling the 'close' method to recover open file resources when you
+    finish processing a file.
 
     Attributes:
-        header: A dictionary representation of an EDF Header.
-        shape: A tuple of channels, samples contained in this EDF
+        header (dict):
+            A dictionary representation of the EDFs header.
+        shape (tuple):
+            A (channels, samples) shape tuple.
+        channels (Sequence):
+            The channels to be returned from the 'read' method call.
+
+    Examples:
+        >>> from openseize.demos import paths
+        >>> filepath = paths.locate('recording_001.edf')
+        >>> from openseize.io.edf import Reader
+        >>> # open a reader using context management and reading 120 samples
+        >>> # from all 4 channels
+        >>> with Reader(filepath) as infile:
+        >>>     x = infile.read(start=0, stop=120)
+        >>> print(x.shape)
+        ... (4, 120)
+        >>> # open the reader without context management
+        >>> reader = Reader(filepath)
+        >>> # set reader to read only channels 0 and 2 data
+        >>> reader.channels = [0, 2]
+        >>> # read samples 0 to 99 from channels 0 and 2
+        >>> y = reader.read(start=0, stop=99)
+        >>> print(y.shape)
+        ... (2, 99)
+
+    Notes:
+        EDF files are divided into header and data records sections. Each
+        data record contains measured signals and annotation signals stored
+        sequentially. Below is a sample layout of a single data record;
+
+        ------------------------------------------------------------
+        Ch0 samples | Ch1 samples | Ch2 samples | ... | Annotations
+        ------------------------------------------------------------
+
+        To distinguish numerical signals from annotation signals, we refer
+        to numerical signals as channels. Currently, this reader does not
+        support the reading of annotation signals stored in the data
+        records.
+
+        For details on the EDF/+ file specification please see;
+        https://www.edfplus.info/specs/index.html
+
+        For details on EDF header meta data please see;
+        the Header class in openseize.io.edf
     """
 
-    def __init__(self, path):
+    def __init__(self, path: Union[str, Path]) -> None:
         """Extends the Reader ABC with a header attribute."""
 
         super().__init__(path, mode='rb')
@@ -304,34 +299,43 @@ class Reader(bases.Reader):
         self._channels = self.header.channels
 
     @property
-    def channels(self):
+    def channels(self) -> Sequence[int]:
         """Returns the channels that this Reader will read."""
 
         return self._channels
 
     @channels.setter
-    def channels(self, values):
-        """Sets the channels that this Reader will read."""
+    def channels(self, values: Sequence[int]):
+        """Sets the channels that this Reader will read.
+
+        Args:
+            values:
+                Sets the channels this Reader's 'read' method will return
+                data from.
+        """
 
         if not isinstance(values, Sequence):
             msg = 'Channels must be type Sequence not {}'
-            raise ValueError(msg.format(type(value)))
-        
+            raise ValueError(msg.format(type(values)))
+
         self._channels = values
 
     @property
-    def shape(self):
-        """Returns a 2-tuple containing the number of channels and 
+    def shape(self) -> Tuple[int, ...]:
+        """Returns a 2-tuple containing the number of channels and
         number of samples in this EDF."""
 
         return len(self.channels), max(self.header.samples)
 
-    def _decipher(self, arr, channels, axis=-1):
-        """Converts an array of EDF integers to an array of voltage floats.
+    def _decipher(self,
+                  arr: np.ndarray,
+                  channels: Sequence[int],
+                  axis: int = -1,
+    ):
+        """Converts decoded data record integers to float voltages.
 
-        The EDF file specification asserts that the physical voltage 
-        values 'p' are linearly mapped from the integer digital values 'd'
-        in the EDF according to:
+        Physical voltage values 'p' are linearly mapped from the
+        decoded integer values 'd' according to:
 
             p = slope * d + offset
             slope = (pmax -pmin) / (dmax - dmin)
@@ -340,16 +344,16 @@ class Reader(bases.Reader):
         The EDF header contains pmax, pmin, dmax and dmin for each channel.
 
         Args:
-            arr: 2-D array
-                An array of integer digital values read from the EDF file.
-            channels: sequence
-                Sequence of channels read from the EDF file
-            axis: int
-                The samples axis of arr. Default is last axis.
-            
-        Returns: 
-            A float64 ndarray of physical voltage values with shape matching
-            input 'arr' shape.
+            arr:
+                An array of integer values decoded from the EDF.
+            channels:
+                The channel indices that were decoded. Each channel may have
+                a unique slope and offset.
+            axis:
+                The samples axis of arr.
+
+        Returns:
+            A float64 ndarray of voltages with the same shape as 'arr'.
         """
 
         slopes = self.header.slopes[channels]
@@ -361,38 +365,29 @@ class Reader(bases.Reader):
         result += offsets
         return result
 
-    def _find_records(self, start, stop, channels):
-        """Locates a start and stop record number containing the start and
-        stop sample number for each channel in channels.
+    def _find_records(self,
+                      start: int,
+                      stop: int,
+                      channels: Sequence[int],
+    ) -> Sequence[Tuple[int, int]]:
+        """Returns the first and last record indices that include start to
+        stop samples for each channel in channels.
 
-        EDF files are partitioned into records. Each record contains data
-        for each channel sequentially. Below is an example record for
-        4-channels of data.
-
-        Record:
-        ******************************************************
-        * Ch0 samples, Ch1 samples, Ch2 samples, Ch3 samples *
-        ******************************************************
-
-        The number of samples for each chanel will be different if the
-        sample rates for the channels are not equal. The number of samples
-        in a record for each channel is given in the header by the field
-        samples_per_record. This method locates the start and stop record
-        numbers that include the start and stop sample indices for each
-        channel.
+        Notes:
+            The number of samples for each chanel will be different if the
+            sample rates are unequal. Thus, this method returns a first and
+            last record number for each channel.
 
         Args:
-            start: int
-                The start sample to read.
-            stop: int
-                The stop sample to read (exclusive).
-            channels: sequence
-                Sequence of channels to read.
+            start:
+                The start sample used to locate the first record.
+            stop:
+                The stop sample (exclusive) used to locate the last record.
+            channels:
+                The channel indices to read.
 
-        Returns: 
-            A list of 2-tuples containing the start and stop record numbers
-            that inlcude the start and stop sample number for each channel
-            in channels.
+        Returns:
+            A list of (first, last) record numbers for each channel.
         """
 
         spr = np.array(self.header.samples_per_record)[channels]
@@ -400,30 +395,30 @@ class Reader(bases.Reader):
         stops = np.ceil(stop / spr).astype('int')
         return list(zip(starts, stops))
 
-    def _records(self, a, b):
-        """Reads samples between the ath to bth record.
+    def _records(self, a: int, b: int):
+        """Reads samples in the ath to bth record.
 
         If b exceeds the number of records in the EDF, then samples upto the
         end of file are returned. If a exceeds the number of records, an
         empty array is returned.
 
         Args:
-            a: int
-                The start record to read.
-            b: int
+            a:
+                The first record to read.
+            b:
                 The last record to be read (exclusive).
 
         Returns:
-            A 2-D array of shape (b-a) x sum(samples_per_record)
+            A ndarray of shape (b-a) * sum(samples_per_record)
         """
 
         if a >= self.header.num_records:
             return np.empty((1,0))
         b = min(b, self.header.num_records)
         cnt = b - a
-        
+
         self._fobj.seek(0)
-        #EDF samples are 2-byte integers
+        #EDF samples are 2-byte little endian integers
         bytes_per_record = sum(self.header.samples_per_record) * 2
         #get offset in bytes & num samples spanning a to b
         offset = self.header.header_bytes + a * bytes_per_record
@@ -433,17 +428,21 @@ class Reader(bases.Reader):
         arr = recs.reshape(cnt, sum(self.header.samples_per_record))
         return arr
 
-    def _padstack(self, arrs, value, axis=0):
-        """Pads a sequence of 1-D arrays to equal length and stacks them
-        along axis.
+    def _padstack(self,
+                  arrs: Sequence[np.ndarray],
+                  value: float,
+                  axis: int = 0
+    ):
+        """Returns a 2-D array from a ragged sequence of 1-D arrays.
 
         Args:
-            arrs: sequence
-                A sequence of 1-D arrays.
-            value: float
-                Value to append to arrays that are shorter than the longest
-                array in arrs.
-        
+            arrs:
+                A ragged sequence of 1-D arrays to combine.
+            value:
+                Padding value used to lenghten 1-D arrays.
+            axis:
+                The axis along which to stack the padded 1-D arrays.
+
         Returns:
             A 2-D array.
         """
@@ -453,30 +452,35 @@ class Reader(bases.Reader):
 
         if all(pad_sizes == 0):
             return np.stack(arrs, axis=0)
-        
-        else:
-            x = [np.pad(arr.astype(float), (0, pad), constant_values=value)
-                    for arr, pad in zip(arrs, pad_sizes)]
-            return np.stack(x, axis=0)
 
-    def _read_array(self, start, stop, channels, padvalue):
-        """Reads samples between start & stop for each channel in channels.
+        x = [np.pad(arr.astype(float), (0, pad), constant_values=value)
+                for arr, pad in zip(arrs, pad_sizes)]
+        return np.stack(x, axis=axis)
+
+    def _read_array(self,
+                    start: int,
+                    stop: int,
+                    channels: Sequence[int],
+                    padvalue: float,
+    ):
+        """Reads samples between start & stop indices for each channel index
+        in channels.
 
         Args:
-            start: int
+            start:
                 The start sample index to read.
-            stop: int
+            stop:
                 The stop sample index to read (exclusive).
-            channels: sequence
-                Sequence of channels to read from EDF.
-            padvalue: float
+            channels:
+                Sequence of channel indices to read from EDF.
+            padvalue:
                 Value to pad to channels that run out of data to return.
                 Only applicable if sample rates of channels differ.
 
         Returns:
             A float64 2-D array of shape len(channels) x (stop-start).
         """
-        
+
         # Locate record tuples that include start & stop samples for
         # each channel but only perform reads over unique record tuples.
         rec_tuples = self._find_records(start, stop, channels)
@@ -485,89 +489,118 @@ class Reader(bases.Reader):
 
         result=[]
         for ch, rec_tup in zip(channels, rec_tuples):
-            
+
             #get preread array and extract samples for this ch
             arr = reads[rec_tup]
             arr = arr[:, self.header.record_map[ch]].flatten()
-            
+
             #adjust start & stop relative to records start pt
             a = start - rec_tup[0] * self.header.samples_per_record[ch]
             b = a + (stop - start)
             result.append(arr[a:b])
-        
+
         res = self._padstack(result, padvalue)
         return self._decipher(res, channels)
-    
-    def read(self, start, stop=None, padvalue=np.NaN):
-        """Reads samples from this EDF for the specified channels.
+
+    def read(self,
+             start: int,
+             stop: Optional[int] = None,
+             padvalue: float = np.NaN
+    ):
+        """Reads samples from this EDF from this Reader's channels.
 
         Args:
-            start: int
+            start:
                 The start sample index to read.
-            stop: int
+            stop:
                 The stop sample index to read (exclusive). If None, samples
-                will be read until the end of file. Default is None.
-            padvalue: float
+                will be read until the end of file.
+            padvalue:
                 Value to pad to channels that run out of samples to return.
-                Only applicable if sample rates of channels differ. Default
-                padvalue is NaN.
+                Only applicable if sample rates of channels differ.
 
-        Returns: 
+        Returns:
             A float64 array of shape len(chs) x (stop-start) samples.
         """
 
         if start > max(self.header.samples):
             return np.empty((len(self.channels), 0))
+
         if not stop:
             stop = max(self.header.samples)
+
         return self._read_array(start, stop, self.channels, padvalue)
 
 
+# Writer groups logically related non-public methods.
+# pylint: disable-next=too-few-public-methods
 class Writer(bases.Writer):
-    """A Context Manager for writing of European Data Format (EDF) files.
+    """A writer of European Data Format (EDF/EDF+) files.
 
-    This writer does not support writing annotations to an EDF file.
+    This Writer is a context manager for writing EEG data and metadata to an
+    EDF binary file. Unlike Readers it must be opened under the context
+    management protocol. Importantly, this writer does not currently support
+    writing annotations to an EDF file.
+
+    Attributes:
+        path (Path):
+            A python path instance to target file to write data to.
+
+    Examples:
+    >>> from openseize.demos import paths
+    >>> filepath = paths.locate('recording_001.edf')
+    >>> # Create a reader that will read only channels [0, 1]
+    >>> # and write out these channels to a new file
+    >>> writepath = paths.data_dir.joinpath('subset_001.edf')
+    >>> with Reader(filepath) as reader:
+    >>>     with Writer(writepath) as writer:
+    >>>         writer.write(reader.header, reader, channels=[0, 1])
     """
 
-    def __init__(self, path):
+    def __init__(self, path: Union[str, Path]) -> None:
         """Initialize this Writer. See base class for futher details."""
 
         super().__init__(path, mode='wb')
 
-    def _write_header(self, header):
-        """Write a header dict to this Writer's opened file instance.
+    def _write_header(self, header: Header) -> None:
+        """Writes a dict of EDF header metadata to this Writer's opened
+        file.
 
         Args:
-            header: Header dict          
+            header:
                 A dict of EDF compliant metadata. Please see Header for
                 further details.
         """
-       
+
+        # the header should be added during write not initialization
+        # pylint: disable-next=attribute-defined-outside-init
         self.header = header
         bytemap = header.bytemap(header.num_signals)
+
         # Move to file start and write each ascii encoded byte string
         self._fobj.seek(0)
         for items, (nbytes, _) in zip(header.values(), bytemap.values()):
             items = [items] if not isinstance(items, list) else items
+
             for item, nbyte in zip(items, nbytes):
                 bytestr = bytes(str(item), encoding='ascii').ljust(nbyte)
                 self._fobj.write(bytestr)
 
-    def _records(self, data, channels):
-        """Yields a list of sample arrays one per channel to write to
-        a single data record
+    def _records(self,
+                 data: Union[np.ndarray, Reader],
+                 channels: Sequence[int]
+    ) -> Generator[List[np.ndarray], None, None]:
+        """Yields 1-D arrays, one per channel, to write to a data record.
 
         Args:
-            data: 2-D array, memmap, Reader instance
-                An object that is sliceable or has a read method that 
-                returns arrays of shape channels x samples. 
-            channels: sequence
-                A sequence of channels to write to each data record in this
-                Writer.
+            data:
+                An 2D array, memmap or Reader instance with samples along
+                the last axis.
+            channels:
+                A sequence of channels to write to each data record.
 
         Yields:
-            A list of 1-D arrays of samples for a single data record, one
-            array per channel in channels.
+            A list of 1-D arrays of samples for a single data record.
         """
 
         for n in range(self.header.num_records):
@@ -583,21 +616,19 @@ class Writer(bases.Writer):
                 else:
                     data.channels = [channel]
                     result.append(data.read(start, stop))
-            
+
             yield result
 
-    def _encipher(self, arrs):
-        """Transforms each array in a sequence of arrays from float to
-        a 2-byte little-endian integer dtype.
+    def _encipher(self, arrs: Sequence):
+        """Converts float arrays to 2-byte little-endian integer arrays
+        using the EDF specification.
 
         Args:
-            arrs: sequence
-                Sequence of 1-D arrays of float dtype.
-
-        See also _decipher method of the EDFReader.
+            arrs:
+                A sequence of 1-D arrays of float dtype.
 
         Returns:
-            A sequence of 1-D arrays in 2-byte little-endian fmt.
+            A sequence of 1-D arrays in 2-byte little-endian format.
         """
 
         slopes = self.header.slopes
@@ -609,53 +640,59 @@ class Writer(bases.Writer):
             results.append(arr)
         return results
 
-    def _validate(self, header, data):
-        """Validates that samples in data is divisible by number of records
-        in header.
+    def _validate(self, header: Header, data: np.ndarray) -> None:
+        """Ensures the number of samples is divisible by the number of
+        records.
 
-        The EDF file spec. does not allow the writing of partial record at
-        the end of the file. Therefore, the data to be written needs to 
-        perfectly fill all num_records in the header. This may require 
-        appending 0's to the end of data to ensure this.
+        EDF files must have an integer number of records (i.e. the number of
+        samples must fill the records). This may require appending 0's to
+        the end of data to ensure this.
 
         Args:
-            header: dict
-                An EDFHeader instance.
-            data: 2-D array or Reader instance
-                Data to be written to this Writer's open file instance.
-        
+            header:
+                A Header instance of EDF metadata.
+            data:
+                The 2-D data with samples along the last axis.
+
         Raises:
-            A ValueError if num. samples is not divisible by num. records 
-            in header. 
+            A ValueError if not divisible.
         """
 
         if data.shape[1] % header.num_records != 0:
             msg=('Number of data samples must be divisible by '
                  'the number of records; {} % {} != 0')
-            raise ValueError(msg.format(values, num_records))
+            msg.format(data.shape[1], header.num_records)
+            raise ValueError(msg)
 
-    def _progress(self, record_idx):
+    def _progress(self, record_idx: int) -> None:
         """Relays write progress during file writing."""
-        
+
         msg = 'Writing data: {:.1f}% complete'
         perc = record_idx / self.header.num_records * 100
-        print(msg.format(perc), end='\r', flush=True) 
+        print(msg.format(perc), end='\r', flush=True)
 
-    def write(self, header, data, channels, verbose=True):
-        """Write header & data for each channel to file object.
+    def write(self,
+              header: Header,
+              data: Union[np.ndarray, Reader],
+              channels: Sequence[int],
+              verbose: bool = True
+    ) -> None:
+        """Write header metadata and data for channel in channels to this
+        Writer's file instance.
 
         Args:
-            header: dict
-                A mapping of EDF compliant fields and values. For Further
-                details see Header class of this module.
-            data: 2-D array or Reader instance
-                A channels x samples array or Reader instance.
-            channels: sequence
-                A sequence of channel indices to write to this Writer's 
-                open file instance.
-            verbose: bool
-                An option to print progress of write. Default (True) prints
-                status update as each record is written.
+            header:
+                A mapping of EDF compliant fields and values.
+            data:
+                An array with shape (channels, samples) or Reader instance.
+            channels:
+                Channel indices to write to this Writer's open file.
+            verbose:
+                An option to print progress of write.
+
+        Raises:
+            ValueErrror: An error occurs if samples to be written is not
+            divisible by the number of records in the Header instance.
         """
 
         header = Header.from_dict(header)
@@ -674,28 +711,31 @@ class Writer(bases.Writer):
                 self._progress(idx)
 
 
-def splitter(path, mapping, outdir=None):
-    """Splits an multichannel EDF file into multiple EDF files. 
+def disjoin(path: Path,
+             mapping: Dict,
+             outdir: Optional[Union[str, Path]] = None,
+) -> None:
+    """Creates seperate EDFs from a multichannel EDF.
 
-    EDF files may have multiple subjects stored to a single file. This tool can
-    be used to partition these files into single subject EDF files.
+    This tool is useful for partitioning an EDF with channels from different
+    subjects into multiple single subject EDFs. The original 'joined' EDF is
+    left unmodified.
 
     Args:
-        path: str or Path instance
-            Path to an EDF file to be split
-        mapping: dict
-            A dictionary of filenames and channel indices one per edf file
-            to be written.
-        outdir: str or Path instance
-            Directory where each file in mapping should be written. Default
-            (None) uses the directory of the unsplit edf path.
+        path:
+            Path to an EDF file to be disjoin.
+        mapping:
+            A mapping of filenames and channel indices for each disjoined
+            EDF file to be written.
+        outdir:
+            Directory where each file in mapping should be written. If None
+            provided, the directory of the unsplit edf path will be used.
     """
-    
+
     reader = Reader(path)
-    outdir = outdir if outdir else reader.path.parent
+    outdir = Path(outdir) if outdir else reader.path.parent
     for fname, indices in mapping.items():
         target = outdir.joinpath(Path(fname).with_suffix('.edf'))
         with Writer(target) as outfile:
             outfile.write(reader.header, reader, indices)
     reader.close()
-

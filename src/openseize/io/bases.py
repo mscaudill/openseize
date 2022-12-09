@@ -168,7 +168,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
         """Sets the channels that this Reader will read."""
 
     @abc.abstractmethod
-    def read(self, start: int, stop:int, **kwargs) -> np.ndarray:
+    def read(self, start: int, stop:int) -> np.ndarray:
         """Returns a numpy array of sample values between start and stop for
         each channel in channels.
 
@@ -248,7 +248,6 @@ class Writer(abc.ABC, mixins.ViewInstance):
               header: Header,
               data: typing.Union[np.ndarray, typing.Iterable[np.ndarray]],
               channels: typing.Sequence[int],
-              **kwargs,
     ) -> None:
         """Writes the metadata & data for each specified channel to this
         Writer's opened file instance.
