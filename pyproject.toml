@@ -71,10 +71,6 @@ module = ["scipy.*", "matplotlib.*", "openseize.*"]
 ignore_missing_imports = true
 
 # pylint configuration
-#[tool.pylint.messages_control]
-#max-line-length = 76
-#disable = "too-many-arguments"
-
 [tool.pylint.design]
 max-attributes = 10
 max-args = 10
@@ -83,3 +79,7 @@ max-args = 10
 argument-naming-style = "any"
 variable-naming-style = "any"
 attr-naming-style = "any"
+
+[tool.isort]
+profile = 'google'
+line_length = 76
