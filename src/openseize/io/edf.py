@@ -16,9 +16,11 @@ protocol.
 
 import copy
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Sequence, Tuple, Union
+from typing import (cast, Dict, Generator, List, Optional, Sequence, Tuple,
+                    Union)
 
 import numpy as np
+import numpy.typing as npt
 
 from openseize.io import bases
 
@@ -356,14 +358,14 @@ class Reader(bases.Reader):
             A float64 ndarray of voltages with the same shape as 'arr'.
         """
 
-        slopes = self.header.slopes[channels]
-        offsets = self.header.offsets[channels]
+        slopes = np.array(self.header.slopes[channels])
+        offsets = np.array(self.header.offsets[channels])
         #expand to 2-D for broadcasting
         slopes = np.expand_dims(slopes, axis=axis)
         offsets = np.expand_dims(offsets, axis=axis)
         result = arr * slopes
         result += offsets
-        return result
+        return cast(np.ndarray, result)
 
     def _find_records(self,
                       start: int,
@@ -506,7 +508,7 @@ class Reader(bases.Reader):
              start: int,
              stop: Optional[int] = None,
              padvalue: float = np.NaN
-    ):
+    ) -> npt.NDArray[np.float64]:
         """Reads samples from this EDF from this Reader's channels.
 
         Args:
@@ -529,7 +531,9 @@ class Reader(bases.Reader):
         if not stop:
             stop = max(self.header.samples)
 
-        return self._read_array(start, stop, self.channels, padvalue)
+        arr = self._read_array(start, stop, self.channels, padvalue)
+        # use cast to indicate ndarray type for docs
+        return cast(np.ndarray, arr)
 
 
 # Writer groups logically related non-public methods.

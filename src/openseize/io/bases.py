@@ -11,13 +11,14 @@ be instantiated.
 """
 
 import abc
-import pprint
-import typing
 from dataclasses import dataclass
 from inspect import getmembers
 from pathlib import Path
+import pprint
+import typing
 
 import numpy as np
+import numpy.typing as npt
 
 from openseize.core import mixins
 
@@ -168,7 +169,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
         """Sets the channels that this Reader will read."""
 
     @abc.abstractmethod
-    def read(self, start: int, stop:int) -> np.ndarray:
+    def read(self, start: int, stop:int) -> npt.NDArray[np.float64]:
         """Returns a numpy array of sample values between start and stop for
         each channel in channels.
 
@@ -298,7 +299,7 @@ class Annotations(abc.ABC):
         path:
             Python path instance to an annotation file.
         kwargs:
-            Any valid kwarg for Python's open builtin.
+            Any valid kwarg for concrete 'open' method.
     """
 
     def __init__(self, path: typing.Union[str, Path], **kwargs) -> None:
