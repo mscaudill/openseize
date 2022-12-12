@@ -4,7 +4,7 @@ import wget
 import reprlib
 from pathlib import Path
 
-from openseize.io.dialogs import message
+from openseize.file_io.dialogs import message
 
 class DataLocator:
     """The openseize demos data locator.

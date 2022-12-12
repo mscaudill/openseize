@@ -3,7 +3,7 @@ hide:
   - toc
 ---
 
-::: openseize.io.edf.splitter
+::: openseize.file_io.edf.splitter
     options:
         show_source:
             true

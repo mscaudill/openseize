@@ -3,10 +3,10 @@ hide:
   - toc
 ---
 
-::: openseize.file_io.edf
+::: openseize.core.producer
     options:
         members:
-            - None
+            - producer
         show_source:
             true
         show_root_heading:

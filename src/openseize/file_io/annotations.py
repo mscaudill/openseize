@@ -26,8 +26,8 @@ import numpy as np
 import numpy.typing as npt
 
 from openseize.core import arraytools
-from openseize.io.bases import Annotation
-from openseize.io.bases import Annotations
+from openseize.file_io.bases import Annotation
+from openseize.file_io.bases import Annotations
 
 
 class Pinnacle(Annotations):

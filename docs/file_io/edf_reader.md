@@ -1,4 +1,4 @@
-::: openseize.io.edf.Reader
+::: openseize.file_io.edf.Reader
     options:
         members_order:
             source
@@ -12,7 +12,7 @@
 ## Bases and Mixins
 
 ## Reader Base
-::: openseize.io.bases.Reader
+::: openseize.file_io.bases.Reader
     options:
         members_order:
             source

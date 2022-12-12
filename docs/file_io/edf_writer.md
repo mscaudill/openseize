@@ -1,4 +1,4 @@
-::: openseize.io.edf.Writer
+::: openseize.file_io.edf.Writer
     options:
         members_order:
             source
@@ -12,7 +12,7 @@
 ## Bases and Mixins
 
 ## Writer Base
-::: openseize.io.bases.Writer
+::: openseize.file_io.bases.Writer
     options:
         members_order:
             source

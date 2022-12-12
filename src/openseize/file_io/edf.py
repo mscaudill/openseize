@@ -106,7 +106,7 @@ from typing import (cast, Dict, Generator, List, Optional, Sequence, Tuple,
 import numpy as np
 import numpy.typing as npt
 
-from openseize.io import bases
+from openseize.file_io import bases
 
 
 class Header(bases.Header):
