@@ -39,7 +39,9 @@ class Header(dict):
             A python path instance to an EEG datafile with header.
     """
 
-    def __init__(self, path: typing.Union[str, Path]) -> None:
+    def __init__(self, 
+                 path: typing.Optional[typing.Union[str, Path]]
+    ) -> None:
         """Initialize this Header.
 
         Args:
@@ -227,7 +229,6 @@ class Writer(abc.ABC, mixins.ViewInstance):
 
         self.path = Path(path)
         self.mode = mode
-        self._fobj = None
 
     def __enter__(self):
         """Return instance as target variable of this context."""
@@ -245,22 +246,8 @@ class Writer(abc.ABC, mixins.ViewInstance):
             self._fobj.close()
 
     @abc.abstractmethod
-    def write(self,
-              header: Header,
-              data: typing.Union[np.ndarray, typing.Iterable[np.ndarray]],
-              channels: typing.Sequence[int],
-    ) -> None:
-        """Writes the metadata & data for each specified channel to this
-        Writer's opened file instance.
-
-        Args:
-            header:
-                A mapping of file specific metadata.
-            data:
-                The data to be written by this Writer.
-            channels:
-                The channel indices of metadata and data to be written.
-        """
+    def write(self, *args, **kwargs) -> None:
+        """Writes metadata & data to this Writer's opened file instance."""
 
 
 @dataclass
