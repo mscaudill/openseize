@@ -1,89 +1,104 @@
-"""Tools for creating iterables of ndarrays from numpy arrays, sequences,
-binary file readers, and generating functions.
+"""Producers are the heart of Openseize. They are iterables that can produce
+values from a variety of data sources including:
+```
+    - Sequences
+    - Numpy ndarrays
+    - Generating functions
+    - Openseize Reader instances
+    - Other Producers
+```
 
-This module contains the following classes and functions:
+All DSP algorithms in Openseize can accept and return a producer. This
+allows data that is too large to be stored to an in-memory numpy array to be
+analyzed. This module contain the producer constructing function. It is the
+only publicly available method of this module.
 
-    producer:
-        A function that transforms data from an ndarray, sequence, file
-        reader or generating function of ndarrays into an iterable of
-        ndarrays.
+Examples:
 
-        Typical usage example:
-        pro = producer(data, chunksize=1000, axis=-1)
-        #returns an iterable yielding ndarrays of size 1000 along last axis
-        from a data source. Data may be an array, a sequence, a file reader
-        or a generating function yielding ndarrays.
-
-    as_producer:
-        A higher-order function for decorating generating functions to
-        convert them into producers.
-
-        Typical usage example:
-        @as_producer
-        def gen_function(pro, *args, **kwargs):
-            for arr in pro:
-                yield np.fft(arr, axis=-1)
-        #converts the generator function into  a producer for  other
-        functions to consume.
-
-    All other classes and functions of this module are not part of the 
-    openseize public API.
+    >>> # Build a producer from an EDF file reader
+    >>> from openseize.demos import paths
+    >>> filepath = paths.locate('recording_001.edf')
+    >>> from openseize.file_io.edf import Reader
+    >>> reader = Reader(filepath)
+    >>> # build a producer that produces 100k samples chunks of this file
+    >>> pro = producer(reader, chunksize=10e3, axis=-1)
+    >>> pro.shape # print the producers shape
+    (4, 18875000)
+    >>> # print the shape of each arr in the producer
+    >>> for idx, arr in enumerate(pro):
+    ...     msg = 'Array num. {} has shape {}'
+    ...     print(msg.format(idx, arr.shape))
+    >>> # Build a producer from a numpy array with samples on 0th
+    >>> x = np.random.random((100000, 5))
+    >>> xpro = producer(x, chunksize=10e3, axis=0)
+    >>> for arr in xpro:
+    ...     print(arr.shape)
 """
 
-import abc
+from abc import abstractmethod
+from collections import abc
 import functools
 import inspect
 import itertools
-import numpy as np
-from collections.abc import Iterable, Sequence, Generator
+from typing import Callable, Iterable, Optional, Sequence, Union
 
-from openseize.io.edf import Reader
+import numpy as np
+import numpy.typing as npt
+
 from openseize.core import mixins
 from openseize.core import resources
 from openseize.core.queues import FIFOArray
+from openseize.file_io.edf import Reader
 
 
-def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
+def producer(data: Union[npt.NDArray, Iterable[npt.NDArray], Reader,
+                         Callable, 'Producer'],
+             chunksize: int,
+             axis: int,
+             shape: Optional[Sequence[int]] = None,
+             mask: Optional[npt.NDArray[np.bool_]] = None,
+             **kwargs,
+) -> 'Producer':
     """Constructs an iterable that produces ndarrays of length chunksize
     along axis during iteration.
 
     This constructor returns an object that is capable of producing ndarrays
     or masked ndarrays during iteration from a single ndarray, a sequence of
-    ndarrays, a file Reader instance (see io.bases.Reader), an ndarray 
-    generating function, or a pre-existing producer of ndarrays. The 
+    ndarrays, a file Reader instance (see io.bases.Reader), an ndarray
+    generating function, or a pre-existing producer of ndarrays. The
     produced ndarrays from this object will have length chunksize along axis.
 
     Args:
         data:
             An object from which ndarrays will be produced from. Supported
-            types are Reader instances, ndarrays, sequences, generating 
-            functions yielding ndarrays, or a producer of ndarrays. 
-            For sequences and generator functions it is required that each
-            subarray has the same shape along all axes except for the axis 
-            along which chunks will be produced. 
-        chunksize: int
-            The desired length along axis of each produced ndarray. 
-        axis: int
-            The sample axis of data that will be partitioned into 
+            types are Reader instances, ndarrays, sequences, generating
+            functions yielding ndarrays, or other Producers.  For sequences
+            and generator functions it is required that each subarray has
+            the same shape along all axes except for the axis along which
+            chunks will be produced.
+        chunksize:
+            The desired length along axis of each produced ndarray.
+        axis:
+            The sample axis of data that will be partitioned into
             chunks of length chunksize.
-        shape: tuple or None
+        shape:
             The combined shape of all ndarrays from this producer. This
             parameter is only required when object is a generating function
             and will be ignored otherwise.
-        mask: 1-D boolean array
+        mask:
             A boolean describing which values of data along axis
             should by produced. Values that are True will be produced and
             values that are False will be ignored. If None (Default),
             producer will produce all values from object.
-        kwargs: dict
+        kwargs:
             Keyword arguments specific to data type that ndarrays will be
-            produced from. For Reader instances, valid kwargs are padvalue 
-            (see io.bases.Readers and io.edf.Reader) For generating 
+            produced from. For Reader instances, valid kwargs are padvalue
+            (see io.bases.Readers and io.edf.Reader) For generating
             functions, all the positional and keyword arguments must be
-            passed to the function through these kwargs to avoid name 
+            passed to the function through these kwargs to avoid name
             collisions with the producer func arguments.
 
-    Returns: An iterable of ndarrays of shape chunksize along axis.  
+    Returns: An iterable of ndarrays of shape chunksize along axis.
     """
 
     if isinstance(data, Producer):
@@ -100,7 +115,7 @@ def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     elif isinstance(data, np.ndarray):
         result = ArrayProducer(data, chunksize, axis, **kwargs)
 
-    elif isinstance(data, Sequence):
+    elif isinstance(data, abc.Sequence):
         x = np.concatenate(data, axis)
         result = ArrayProducer(x, chunksize, axis, **kwargs)
 
@@ -111,8 +126,8 @@ def producer(data, chunksize, axis, shape=None, mask=None, **kwargs):
     # apply mask if passed
     if mask is None:
         return result
-    else:
-        return MaskedProducer(result, mask, chunksize, axis, **kwargs)
+
+    return MaskedProducer(result, mask, chunksize, axis, **kwargs)
 
 
 def as_producer(func):
@@ -120,7 +135,7 @@ def as_producer(func):
 
     Producers are multi-transversal iterables (not iterators). Generators
     are 'one-shot' transversal objects. Therefore to support multiple data
-    transversals, Producers can be built from generating functions. 
+    transversals, Producers can be built from generating functions.
     This decorater converts any generating function that accepts a producer
     as its first argument into a Producer instance.
 
@@ -128,7 +143,7 @@ def as_producer(func):
         This decorator assumes that the generating function yields arrays
         whose cumulative shape matches the input producers shape. If this is
         False, it is advised to construct the producer from the producer
-        function passing an explicit shape argument. 
+        function passing an explicit shape argument.
             >>> producer(genfunc, chunksize, axis, shape, **kwargs)
 
         The chunksize of the resultant producer will match the chunksize of
@@ -142,7 +157,7 @@ def as_producer(func):
     if not inspect.isgeneratorfunction(func):
         msg = 'as_producer requries a generating function not {}'
         raise TypeError(msg.format(type(func)))
-    
+
     @functools.wraps(func)
     def decorated(pro, *args, **kwargs):
         """Returns a producer using values from generating func."""
@@ -176,7 +191,7 @@ def pad_producer(pro, pad, value):
 
     #convert int pad to seq. of pads & place along axis of pads
     pads = [pad, pad] if isinstance(pad, int) else pad
-    
+
     def genfunc():
 
         left_shape, right_shape = list(pro.shape), list(pro.shape)
@@ -195,15 +210,15 @@ def pad_producer(pro, pad, value):
     # compute new shape
     shape = list(pro.shape)
     shape[pro.axis] = pro.shape[pro.axis] + sum(pads)
-    
+
     return producer(genfunc, pro.chunksize, pro.axis, shape=shape)
 
 
-class Producer(Iterable, mixins.ViewInstance):
+class Producer(abc.Iterable, mixins.ViewInstance):
     """An ABC defining concrete and required methods of all Producers.
 
     Attrs:
-        data: ndarray, sequence, memmap, file Reader, or generating func 
+        data: ndarray, sequence, memmap, file Reader, or generating func
             An object that can return or yield ndarrays
         chunksize: int
             Number of samples along axis of data to yield per iteration.
@@ -224,7 +239,7 @@ class Producer(Iterable, mixins.ViewInstance):
 
         self.data = data
         self._chunksize = int(chunksize)
-        self.axis = axis  
+        self.axis = axis
         self.kwargs = kwargs
 
     @property
@@ -239,7 +254,8 @@ class Producer(Iterable, mixins.ViewInstance):
 
         self._chunksize = int(value)
 
-    @abc.abstractproperty
+    @property
+    @abstractmethod
     def shape(self):
         """Returns the shape of this producers data attr."""
 
@@ -254,13 +270,13 @@ class Producer(Iterable, mixins.ViewInstance):
 
         resource_result  = resources.assignable_array(self.shape, dtype)
         assignable, allowable, required = resource_result
-        
+
         if not assignable:
             a, b = np.round(np.array([required, allowable]) / 1e9, 1)
             msg = 'Producer will consume {} GB but only {} GB are available'
             raise MemoryError(msg.format(a, b))
-        
-        return np.concatenate([arr for arr in self], axis=self.axis)
+
+        return np.concatenate(list(self), axis=self.axis)
 
 
 class ReaderProducer(Producer):
@@ -286,13 +302,13 @@ class ReaderProducer(Producer):
         # make generators of start, stop samples & exhaust reader
         starts = itertools.count(start=0, step=self.chunksize)
         stops = itertools.count(start=self.chunksize, step=self.chunksize)
-        
-        for start, stop in zip(starts, stops): 
+
+        for start, stop in zip(starts, stops):
             arr = self.data.read(start, stop=stop, **self.kwargs)
             # if exhausted close reader and exit
             if arr.size == 0:
                 break
-            
+
             yield arr
 
     def close(self):
@@ -328,7 +344,7 @@ class ArrayProducer(Producer):
         """Returns an iterator yielding ndarrays of chunksize along axis."""
 
         starts = range(0, self.data.shape[self.axis], self.chunksize)
-        
+
         for t in itertools.zip_longest(starts, starts[1:], fillvalue=None):
             yield self.data[self._slice(*t)]
 
@@ -337,12 +353,12 @@ class GenProducer(Producer):
     """A Producer of ndarrays from a generating function of ndarrays.
 
     This iterable moves over a generator's yielded arrays collecting until
-    chunksize shape is reached along axis. Once reached, it yields a 
+    chunksize shape is reached along axis. Once reached, it yields a
     collected ndarray.
 
     Attrs:
         see Producer
-        shape: tuple 
+        shape: tuple
             The combined shape of all arrays in data generating function.
         kwargs: dict
             Any valid keyword argument for the data generating function.
@@ -360,7 +376,7 @@ class GenProducer(Producer):
         super().__init__(data, chunksize, axis, **kwargs)
         self._shape = tuple(shape)
 
-    @property 
+    @property
     def shape(self):
         """Returns the summed shape of arrays in this Producer."""
 
@@ -377,7 +393,7 @@ class GenProducer(Producer):
 
         # collector will fetch chunksize array for each 'get' call
         collector = FIFOArray(self.chunksize, self.axis)
-        
+
         # make tmp array to hold generated subarrs
         tmp = []
         tmp_size = 0
@@ -385,7 +401,7 @@ class GenProducer(Producer):
 
             tmp.append(subarr)
             tmp_size += subarr.shape[self.axis]
-            
+
             # if tmp exceeds chunksize put in collector
             if tmp_size >= self.chunksize:
                 arr = np.concatenate(tmp, axis=self.axis)
@@ -399,19 +415,20 @@ class GenProducer(Producer):
                 tmp = [collector.queue]
                 tmp_size = collector.qsize()
                 collector.queue = np.array([])
-            
+
             else:
 
                 # append to tmp again
                 continue
 
-        else:
-            
+        # else runs after normal loop exit -- required here
+        else: #pylint: disable=useless-else-on-loop
+
             # yield whatever is left in tmp (its below chunksize)
             remaining = np.concatenate(tmp, axis=self.axis)
             if remaining.size > 0:
                 yield remaining
-        
+
 
 class MaskedProducer(Producer):
     """A Producer of numpy arrays with values that have been filtered by
@@ -419,8 +436,8 @@ class MaskedProducer(Producer):
 
     Attrs:
        see Producer
-       mask: 1-D Bool 
-            A bool mask to apply on all 1-D slices of producer's array 
+       mask: 1-D Bool
+            A bool mask to apply on all 1-D slices of producer's array
             oriented along axis (see np.take). Iteration of arrays stops
             as soon as mask or Producer runs out of values to yield.
 
@@ -441,21 +458,21 @@ class MaskedProducer(Producer):
         included  = np.count_nonzero(self.mask.to_array(dtype=bool))
         #iteration stops when producer or mask runs out
         result[self.axis] = min(self.data.shape[self.axis], included)
-        
+
         return tuple(result)
 
     @property
     def chunksize(self):
         """Returns the chunksize of this MaskedProducer."""
 
-        return self.data._chunksize
+        return self.data.chunksize
 
     @chunksize.setter
     def chunksize(self, value):
         """On change, set chunksize for both producer and mask."""
 
-        self.data._chunksize = int(value)
-        self.mask._chunksize = int(value)
+        self.data.chunksize = int(value)
+        self.mask.chunksize = int(value)
 
     def __iter__(self):
         """Returns an iterator of boolean masked numpy arrays along axis."""
@@ -464,13 +481,14 @@ class MaskedProducer(Producer):
         for arr, maskarr in zip(self.data, self.mask):
             filtered = np.take(arr, np.flatnonzero(maskarr), axis=self.axis)
             collector.put(filtered)
-            
+
             while collector.full():
-                
-                yield collector.get()
-        
-        else:
-            if collector.qsize() > 0:
-                
+
                 yield collector.get()
 
+        # else runs after normal loop exit -- required here
+        else: #pylint: disable=useless-else-on-loop
+
+            if collector.qsize() > 0:
+
+                yield collector.get()
