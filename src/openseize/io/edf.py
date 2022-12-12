@@ -1,17 +1,101 @@
 """Tools for reading and writing EEG metadata and data in the European Data
-Format (EDF/EDF+).
+Format (EDF/EDF+). This module contains:
 
-This module contains:
-
-    - Header: An extended dictionary that reads and stores the header
-      component of an EDF file.
+    - Header: An extended dictionary representation of and EDF header
     - Reader: A reader of EDF data and metadata
     - Writer: A writer of EDF data and metadata
-    - disjoin: A function to split EDF files into multiple EDF files.
+    - splitter: A function to split EDF files into multiple EDF files.
 
-The Reader supports reading data from an EDF file with or without context
-management. The Writer only supports writing data within a context managed
-protocol.
+## Header
+The Header section of an EDF file is partitioned into sequential
+sections containing metadata. Each section has a specified number of
+bytes used to encode an an 'ascii' string. For example the first two
+sections of the header are:
+```
+***************************************
+8 bytes | 80 bytes | ................
+***************************************
+```
+The first 8 bytes are the EDF version string and the next 80 bytes are the
+patient_id string. The full specification of the EDF header can be found
+here: https://www.edfplus.info/specs/edf.html. A Header instance, is an
+extended dictionary keyed on the field name from the EDF specification (i.e.
+version, patient, etc) with a value that has been decoded from the file at
+path like this:
+```
+{'version': 'EDF+', 'patient': 'mouse_1', ...}
+```
+
+## Reader
+EDF files are divided into header and data records sections. Each data
+record contains measured signals and annotation signals stored sequentially.
+Below is a sample layout of a single data record:
+```
+***********************************************************
+Ch0 samples | Ch1 samples | Ch2 samples | ... | Annotations
+***********************************************************
+```
+To distinguish numerical signals from annotation signals, we refer to
+numerical signals as channels. Currently, readers does not support the
+reading of annotation signals stored in the data records.
+
+For details on the EDF/+ file specification please see;
+https://www.edfplus.info/specs/index.html
+
+The reader supports reading EEG data and metadata from an EDF file with and
+without context management. If opened outside of context management, you
+should close this Reader's instance manually by calling the 'close' method
+to recover open file resources when you finish processing a file.
+
+Examples:
+        >>> # Read samples from an EDF with Context management
+        >>> from openseize.demos import paths
+        >>> filepath = paths.locate('recording_001.edf')
+        >>> from openseize.io.edf import Reader
+        >>> # open a reader using context management and reading 120 samples
+        >>> # from all 4 channels
+        >>> with Reader(filepath) as infile:
+        >>>     x = infile.read(start=0, stop=120)
+        >>> print(x.shape)
+        ... (4, 120)
+        >>> # open the reader without context management
+        >>> reader = Reader(filepath)
+        >>> # set reader to read only channels 0 and 2 data
+        >>> reader.channels = [0, 2]
+        >>> # read samples 0 to 99 from channels 0 and 2
+        >>> y = reader.read(start=0, stop=99)
+        >>> print(y.shape)
+        ... (2, 99)
+        >>> # Read samples from an EDF without context management
+        >>> reader = Reader(filepath)
+        >>> y = reader.read(start=10, stop=61)
+        >>> # view the reader's Header instance
+        >>> print(reader.header)
+        >>> # when done with the reader, you should close it to recover
+        >>> # resources
+        >>> reader.close()
+
+## Writer
+A Writer is a context manager for writing EEG data and metadata to an EDF
+binary file. Unlike Readers it must be opened under the context management
+protocol. Importantly, this writer does not currently support writing
+annotations to an EDF file.
+
+Examples:
+    >>> from openseize.demos import paths
+    >>> filepath = paths.locate('recording_001.edf')
+    >>> # Create a reader that will read only channels [0, 1]
+    >>> # and write out these channels to a new file
+    >>> writepath = paths.data_dir.joinpath('subset_001.edf')
+    >>> with Reader(filepath) as reader:
+    >>>     with Writer(writepath) as writer:
+    >>>         writer.write(reader.header, reader, channels=[0, 1])
+
+## Splitter
+A tool for splitting an EDF into multiple EDFs each containing different
+channels of the unsplit EDF. In particular, this tool is useful for
+partitioning an EDF with channels from different subjects into multiple
+single subject EDFs. The original 'joined' EDF is left unmodified.
 """
 
 import copy
@@ -30,19 +114,8 @@ class Header(bases.Header):
 
     The Header section of an EDF file is partitioned into sequential
     sections containing metadata. Each section has a specified number of
-    bytes used to encode an an 'ascii' string. For example the first two
-    sections of the header are:
-
-                ***************************************
-                * 8 bytes | 80 bytes | ................
-                ***************************************
-
-    The first 8 bytes are the EDF version string and the next 80 bytes are
-    the patient_id string. The full specification of the EDF header can be
-    found here: https://www.edfplus.info/specs/edf.html. This Header, is an
-    extended dictionary keyed on the field name from the EDF specification
-    (i.e. version, patient, etc) with a value that has been decoded from the
-    file at path.
+    bytes used to encode an an 'ascii' string. This Header reads and
+    stores each piece of metadata to a extended dict object.
 
     Attributes:
         path: (Path)
@@ -96,6 +169,10 @@ class Header(bases.Header):
 
         The signal count will include annotation signals if present.
         """
+
+        if not self.path:
+            # if this Header was built from a dict, path is None
+            return int(self.num_signals)
 
         with open(self.path, 'rb') as fp:
             fp.seek(252) # edf specifies num signals at 252nd byte
@@ -240,7 +317,7 @@ class Reader(bases.Reader):
     """A reader of European Data Format (EDF/EDF+) files.
 
     This reader supports reading EEG data and metadata from an EDF file with
-    and without context management (see module examples). If opened outside
+    and without context management (see Introduction). If opened outside
     of context management, you should close this Reader's instance manually
     by calling the 'close' method to recover open file resources when you
     finish processing a file.
@@ -263,34 +340,6 @@ class Reader(bases.Reader):
         >>>     x = infile.read(start=0, stop=120)
         >>> print(x.shape)
         ... (4, 120)
-        >>> # open the reader without context management
-        >>> reader = Reader(filepath)
-        >>> # set reader to read only channels 0 and 2 data
-        >>> reader.channels = [0, 2]
-        >>> # read samples 0 to 99 from channels 0 and 2
-        >>> y = reader.read(start=0, stop=99)
-        >>> print(y.shape)
-        ... (2, 99)
-
-    Notes:
-        EDF files are divided into header and data records sections. Each
-        data record contains measured signals and annotation signals stored
-        sequentially. Below is a sample layout of a single data record;
-
-        ------------------------------------------------------------
-        Ch0 samples | Ch1 samples | Ch2 samples | ... | Annotations
-        ------------------------------------------------------------
-
-        To distinguish numerical signals from annotation signals, we refer
-        to numerical signals as channels. Currently, this reader does not
-        support the reading of annotation signals stored in the data
-        records.
-
-        For details on the EDF/+ file specification please see;
-        https://www.edfplus.info/specs/index.html
-
-        For details on EDF header meta data please see;
-        the Header class in openseize.io.edf
     """
 
     def __init__(self, path: Union[str, Path]) -> None:
@@ -551,14 +600,14 @@ class Writer(bases.Writer):
             A python path instance to target file to write data to.
 
     Examples:
-    >>> from openseize.demos import paths
-    >>> filepath = paths.locate('recording_001.edf')
-    >>> # Create a reader that will read only channels [0, 1]
-    >>> # and write out these channels to a new file
-    >>> writepath = paths.data_dir.joinpath('subset_001.edf')
-    >>> with Reader(filepath) as reader:
-    >>>     with Writer(writepath) as writer:
-    >>>         writer.write(reader.header, reader, channels=[0, 1])
+        >>> from openseize.demos import paths
+        >>> filepath = paths.locate('recording_001.edf')
+        >>> # Create a reader that will read only channels [0, 1]
+        >>> # and write out these channels to a new file
+        >>> writepath = paths.data_dir.joinpath('subset_001.edf')
+        >>> with Reader(filepath) as reader:
+        >>>     with Writer(writepath) as writer:
+        >>>         writer.write(reader.header, reader, channels=[0, 1])
     """
 
     def __init__(self, path: Union[str, Path]) -> None:
@@ -675,12 +724,14 @@ class Writer(bases.Writer):
         perc = record_idx / self.header.num_records * 100
         print(msg.format(perc), end='\r', flush=True)
 
+    # override of general abstract method requires setting specific args
+    # pylint: disable-next=arguments-differ
     def write(self,
               header: Header,
               data: Union[np.ndarray, Reader],
               channels: Sequence[int],
-              verbose: bool = True
-    ) -> None:
+              verbose: bool = True,
+              ) -> None:
         """Write header metadata and data for channel in channels to this
         Writer's file instance.
 
@@ -696,7 +747,8 @@ class Writer(bases.Writer):
 
         Raises:
             ValueErrror: An error occurs if samples to be written is not
-            divisible by the number of records in the Header instance.
+                         divisible by the number of records in the Header
+                         instance.
         """
 
         header = Header.from_dict(header)
@@ -715,19 +767,19 @@ class Writer(bases.Writer):
                 self._progress(idx)
 
 
-def disjoin(path: Path,
+def splitter(path: Path,
              mapping: Dict,
              outdir: Optional[Union[str, Path]] = None,
 ) -> None:
     """Creates seperate EDFs from a multichannel EDF.
 
     This tool is useful for partitioning an EDF with channels from different
-    subjects into multiple single subject EDFs. The original 'joined' EDF is
-    left unmodified.
+    subjects into multiple single subject EDFs. The original 'unsplit' EDF
+    is left unmodified.
 
     Args:
         path:
-            Path to an EDF file to be disjoin.
+            Path to an EDF file to be split.
         mapping:
             A mapping of filenames and channel indices for each disjoined
             EDF file to be written.
