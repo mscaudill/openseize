@@ -72,6 +72,12 @@ nav:
         - 'Fourier Transform': 'tutorials/fourier_transform.ipynb'
         - 'Spectral Analysis': 'tutorials/spectra.ipynb'
     - Reference:
+        - 'I/O':
+          - EDF: 
+            - Introduction: 'io/edf_intro.md' 
+            - Reader: 'io/edf_reader.md'
+            - Writer: 'io/edf_writer.md'
+            - Splitter: 'io/edf_splitter.md'
         - Filters:
             - 'FIR Filters':
               - Introduction: 'firs/info.md' 
