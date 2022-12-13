@@ -3,11 +3,10 @@
 Annotations are useful for removing artifacts, filtering data by user
 labeled states and more. This module provides readers for reading
 annotations. Additionally, these annotations can be converted into boolean
-mask to provide to Openseize's producers to mask the data produced during
-processing.
+mask to provide to Openseize's producers for masking produced data.
 
 This module contains the following classes and functions:
-
+```
     Pinnacle:
         A Pinnacle Technoologies© annotation file reader.
 
@@ -15,6 +14,17 @@ This module contains the following classes and functions:
         A function that creates boolean mask from sequences of annotations
         that can be used to filter the data produced from a producer
         instance.
+```
+
+Examples:
+        >>> # read the annotations from the demo annotation file
+        >>> from openseize.demos import paths
+        >>> filepath = paths.locate('annotations_001.txt')
+        >>> from openseize.io.annotations import Pinnacle
+        >>> # read all the annotations
+        >>> with Pinnacle(filepath, start=6) as pinnacle:
+        >>>     annotations = pinnacle.read()
+        >>> print(annotations)
 """
 
 import csv
@@ -33,14 +43,14 @@ from openseize.file_io.bases import Annotations
 class Pinnacle(Annotations):
     """A reader of Pinnacle Technologies© annotation csv files.
 
-    Annotations read from this file using the 'read' method (see Annotations
-    base) are converted into a list of Annotation data classes each of which
-    has the following attributes:
+    This annotation reader's 'read' method reads annotations into a list of
+    Annotation dataclass instances. Each Annotation dataclass has the
+    following attributes:
 
-        - label (str): The annotations user defined label.
-        - time (float): The time in seconds relative to recording start.
-        - duration (float): The annotations duration in seconds.
-        - channel (Any): The channel(s) the annotation was detected on.
+    - label: A string label given to an annotation.
+    - time: Time, relative to recording start, in secs of an annotation.
+    - duration: The duration in seconds of an annotation.
+    - channel: The channel(s) an annotation was detected on.
 
     Attributes:
         path:
@@ -69,6 +79,9 @@ class Pinnacle(Annotations):
             **kwargs
     ) -> Tuple[IO[str], Iterable[dict]]:
         """Opens a Pinnacle formatted CSV annotation file.
+
+        Called by 'Annotations.__init__' to initialize this Pinnacle
+        context manager.
 
         Args:
             path:
@@ -123,7 +136,8 @@ def as_mask(annotations: Sequence[Annotation],
             fs: float,
             include: bool = True,
 ) -> npt.NDArray[np.bool_]:
-    """Creates a boolean mask from a sequence of annotations.
+    """Creates a boolean mask from a sequence of annotation dataclass
+    instances..
 
     Producers of EEG data may recieve an optional boolean array mask.  This
     function creates a boolean mask from a sequence of annotations and is
@@ -132,7 +146,8 @@ def as_mask(annotations: Sequence[Annotation],
 
     Args:
         annotations:
-            A sequence of annotation objects to convert to a mask.
+            A sequence of annotation dataclass instances to convert to a 
+            mask.
         size:
             The length of the boolean array to return.
         fs:
@@ -157,7 +172,7 @@ def as_mask(annotations: Sequence[Annotation],
         >>> # create a mask measuring 3700 secs at 5000 Hz
         >>> mask = as_mask(annotations, size=3700*5000, fs=5000)
         >>> # measure the total time in secs of 'rest' annotation
-        >>> print(np.count_nonzeor(mask) / 5000)
+        >>> print(np.count_nonzero(mask) / 5000)
         15.0
     """
 

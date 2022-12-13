@@ -256,14 +256,14 @@ class Annotation:
     can be updated with user defined attributes after object creation.
 
     Attributes:
-        label: str
+        label (str):
             The string name of this annotation.
-        time: float
+        time (float):
             The time this annotation was made in seconds relative to the
             recording start.
-        duration: float
+        duration (float):
             The duration of this annotation in seconds.
-        channel: Any
+        channel (Any):
             The string name or integer index of the channel this annotation
             created from.
     """
@@ -285,7 +285,7 @@ class Annotations(abc.ABC):
     Attributes:
         path:
             Python path instance to an annotation file.
-        kwargs:
+        **kwargs:
             Any valid kwarg for concrete 'open' method.
     """
 
@@ -293,11 +293,10 @@ class Annotations(abc.ABC):
         """Initialize this Annotations reader.
 
         Args:
-            path: str or Path instance
+            path:
                 A path location to an annotation file.
-            **kwargs: dict
-                Keyword args provided to Annotations open method for opening
-                file at path
+            **kwargs:
+                Any valid kwarg for a subclasses 'open' method.
         """
 
         self.path = path
@@ -343,7 +342,7 @@ class Annotations(abc.ABC):
         """Reads annotations with labels to a list of Annotation instances.
 
         Args:
-            labels: sequence
+            labels:
                 A sequence of annotation string labels for which Annotation
                 instances will be returned. If None, return all.
 
