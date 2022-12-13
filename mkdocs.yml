@@ -73,32 +73,43 @@ nav:
         - 'Spectral Analysis': 'tutorials/spectra.ipynb'
     - Reference:
         - Producers:
-          - producer: 'producer.md'
+          - producer: 'producer/producer.md'
         - 'File IO':
           - EDF: 
-            - Introduction: 'file_io/edf_intro.md' 
-            - Reader: 'file_io/edf_reader.md'
-            - Writer: 'file_io/edf_writer.md'
-            - Splitter: 'file_io/edf_splitter.md'
+            - Introduction: 'file_io/edf/edf_intro.md' 
+            - Reader: 'file_io/edf/edf_reader.md'
+            - Writer: 'file_io/edf/edf_writer.md'
+            - Splitter: 'file_io/edf/edf_splitter.md'
+          - Annotations:
+            - Introduction: 'file_io/annotations/ann_intro.md'
+            - Pinnacle: 'file_io/annotations/pinnacle.md'
+            - as_mask: 'file_io/annotations/as_mask.md'
         - Filters:
             - 'FIR Filters':
-              - Introduction: 'firs/info.md' 
-              - Kaiser: 'firs/kaiser.md'
-              - Rectangular: 'firs/rectangular.md'
-              - Bartlett: 'firs/bartlett.md'
-              - Hann: 'firs/hann.md'
-              - Hamming: 'firs/hamming.md'
+              - Introduction: 'filtering/firs/fir_intro.md' 
+              - Kaiser: 'filtering/firs/kaiser.md'
+              - Rectangular: 'filtering/firs/rectangular.md'
+              - Bartlett: 'filtering/firs/bartlett.md'
+              - Hann: 'filtering/firs/hann.md'
+              - Hamming: 'filtering/firs/hamming.md'
               - Blackman: 'firs/blackman.md'
-              - Remez: 'firs/remez.md'
+              - Remez: 'filtering/firs/remez.md'
             - 'IIR Filters':
-              - Introduction: 'iirs/info.md'
-              - Butterworth: 'iirs/butter.md'
-              - 'Chebyshev I': 'iirs/cheby1.md'
-              - 'Chebyshev II': 'iirs/cheby2.md'
-              - Elliptical: 'iirs/ellip.md'
-              - Notch: 'iirs/notch.md'
+              - Introduction: 'filtering/iirs/iir_intro.md'
+              - Butterworth: 'filtering/iirs/butter.md'
+              - 'Chebyshev I': 'filtering/iirs/cheby1.md'
+              - 'Chebyshev II': 'filtering/iirs/cheby2.md'
+              - Elliptical: 'filtering/iirs/ellip.md'
+              - Notch: 'filtering/iirs/notch.md'
         - Resampling:
-            - Resampling: 'resampling.md'
+            - Resampling: 'resampling/resampling.md'
+        - Spectra:
+            - Estimators:
+              - Power Spectrum: 'spectra/estimators/psd.md'
+              - Short-time Fourier Transform: 'spectra/estimators/stft.md'
+            - Metrics: 'spectra/spectra_metrics.md'
+            - Plotting: 'spectra/spectra_plotting.md'
+
     - About: about.md
 
 # reflect changes immediately during dev.
