@@ -39,7 +39,7 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
             - 'ba': Transfer function format. This format is less stable but
               requires fewer computations compared with 'sos'.
             - 'zpk': This format is not used and will be converted to 'sos'.
-        
+
         nyq (float):
             The nyquist rate of the digital sytem, fs/2.
         coeffs (np.ndarray):
@@ -80,7 +80,7 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
             fmt:
                 A scipy filter coeffecient format specification. Must be one
                 of:
-                
+
                 - 'sos': The second-order section cascade format. This
                   format is recommended as it is more stable than 'ba'.
                 - 'ba': Transfer function format. This format is less stable
@@ -198,7 +198,7 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
             # pylint incorrectly believes result is gen
             result = result.to_array() # pylint: disable=no-member
 
-        return result
+        return result #type: ignore
 
 
 class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
@@ -237,6 +237,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
                  gpass: float,
                  gstop: float,
                  fs: float,
+                 **kwargs,
     ) -> None:
         """Initialize this FIR.
 
@@ -271,7 +272,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         self.nyq = fs / 2
         self.width = np.min(np.abs(self.fstop - self.fpass))
         # on subclass init build this filter
-        self.coeffs = self._build()
+        self.coeffs = self._build(**kwargs)
 
     @property
     def ftype(self):
@@ -305,7 +306,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
 
     @property
     def cutoff(self):
-        """Returns an ndarray of the -6 dB points of each transition 
+        """Returns an ndarray of the -6 dB points of each transition
         band."""
 
         delta = abs(self.fstop - self.fpass) / 2
@@ -330,14 +331,14 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         """Returns the number of taps needed to meet this FIR filters pass
         and stop band attenuation criteria within the transition width."""
 
-    def _build(self):
+    def _build(self, **kwargs):
         """Returns the ndarray of this FIR filter's coeffecients."""
 
         # get the window from this FIRs name and ask for add. params
         window = (self.ftype, *self.window_params)
         return sps.firwin(self.numtaps, cutoff=self.cutoff, width=None,
                           window=window, pass_zero=self.btype,
-                          scale=True, fs=self.fs)
+                          scale=True, fs=self.fs, **kwargs)
 
     def __call__(self,
                  data: Union[Producer, np.ndarray],
