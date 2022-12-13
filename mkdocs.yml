@@ -97,6 +97,8 @@ nav:
               - 'Chebyshev II': 'iirs/cheby2.md'
               - Elliptical: 'iirs/ellip.md'
               - Notch: 'iirs/notch.md'
+        - Resampling:
+            - Resampling: 'resampling.md'
     - About: about.md
 
 # reflect changes immediately during dev.
