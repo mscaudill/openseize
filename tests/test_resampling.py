@@ -13,7 +13,7 @@ from openseize import producer
 from openseize.resampling.resampling import resample
 from openseize.filtering.fir import Kaiser
 
-def random_arr(shape=(6, 399687), seed=33):
+def random_arr(shape=(6, 39968), seed=33):
     """Returns a random array of shape."""
 
     rng = np.random.default_rng(seed)
@@ -47,7 +47,7 @@ def test_LM():
     fs = 5000
 
     # make permutations of all L and M in [1, 13]
-    for L, M in itertools.permutations(np.arange(1, 13), r=2):
+    for L, M in itertools.permutations(np.arange(1, 6), r=2):
         
         # iteratively compute using openseize resampling
         x = resample(rarr, L=L, M=M, fs=fs, chunksize=chunksize, axis=-1)
@@ -95,7 +95,7 @@ def test_sizes():
 
     # create random array of samples between 100K and 1M samples
     rng = np.random.default_rng(311)
-    samples = rng.integers(low=int(100e3), high=int(1e6), size=20) 
+    samples = rng.integers(low=int(1e5), high=int(5e5), size=10) 
 
     # create random array of channel counts
     chs = rng.integers(low=1, high=17, size=20)

@@ -19,7 +19,7 @@ def test_periodogram_arrs():
 
     rng = np.random.default_rng(1234)
     
-    lengths = rng.integers(10000, high=77000, size=50)
+    lengths = rng.integers(10000, high=77000, size=10)
     arrs = [rng.random((2, 3, l)) for l in lengths]
 
     # periodogram parameters
@@ -50,9 +50,9 @@ def test_periodogram_nfft():
     numbers of FFT points."""
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((3, 4, 132023))
+    arr = rng.random((3, 4, 13202))
 
-    nffts = list(rng.integers(low=500, high=132023, size=50))
+    nffts = list(rng.integers(low=500, high=13202, size=10))
     nffts.append(None) # None option sets nfft == arr.shape[-1]
 
     # periodogram parameters
@@ -84,7 +84,7 @@ def test_periodogram_windows():
     windows = 'hann hamming boxcar nuttall blackman bartlett cosine'.split()
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((3, 4, 132026))
+    arr = rng.random((3, 4, 13202))
 
     # periodogram parameters
     fs = 1000
@@ -167,7 +167,7 @@ def test_welch_pros():
 
     rng = np.random.default_rng(1234)
     
-    lengths = rng.integers(10000, high=77000, size=50)
+    lengths = rng.integers(10000, high=77000, size=10)
     arrs = [rng.random((2, 3, l)) for l in lengths]
 
     # welch parameters
@@ -209,7 +209,7 @@ def test_welch_overlaps():
 
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((3, 4, 762065))
+    arr = rng.random((3, 4, 46206))
     
     # vary overlaps between 0.1 and 0.9
     overlaps = np.arange(0.1, 1, 0.1)
@@ -334,9 +334,9 @@ def test_welch_nfft():
     numbers of FFT points."""
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((3, 4, 132023))
+    arr = rng.random((3, 4, 13202))
 
-    nffts = list(rng.integers(low=1000, high=132023, size=50))
+    nffts = list(rng.integers(low=1000, high=13202, size=10))
 
     # periodogram parameters
     fs = 6000
@@ -376,7 +376,7 @@ def test_stft_pros():
 
     rng = np.random.default_rng(1234)
 
-    lengths = rng.integers(10000, 192000, size=30)
+    lengths = rng.integers(10000, 112000, size=10)
     arrs = [rng.random((3, l, 4)) for l in lengths]
 
     # stft parameters
@@ -418,9 +418,9 @@ def test_stft_resolution():
     frequency resolutions."""
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((3, 4, 76065))
+    arr = rng.random((3, 76065))
 
-    resolutions = np.arange(.1, .75, .05)
+    resolutions = np.arange(.1, .75, .15)
 
     # stft parameters
     fs = 5000
@@ -459,9 +459,9 @@ def test_stft_overlaps():
     overlaps."""
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((3, 4, 176065))
+    arr = rng.random((3, 2, 56065))
 
-    overlaps = np.arange(0, 0.9, 0.05)
+    overlaps = np.arange(0, 0.9, 0.1)
 
     # stft parameters
     fs = 5000
@@ -499,7 +499,7 @@ def test_stft_boundary():
     boundary."""
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((776065, 4))
+    arr = rng.random((77606, 4))
 
     # stft parameters
     fs = 5000
@@ -537,7 +537,7 @@ def test_stft_padding():
     extension."""
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((376065, 4, 2))
+    arr = rng.random((37606, 4, 2))
 
     # stft parameters
     fs = 5000
@@ -576,7 +576,7 @@ def test_stft_scaling():
     NOTE: This test only works for scipy version 1.9.0 and higher."""
 
     rng = np.random.default_rng(1234)
-    arr = rng.random((2, 376065, 4))
+    arr = rng.random((2, 37606, 4))
 
     # stft parameters
     fs = 5000

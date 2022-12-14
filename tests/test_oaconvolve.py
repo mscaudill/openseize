@@ -15,9 +15,9 @@ def test_oaconvolve_pros():
     """Compares openseize's overlap-add convolve against scipy for
     arrays/producers that vary in size along the last axis."""
 
-    # build 50 random lengths for arrays
+    # build 20 random lengths for arrays
     rng = np.random.default_rng(0)
-    lengths = rng.integers(low=10000, high=700000, size=50)
+    lengths = rng.integers(low=10000, high=70000, size=20)
     
     # convolve with a hann window of 203 samples
     window = sps.get_window('hann', 203)
@@ -69,19 +69,17 @@ def test_oaconvolve_windows():
 
     rng = np.random.default_rng(10)
 
-    lengths = rng.integers(low=50, high=300, size=25)
+    lengths = rng.integers(low=50, high=121, size=7)
     windows = 'cosine bartlett boxcar blackman hann'.split()
 
     #build an 2-D array with samples along 0th axis
     axis=0
     mode = 'same'
-    arr = rng.random((176221, 6))
-    pro = producer(arr, chunksize=10000, axis=axis)
+    arr = rng.random((10622, 3))
+    pro = producer(arr, chunksize=1000, axis=axis)
 
     for l in lengths:
         for win in windows:
-
-            print(win)
 
             window = sps.get_window(win, l)
 

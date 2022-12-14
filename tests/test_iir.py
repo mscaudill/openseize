@@ -82,7 +82,7 @@ def test_sosfilt_pros():
     axis = 1
     fs = 500
 
-    lengths = rng.integers(10000, 230000, size=50) 
+    lengths = rng.integers(10000, 230000, size=10) 
 
     for length in lengths:
         
@@ -109,7 +109,7 @@ def test_sosfiltfilt_pros():
     axis = -1
     fs = 500
 
-    lengths = rng.integers(10000, 230000, size=50) 
+    lengths = rng.integers(10000, 230000, size=10) 
 
     for length in lengths:
 
@@ -137,17 +137,17 @@ def test_sosfiltfilt_chunksizes():
     axis=0
     fs = 2500
 
-    arr = rng.random((231400, 2, 4))
+    arr = rng.random((101400, 2, 4))
 
-    csizes= rng.integers(1000, 123000, size=50)
+    csizes= rng.integers(1000, 12300, size=9)
 
+    # build an openseize filter
+    filt = build_filter(iir.Cheby1, fpass=[200,600], fstop=[150, 650], 
+                            fs=fs)
     for csize in csizes:
 
         pro = producer(arr, chunksize=csize, axis=axis)
 
-        # build an openseize filter and call it
-        filt = build_filter(iir.Cheby1, fpass=[200,600], fstop=[150, 650], 
-                            fs=fs)
         pro_filt = filt(pro, chunksize=csize, axis=axis, dephase=True)
         oresult = np.concatenate([arr for arr in pro_filt], axis=axis)
 
@@ -155,7 +155,7 @@ def test_sosfiltfilt_chunksizes():
         spresult = sps.sosfiltfilt(filt.coeffs, arr, axis=axis, 
                                    padtype=None)
 
-        assert np.allclose(oresult, spresult)
+        assert np.allclose(oresult, spresult, atol=1e-4)
 
 
 def test_ba_coeffs0():
@@ -221,13 +221,13 @@ def test_lfilter_pros():
     axis = 0
     fs = 500
 
-    lengths = rng.integers(10000, 230000, size=50) 
+    lengths = rng.integers(10000, 23000, size=10) 
 
     for length in lengths:
         
         # build array and producer
         arr = rng.random((length, 4, 6))
-        pro = producer(arr, chunksize=10000, axis=axis)
+        pro = producer(arr, chunksize=1000, axis=axis)
 
         # build an openseize filter and call it
         filt = build_filter(iir.Butter, fpass=100, fstop=200, fs=fs,
@@ -251,7 +251,7 @@ def test_lfilter_chunksizes():
 
     arr = rng.random((2, 4, 232054))
 
-    csizes= rng.integers(1000, 123000, size=50)
+    csizes= rng.integers(1000, 123000, size=10)
 
     for csize in csizes:
 
@@ -277,7 +277,7 @@ def test_filtfilt_pros():
     axis = 1
     fs = 500
 
-    lengths = rng.integers(10000, 230000, size=50) 
+    lengths = rng.integers(10000, 230000, size=10) 
 
     for length in lengths:
 
@@ -308,7 +308,7 @@ def test_filtfilt_chunksizes():
 
     arr = rng.random((2, 4, 123200))
 
-    csizes= rng.integers(1000, 123000, size=50)
+    csizes= rng.integers(1000, 123000, size=10)
 
     for csize in csizes:
 
@@ -352,7 +352,7 @@ def test_Notch_pros():
     axis = -1
     fs = 500
 
-    lengths = rng.integers(10000, 230000, size=50) 
+    lengths = rng.integers(10000, 230000, size=10) 
 
     for length in lengths:
 
@@ -380,7 +380,7 @@ def test_Notch_pros_nophase():
     axis = -1
     fs = 500
 
-    lengths = rng.integers(10000, 230000, size=50) 
+    lengths = rng.integers(10000, 230000, size=10) 
 
     for length in lengths:
 

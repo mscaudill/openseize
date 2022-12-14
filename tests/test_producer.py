@@ -12,18 +12,17 @@ from pathlib import Path
 
 from openseize import producer
 from openseize.core.producer import as_producer, Producer, pad_producer
-from openseize.io.edf import Reader
+from openseize.file_io.edf import Reader
 from openseize import demos
 from openseize.core.arraytools import slice_along_axis
 
-DATAPATH = demos.paths.locate('recording_001.edf')
 
 def test_fromarray():
     """Verify that a producer built from an array produces the correct
     subarrays on each iteration."""
 
     # build random data array and producer
-    arr = np.random.random((119, 510023))
+    arr = np.random.random((119, 51002))
     chunksize = 2031
     pro = producer(arr, chunksize=chunksize, axis=-1)
     # compare each produced array against sliced out subarray
@@ -82,7 +81,7 @@ def test_fromgenerator0():
     subarrays on each iteration."""
 
     # build random test arrays and concatenate for testing
-    lens = np.random.randint(2000, high=80034, size=50)
+    lens = np.random.randint(2000, high=80034, size=11)
     arrs = [np.random.random((l, 2, 17)) for l in lens]
     arr = np.concatenate(arrs, axis=0)
 
@@ -156,7 +155,7 @@ def test_frommaskedgenerator0():
     produces the correct subarrays on each iteration."""
 
     # build random test arrays and concatenate for testing
-    lens = np.random.randint(21000, high=80034, size=151)
+    lens = np.random.randint(21000, high=80034, size=13)
     arrs = [np.random.random((l, 4, 9)) for l in lens]
     arr = np.concatenate(arrs, axis=0)
 
@@ -191,7 +190,7 @@ def test_frommaskedgenerator1():
 
     # set size of data created by generator
     chs = 6
-    samples = 5201000
+    samples = 520100
     gensize = 10002 #number of samples in each yielded array
 
     # set the chunksize multiple of the gensize that will be produced
@@ -236,17 +235,16 @@ def test_frommaskedgenerator1():
         slicer[-1] = slice(start, stop)
         assert np.allclose(masked[tuple(slicer)], pro_arr)
 
-def test_fromreader():
+def test_fromreader(demo_data):
     """Verifies that a producer from an EDF file reader produces the correct
     subarrays in each iteration."""
 
-    fp = DATAPATH
-    reader = Reader(fp)
-    # read all the data of this small file
+    reader = Reader(demo_data)
+    # read all samples from this file
     arr = reader.read(0)
 
     #build a producer and test equality
-    chunksize=10023
+    chunksize=100231
     pro = producer(reader, chunksize=chunksize, axis=-1)
     starts = range(0, arr.shape[-1], chunksize)
     segments = zip_longest(starts, starts[1:], fillvalue=arr.shape[-1])
@@ -255,13 +253,12 @@ def test_fromreader():
         slicer[-1] = slice(start, stop)
         assert np.allclose(arr[tuple(slicer)], pro_arr)
 
-def test_from_chReader():
+def test_from_chReader(demo_data):
     """Test if the produced data from a reader that only reads a subset of
     the channels produces the correct arrays."""
 
-    fp = DATAPATH
+    reader = Reader(demo_data)
     CHS = [1,3]
-    reader = Reader(fp)
 
     #read all channels and then restrict to CHS
     arr = reader.read(0)
@@ -280,14 +277,13 @@ def test_from_chReader():
         slicer[-1] = slice(start, stop)
         assert np.allclose(arr[tuple(slicer)], pro_arr)
 
-def test_frommaskedreader():
+def test_frommaskedreader(demo_data):
     """Verify that a producer from an EDF file reader with a mask produces
     the correct subarrays in each iteration."""
 
-    fp = DATAPATH
-    reader = Reader(fp)
-    # read all the data of this small file
-    arr = reader.read(0)
+    reader = Reader(demo_data)
+    # read 600k samples
+    arr = reader.read(0, 600000)
 
     #build a mask and apply it to the array
     rng = np.random.default_rng(seed=0)
@@ -309,7 +305,7 @@ def test_asproducer0():
     a generating function converting it into a producer type."""
 
     # build random test arrays and concatenate for testing
-    lens = np.random.randint(21100, high=80092, size=101)
+    lens = np.random.randint(21100, high=80092, size=22)
     arrs = [np.random.random((l, 4, 9)) for l in lens]
 
     pro = producer(arrs, chunksize=10000, axis=0)
@@ -328,7 +324,7 @@ def test_asproducer1():
     a producer yield the correct subarrays on each iteration."""
 
     # build random test arrays and concatenate for testing
-    lens = np.random.randint(21100, high=80092, size=68)
+    lens = np.random.randint(21100, high=80092, size=18)
     arrs = [np.random.random((l, 4, 9)) for l in lens]
     arr = np.concatenate(arrs, axis=0)
     print(arr.shape)
@@ -373,18 +369,18 @@ def test_padproducer0():
     ndarrays for a range of pad amounts."""
 
     rng = np.random.default_rng(seed=0)
-    arr = rng.random((17, 12, 52013))
+    arr = rng.random((12, 52013))
 
     pro = producer(arr, chunksize=1000, axis=-1)
-    left_pads = rng.integers(low=0, high=1233, size=32)
-    right_pads = rng.integers(low=0, high=1233, size=32)
+    left_pads = rng.integers(low=0, high=1233, size=12)
+    right_pads = rng.integers(low=0, high=1233, size=12)
 
     for l, r in zip(left_pads, right_pads):
 
         padded = pad_producer(pro, [l, r], value=0)
         padded = np.concatenate([x for x in padded], axis=-1)
 
-        assert np.allclose(padded[:,:, l:-r], arr)
+        assert np.allclose(padded[:, l:-r], arr)
 
 def test_padproducer1():
     """Test that pad_producer produces the correct padded sequence of
@@ -394,7 +390,7 @@ def test_padproducer1():
     arr = rng.random((52060, 4, 7, 2))
     axis = 0
 
-    pro = producer(arr, chunksize=1000, axis=axis)
+    pro = producer(arr, chunksize=10000, axis=axis)
     for amt in rng.integers(low=0, high=998, size=18, dtype=int):
         
         padded = pad_producer(pro, int(amt), value=10)
@@ -402,17 +398,3 @@ def test_padproducer1():
         probe = slice_along_axis(padded, start=amt, stop=-amt, axis=axis)
         
         assert np.allclose(probe, arr)
-
-
-
-
-if __name__ == '__main__':
-
-
-    pro = test_asproducer1()
-
-
-
-
-
-
