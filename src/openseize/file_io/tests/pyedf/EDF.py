@@ -396,7 +396,6 @@ class EDFReader():
             
             for i in range(meas_info['nchan']):
                 buf = fid.read(chan_info['n_samps'][i]*meas_info['data_size'])
-                print(len(buf))
                 raw = np.asarray(unpack('<{}h'.format(chan_info['n_samps'][i]), buf), dtype=np.float32)
 
                 raw *= self.calibrate[i]
