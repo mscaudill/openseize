@@ -53,7 +53,7 @@ class DataLocator:
         result.update(self._local())
         return result
 
-    def locate(self, name):
+    def locate(self, name, dialog=True):
         """Locates a named file downloading the file from zenodo if it is
         not on this machine.
 
@@ -62,6 +62,8 @@ class DataLocator:
                 The filename including extension of the filepath to be
                 located. (E.g. name = 'recording.edf' will return the full
                 local path to the file for recording.edf).
+            dialog: bool
+                Ask for confirmation before download.
 
         Returns: local filepath Path instance to named file.
         """
@@ -73,25 +75,29 @@ class DataLocator:
         
         # remote path lookup & download
         repo = self._remote()
+
         if name in repo:
-
             url, size = repo[name], self._sizes[name]
-            msg = '{} will use {} MB of space. Continue?'
-            msg = msg.format(name, round(size / 1e6, 1))
             
-            if message('askquestion', message=msg) == 'yes':
+            if dialog:
+                msg = '{} will use {} MB of space. Continue?'
+                msg = msg.format(name, round(size / 1e6, 1))
+            
+                if message('askquestion', message=msg) == 'no':
+                    msg = '{} not downloaded - user cancelled.'
+                    print(msg.format(name))
+                    return None
 
-                print('Downloading data from Zenodo...')
-                out = self.data_dir.joinpath(name)
-                filename = wget.download(url, out=str(out))
-                print('\n')
-                print('File saved to {}'.format(out))
-                return filename
+            print('Downloading data from Zenodo...')
+            out = self.data_dir.joinpath(name)
+            filename = wget.download(url, out=str(out))
+            print('\n')
+            print('File saved to {}'.format(out))
+            return filename
 
         # client is asking for unknown name/path
-        else:
-            msg = '{} contains no path for data named {}'
-            AttributeError(msg.format(type(self).__name__, name))
+        msg = '{} contains no path for data named {}'
+        raise AttributeError(msg.format('Demos', name))
 
     @property
     def available(self):
