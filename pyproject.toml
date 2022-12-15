@@ -9,7 +9,7 @@ dynamic = ["dependencies"]
 authors =[{ name="Matthew Caudill", email="mscaudill@gmail.com" }]
 description = "Digital Signal Processing for Big EEG Datasets"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 license = {file = "LICENSE.txt"}
 keywords = ["EEG", "signal processing", "seizure", "DSP", "EDF"]
 classifiers = [
