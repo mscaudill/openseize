@@ -25,10 +25,8 @@ dependencies = {file = ["requirements.txt"]}
 [project.optional-dependencies]
 dev = ["isort",
     "mypy", 
-    "black",
     "pylint", 
     "bumpver", 
-    "pre-commit",
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
@@ -39,6 +37,8 @@ dev = ["isort",
     "build",
     "twine"
 ]
+
+test = ["pytest", "pytest-cov"]
 
 [project.urls]
 Homepage = "https://github.com/mscaudill/openseize"
