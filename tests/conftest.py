@@ -8,7 +8,8 @@ from openseize.file_io import edf
 
 @pytest.fixture(scope='session')
 def demo_data():
-    """ """
+    """Returns a filepath to the demo data downloading the data if
+    needed."""
 
     return paths.locate('recording_001.edf', dialog=False)
 
