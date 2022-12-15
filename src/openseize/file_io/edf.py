@@ -653,7 +653,8 @@ class Writer(bases.Writer):
                 A sequence of channels to write to each data record.
 
         Yields:
-            A list of 1-D arrays of samples for a single data record.
+            A list of single row 2-D arrays of samples for a single channel
+            for a single data record.
         """
 
         for n in range(self.header.num_records):
@@ -665,7 +666,9 @@ class Writer(bases.Writer):
 
             for channel, start, stop in zip(channels, starts, stops):
                 if isinstance(data, np.ndarray):
-                    result.append(data[channel][start:stop])
+                    x = np.atleast_2d(data[channel][start:stop])
+                    result.append(x)
+                    #result.append(data[channel][start:stop])
                 else:
                     data.channels = [channel]
                     result.append(data.read(start, stop))
