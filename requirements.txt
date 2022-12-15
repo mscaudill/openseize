@@ -1,6 +1,6 @@
 # dependencies for openseize project
 requests
-pywget
+wget
 numpy
 scipy
 matplotlib
