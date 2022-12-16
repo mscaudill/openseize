@@ -237,18 +237,3 @@ class _Matcher:
             results.append(tup)
 
         return results
-
-    
-
-
-
-if __name__ == '__main__':
-
-    #path = standard('askopenfilename', title='hubbub')
-    #path = standard('asksaveasfilename', defaultextension='.pkl')
-    #paths = regexmatched('\d+_\w+_\w+')
-    #response = message('askyesno')
-
-    matched = matching_dialog(['Select EDFs', 'Select Annotations'],
-                    regex='\d+_\w+_\w+',
-                    initialdir='/media/matt/Magnus/data/rett_eeg/')
