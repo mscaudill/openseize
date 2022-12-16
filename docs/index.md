@@ -12,10 +12,6 @@ hide:
   <i><font size=6, color="grey">Digital Signal Processing for Big EEGs</font></i>
 </p>
 
-
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)
-](https://github.com/psf/black)
-
 <p align="center"  style="font-size: 20px">
 <a href="#key-features">Key Features</a>   |  
 <a href="#installation">Installation</a>   |  
@@ -39,32 +35,34 @@ JOSS LINK</a>
 <hr>
 
 # Key Features
+
 Recent innovations in EEG recording technologies make it possible to perform
 high channel count recordings at high sampling frequencies spanning many
 days. This results in big EEG data sets that are often not addressable to
 virtual memory. Worse yet, current digital signal processing (DSP) packages
 that rely on Matlab&copy; or Scipy's DSP routines require the data to be
-a contiguous in-memory array.  <b><a
-href=https://github.com/mscaudill/openseize target=_blank>Openseize</a> is a fully
-iterative DSP Python package that can scale to the largest of EEG data
-sets.</b> It accomplishes this by storing DSP operations, such as filtering,
-as on-the-fly iterables that "produce" DSP results one fragment of the data
-at a time. Additionally, Openseize is built using time-tested software
-design principles that support extensions while maintaining a simple
-interface. Lastly, Openseize <a
-href=https://github.com/mscaudill/openseize target=_blank>documentation</a> features
-in-depth discussions of iterative DSP processing and its implementation.
+a contiguous in-memory array. <b><a
+href=https://github.com/mscaudill/openseize target=_blank>Openseize</a> is
+a fully iterative DSP Python package that can scale to the largest of EEG
+data sets.</b> It accomplishes this by storing DSP operations, such as
+filtering, as on-the-fly iterables that "produce" DSP results one fragment
+of the data at a time. Additionally, Openseize is built using time-tested
+software design principles that support extensions while maintaining
+a simple interface. Finally , Openseize's <a
+href=https://github.com/mscaudill/openseize target=_blank>documentation</a>
+features in-depth discussions of iterative DSP processing and its
+implementation.
 
 <font color='black'>
 <ul style="background-color:#DEF5E8;">
-  <li>Construct sequences of DSP steps that operate completely 'out-of-core' to
-  process data too large to fit into memory.</li>
-  <li>DSP pipelines are constructed using a familiar Scipy-like API, so you can
-  start quickly without sweating the details.</li>
-  <li> Supports processing of data from multiple file types including the popular
-  European Data Format (EDF).</li>
-  <li>Supports 'masking' to filter data sections by artifacts, behavioral states
-  or any externally measured signal(s)/annotation(s).</li>
+  <li>Construct sequences of DSP steps that operate completely 'out-of-core' 
+  to process data too large to fit into memory.</li>
+  <li>DSP pipelines are constructed using a familiar Scipy-like API, so you 
+  can start quickly without sweating the details.</li>
+  <li> Supports processing of data from multiple file types including the 
+  popular European Data Format (EDF).</li>
+  <li>Supports 'masking' to filter data sections by artifacts, behavioral 
+  states or any externally measured signals or annotations.</li>
   <li> Effeciently process large data using the amount of memory <u>you</u>
   choose to use.</li>
   <li> DSP tools currently include a large number of FIR & IIR Filters,
@@ -94,6 +92,7 @@ href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environme
 
 
 ### Python Virtual Environment
+
 1. Create your virtual environment, Here we name it `my_venv`. 
 ```console
 $ python -m venv my_venv
@@ -110,6 +109,7 @@ $ source my_venv/bin/activate
 ```
 
 ### Conda
+
 The `conda` environment manager is more advanced than `venv`. When a `conda`
 environment is created, `conda` *simultaneously* looks at all the packages 
 to be installed to reduce package conflicts. Having said that, `conda`
@@ -127,12 +127,12 @@ target=_blank>configuration yaml</a>
 
 
 2. Create a conda openseize environment.
-```console
+```
 $ conda env create --file environment.yml
 ```
 
 3. Activate the `openseize` environment.
-```console
+```
 $ conda activate openseize
 ```
 
@@ -142,26 +142,28 @@ $ conda activate openseize
 ```
 
 ### From Source
+
 If you would like to develop Openseize further, you'll need the source code
 and all development dependencies. Here are the steps:
 
 1. Create a virtual environment 
 
-2. Get the source code move into the project directory
+2. Get the source code
 ```
 $ git clone https://github.com/mscaudill/openseize.git
 ```
 
-3. Create an editable install with `pip`.
+3. CD into the directory containing the pyproject.toml and create an 
+editable install with `pip`
 ```
-$ pip install -e .
+$ pip install -e .[dev]
 ```
 
 <hr>
 
 # Dependencies
 
-Openseize requires <b>Python <span>&#8805;</span> 3.10</b> and has the following dependencies:
+Openseize requires <b>Python <span>&#8805;</span> 3.8</b> and has the following dependencies:
 
 <table>
 
@@ -236,27 +238,49 @@ Openseize requires <b>Python <span>&#8805;</span> 3.10</b> and has the following
 
 </table>
 
+<hr>
+
 # Documentation
-Openseize provides both tutorials and extensive reference documentation.
+
+Openseize documentation site has a [quickstart guide](), [extensive tutorials]()
+and [reference pages]() for all publicly available modules, classes and
+functions.
+<hr>
 
 # Attribution
 
 ```
-Citation from Joss
+Citation to be added
 ```
 
 And if you really like Openseize, you can star the <a
 href=https://github.com/mscaudill/openseize>repository</a> 
 <span>&#11088;</span>!
+<hr>
 
 # Contributions
 
+Contributions are what makes open-source fun and we would love for you to
+contribute. Please check out our [contribution guide](
+https://github.com/mscaudill/openseize/blob/master/.github/CONTRIBUTING.md)
+to get started.
+<hr>
+
 # Issues
 
+Openseize provides custom issue templates for filing bugs, requesting
+feature enhancements, suggesting documentation changes, or just asking
+questions. *Ready to discuss?* File an issue <a
+href=https://github.com/mscaudill/openseize/issues/new/choose>here</a>. 
+
+
 # License
+
 Openseize is licensed under the terms of the 3-Clause BSD License.
+<hr>
 
 # Acknowledgements
+
 **This work was generously supported through the Ting Tsung and Wei Fong Chao 
 Foundation.**
 

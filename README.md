@@ -8,9 +8,6 @@
 </h2>
 
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6799475.svg)
-](https://doi.org/10.5281/zenodo.6799475)
-
 <p align="center"  style="font-size: 20px">
 <a href="#key-features">Key Features</a>   |  
 <a href="#installation">Installation</a>   |  
@@ -40,7 +37,7 @@ high channel count recordings at high sampling frequencies spanning many
 days. This results in big EEG data sets that are often not addressable to
 virtual memory. Worse yet, current digital signal processing (DSP)
 packages that rely on Matlab&copy; or Scipy's DSP routines require the data
-to be a contiguous in-memory array.  <b><a
+to be a contiguous in-memory array. <b><a
 href=https://github.com/mscaudill/openseize target=_blank>Openseize</a> is
 a fully iterative DSP Python package that can scale to the largest of EEG
 data sets.</b> It accomplishes this by storing DSP operations, such as
@@ -237,7 +234,7 @@ following dependencies:
 # Documentation
 
 Openseize documentation site has a [quickstart guide](), [extensive tutorials]()
-and [reference pages]() for all of publicly available modules, classes and
+and [reference pages]() for all publicly available modules, classes and
 functions.
 
 # Attribution
