@@ -2,7 +2,7 @@
 name: openseize-dev
 dependencies:
     - requests
-    - pywget
+    - wget
     - numpy
     - scipy
     - matplotlib
@@ -15,14 +15,12 @@ dependencies:
     # Linting & format
     - isort
     - mypy
-    - black
     - pylint
     # pypi packages
     - pip
     - pip:
-        # versioning and precommit
+        # versioning
         - bumpver
-        - pre-commit
         # doc builders
         - mkdocs
         - mkdocs-material
