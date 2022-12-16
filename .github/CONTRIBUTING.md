@@ -24,10 +24,10 @@ information on our rules of conduct.
 We have created [issue templates](
 https://github.com/mscaudill/openseize/issues) for:
 
-    - Asking questions
-    - Filing bug reports
-    - Making feature requests
-    - Improving Openseize's documentation
+- Asking questions
+- Filing bug reports
+- Making feature requests
+- Improving Openseize's documentation
 
 These templates have required fields that will encourage you to be as
 specific as possible in defining the issue you want help with. We ask that
@@ -41,27 +41,31 @@ you use these templates whenever possible.
 > duplicate effort.
 
 ### Requirements
+
 1. PRs must have a reference url to an existing issue that describes why the
    issue or feature needs addressing.
 2. PRs must pass code quality checks with `pylint` and pass static type
-   checking with `mypy`.
+   checking with `mypy` where appropriate.
 3. PRs must have unit test with `pytest` that cover the changed behavior.
 
 ### Setup
 
+1. Open an issue to discuss the changes you would like to see in Openseize.
+2. Fork Openseize's master branch and create a local branch for your change.
+3. Sumbit your fantastic PR!
 
 ### Modifications
 
 When modifying Openseize, please follow [Google's code style](
 https://google.github.io/styleguide/pyguide.html) for documenting modules,
 classes and functions. Additionally, Openseize is transitioning to using
-type annotations. When adding new code or modifying existing code that lacks
-annotations, we ask that you use or insert missing annotations. All pull
-request will have isort, pylint and mypy automatically run during a merge so
-please run each of these code quality checkers/formatters on the files you
-change prior to submitting your pull request. You can create a development
-environment in conda or venv by using our
-development environments defined in the [develop.yml](
+type annotations. When adding new code or modifying existing code that
+lacks annotations, we ask that you use annotations or insert them as needed.
+All pull request will have isort, pylint and mypy automatically run during
+a merge so please run each of these code quality checkers/formatters on the
+files you change prior to submitting your pull request. You can create
+a development environment in conda or venv by using our development
+environments defined in the [develop.yml](
 https://github.com/mscaudill/openseize/blob/master/develop.yml) (conda) or
 [pyproject.toml](
 https://github.com/mscaudill/openseize/blob/master/pyproject.toml) (pip)
@@ -71,9 +75,9 @@ files.
 
 After adding to or modifying Openseize's source code, we ask that you update
 the mkdocs [documentation pages](
-https://github.com/mscaudill/openseize/tree/master/docs) and submit those 
-changes with your pull request. This will allow us to quickly get your new
-features integrated with Openseize.
+https://github.com/mscaudill/openseize/tree/master/docs) and submit those
+changes with your pull request. This will allow us to more quickly get your
+new features integrated with Openseize.
 
 ### Review Process
 
