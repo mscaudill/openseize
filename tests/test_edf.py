@@ -10,7 +10,7 @@ Typical usage example:
 import pytest
 import numpy as np
 from pathlib import Path
-from openseize.file_io.tests.pyedf.EDF import EDFReader as pyEDF
+from pyedf.EDF import EDFReader as pyEDF
 from openseize.file_io.edf import Reader as openEDF
 from openseize.file_io.edf import Header as openHeader
 from openseize.file_io.edf import Writer as openWriter
