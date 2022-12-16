@@ -360,8 +360,6 @@ def test_asproducer1():
         slicer[0] = slice(start, stop)
         assert np.allclose(meaned[tuple(slicer)], pro_arr)
 
-    return avg_gen(pro)
-
 
 def test_padproducer0():
     """Test if pad_producer produces the correct padded sequence of
