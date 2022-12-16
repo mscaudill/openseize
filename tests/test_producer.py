@@ -13,7 +13,6 @@ from pathlib import Path
 from openseize import producer
 from openseize.core.producer import as_producer, Producer, pad_producer
 from openseize.file_io.edf import Reader
-from openseize import demos
 from openseize.core.arraytools import slice_along_axis
 
 
