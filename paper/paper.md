@@ -47,7 +47,7 @@ Current DSP software packages [@Delorme2004; @Oostenveld2011; @Tadel2011;
 @Gramfort2013; @Cole2019] make two critical assumptions. First, they assume
 that the signals to be analyzed are addressable to virtual memory. Second,
 they assume that values returned from a DSP process, such as filtering, and
-all subsequent processes are also addressable to memory. Advances in
+all subsequent processes are likewise addressable to memory. Advances in
 recording technologies over the past decade are degrading these assumptions.
 Indeed, thin-film electronics innovations allow for the deposition of
 a large number of electrode contacts onto a single recording device that can
