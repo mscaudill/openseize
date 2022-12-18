@@ -174,9 +174,8 @@ following dependencies:
   </tr>
 
 <tr>
-    <td><a href="https://github.com/rjperez94/pywget"
-        target=_blank>pywget</a></td>
-    <td>https://pypi.org/project/pywget/</td>
+    <td></td>
+    <td>https://pypi.org/project/wget/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
