@@ -9,12 +9,17 @@ tags:
   - local field potentials
   - time series analysis
 authors:
-  - name: Matthew S. Caudill orcid: 0000-0002-3656-9261 affiliation: "1, 2"
-    # (multiple affiliations must be quoted) affiliations:
+  - name: Matthew S. Caudill 
+    orcid: 0000-0002-3656-9261 
+    affiliation: "1, 2" # (multiple affiliations must be quoted) 
+affiliations:
   - name: Department of Neuroscience, Baylor College of Medicine, Houston,
-    TX, USA index: 1
+    TX, USA
+    index: 1
   - name: Jan and Dan Duncan Neurological Research Institute at Texas
-    Childrens Hospital, Houston, TX, USA index: 2 date: 8 November 2022
+    Childrens Hospital, Houston, TX, USA 
+    index: 2 
+date: 8 November 2022
 bibliography: paper.bib
 ---
 
