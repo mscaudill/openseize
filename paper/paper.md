@@ -53,8 +53,8 @@ Indeed, thin-film electronics innovations allow for the deposition of
 a large number of electrode contacts onto a single recording device that can
 be left implanted for months [@Thongpang2011]. These high-channel count and
 long-duration recordings pose a serious challenge to imperatively programmed
-DSP software that modifies and stores the intermediate results during
-execution of functions within a script.
+DSP software that modifies and stores intermediate results during the
+execution of function sequences within a script.
 
 Openseize takes a functional (declarative) programming strategy that allows
 for constant and tuneable memory overhead during any DSP processing stage.
@@ -85,13 +85,13 @@ EEG recordings.
 
 ### Extensibile
 
- In addition to scaling to large datasets, Openseize is built using an
-object-oriented architecture to ensure extensibility. This feature, missing
-in many currently available DSP packages, is crucial in neuroscience
-research for two reasons. First, there are many different data file types
-in-use. Abstract base classes [@GOF] help future developers integrate their
-file types into Openseize by identifying reusable and required abstract
-methods needed to create producers that Openseize can work with. Second, DSP
+In addition to its scalability, Openseize is built using an object-oriented
+architecture to ensure extensibility. This feature, missing in many
+currently available DSP packages, is crucial in neuroscience research for
+two reasons. First, there are many different data file types in-use.
+Abstract base classes [@GOF] help future developers integrate their file
+types into Openseize by identifying reusable and required abstract methods
+needed to create producers that Openseize can work with. Second, DSP
 operations are strongly interdependent. By identifying and abstracting
 common methods, the algorithms in Openseize are smaller, more maintainable
 and above all, easier to understand.  \autoref{fig:types} diagrams the
@@ -114,14 +114,14 @@ returned when the producer is created. Rather, the values are generated when
 the producer is iterated over. To guide new users, Openseize includes
 extensive in-depth discussions about DSP algorithms and their iterative
 implementations in a series of Jupyter notebooks [@jupyter]. Lastly, to
-maintain the clarity and extensibility Openseize's API, graphical user
+maintain the clarity and extensibility of Openseize's API, graphical user
 interfaces (GUIs) have been avoided. This decision reflects the fact that
 many current DSP packages have inconsistent APIs depending on whether the
 modules are invoked from the command-line or a GUI.   
 
 In summary, Openseize fulfills a need in neuroscience research for DSP tools
-that can scale with increasing EEG data sizes, are extensible enough to
-handle new data types and methods, and are accessible to both end-users and
+that can scale to large EEG recordings, are extensible enough to handle new
+data types and methods, and are accessible to both end-users and
 developers.
 
 # Acknowledgements
