@@ -7,7 +7,8 @@ tags:
   - neuroscience
   - signal processing
   - local field potentials
-  - time series analysis authors:
+  - time series analysis
+authors:
   - name: Matthew S. Caudill orcid: 0000-0002-3656-9261 affiliation: "1, 2"
     # (multiple affiliations must be quoted) affiliations:
   - name: Department of Neuroscience, Baylor College of Medicine, Houston,
