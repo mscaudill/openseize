@@ -174,7 +174,7 @@ following dependencies:
   </tr>
 
 <tr>
-    <td></td>
+    <td>wget</td>
     <td>https://pypi.org/project/wget/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
