@@ -45,7 +45,7 @@ Homepage = "https://github.com/mscaudill/openseize"
 
 # bumpver configuration
 [tool.bumpver]
-current_version = "0.0.0"
+current_version = "1.0.0"
 version_pattern = "MAJOR.MINOR.PATCH[-TAG]"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
