@@ -45,8 +45,8 @@ Homepage = "https://github.com/mscaudill/openseize"
 
 # bumpver configuration
 [tool.bumpver]
-current_version = "1.0.0"
-version_pattern = "MAJOR.MINOR.PATCH"
+current_version = "0.0.0"
+version_pattern = "MAJOR.MINOR.PATCH[-TAG]"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
 tag = true
@@ -57,7 +57,7 @@ push = true
     'current_version = "{version}"', 
     'version = "{version}"'
 ]
-"src/openseize/__init__.py" = ["{version}"]
+"src/openseize/__init__.py" = ['__version__ = "{version}"']
 
 # mypy configuration
 [tool.mypy]
