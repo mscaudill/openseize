@@ -32,7 +32,7 @@ mnemonic and cognitive processing [@Woodman2010; @Nunez2021].
 Mechanistically, EEGs are non-stationary time-series that capture
 alterations in the brain's electromagnetic field arising from synchronous
 synaptic potential changes across neuronal populations. Linear digital
-signal processing (DSP) tools are routinely used in EEGS to reduce noise,
+signal processing (DSP) tools are routinely used in EEGs to reduce noise,
 resample the data, remove artifacts, expose the data's spatio-temporal
 frequency content, and much more. Openseize is a DSP package written in
 pure Python that scales to very large EEG datasets, employs an extensible
