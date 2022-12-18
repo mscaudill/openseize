@@ -31,13 +31,13 @@ used to diagnose neurological disease [@Davies2007; @Noachtar2009;
 mnemonic and cognitive processing [@Woodman2010; @Nunez2021].
 Mechanistically, EEGs are non-stationary time-series that capture
 alterations in the brain's electromagnetic field arising from synchronous
-potential changes of millions of individual synapses. To understand these
-time-series, linear digital signal processing (DSP) tools are routinely used
-to reduce noise, resample the data, remove artifacts, expose the data's
-spatio-temporal frequency content, and much more. Openseize is a DSP
-software package written in pure Python that scales to very large EEG
-datasets, uses an extensible object-oriented architecture, and provides
-a familiar Scipy-like API [@Virtanen2020].
+synaptic potential changes across neuronal populations. Linear digital
+signal processing (DSP) tools are routinely used in EEGS to reduce noise,
+resample the data, remove artifacts, expose the data's spatio-temporal
+frequency content, and much more. Openseize is a DSP package written in
+pure Python that scales to very large EEG datasets, employs an extensible
+object-oriented architecture, and provides a familiar Scipy-like API
+[@Virtanen2020].
 
 # Statement of need
 
@@ -45,25 +45,25 @@ a familiar Scipy-like API [@Virtanen2020].
 
 Current DSP software packages [@Delorme2004; @Oostenveld2011; @Tadel2011;
 @Gramfort2013; @Cole2019] make two critical assumptions. First, that the
-signals to be analyzed are addressable to virtual memory.  Second, that the
+signals to be analyzed are addressable to virtual memory. Second, that the
 values returned from a DSP process, such as filtering, and all subsequent
 processes are likewise addressable to memory. Advances in recording
-technologies over the past decade are degrading these assumptions.  Indeed,
+technologies over the past decade are degrading these assumptions. Indeed,
 thin-film electronics innovations allow for the deposition of a large number
 of electrode contacts onto a single recording device that can be left
-implanted for months [@Thongpang2011]. These high-channel count and
+implanted for months [@Thongpang2011]. These high-channel count
 long-duration recordings pose a serious challenge to imperatively programmed
 DSP software in which data is stored as it passes through and between
 functions within a program.
 
-Openseize takes a declarative (functional) programming approach that allows
-for constant and tuneable memory overhead.  Specifically, this approach
-shuttles iterables (called producers) rather than data between the functions
-within a program. These memory-efficient producers generate on-the-fly
-fragments of EEG or processed data.  Importantly, producers can be
-composed into sophisticated  DSP pipelines (\autoref{fig:pipeline}) that
-yield processed arrays lazily during an iteration protocol such as
-a for-loop.
+Openseize takes a declarative programming approach that allows for constant
+and tuneable memory overhead.  Specifically, this approach shuttles
+iterables (called producers) rather than data between the functions within
+a program. These memory-efficient producers generate on-the-fly fragments
+of processed data. Importantly, all of Openseize's functions and methods
+accept and return producers. This feature allows for the composition of DSP
+functions into iterative processing pipelines (\autoref{fig:pipeline}) that
+yield processed data lazily during an iteration protocal such as a for-loop.
 
 ![Example DSP pipeline for computing the power spectrum of a large EEG
 dataset. Each DSP process in the pipeline receives and returns a producer
@@ -74,29 +74,28 @@ producers to generate a single array.\label{fig:pipeline}](pipeline.png)
 A consequence of this functional programming approach is that DSP pipelines
 in Openseize, in contrast to pipelines relying on Matlab [@Matlab2010] and
 Scipy [@Virtanen2020], are fully iterative. Restructuring DSP algorithms to
-support iterative processing is non-trivial as complex boundary conditions
-and the need to minimize data transfers between the hard-disk and virtual
-memory create significant challenges. To meet these, Openseize uses
+support iterative processing is non-trivial because complex boundary conditions
+and the need to minimize data transfers between disks and virtual
+memory creates significant challenges. To meet these, Openseize uses
 a first-in first-out (FIFO) queue data structure to cache arrays. FIFO
 caching allows previously seen data to influence the boundary conditions of
 in-process data and reduces the number of disk reads. This data structure in
-combination with iterative algorithms allows Openseize to scale to massive
-data recordings.
+combination with both producers and iterative algorithms allows Openseize to
+scale to massive data recordings.
 
 ### Extensibile
 
-In addition to its scalability, Openseize is built using an object-oriented
-architecture to ensure extensibility. This feature, missing in many
-currently available DSP packages, is crucial in neuroscience research for
-two reasons. First, there are many different data file types in-use.
-Abstract base classes [@GOF] help future developers integrate their file
-types into Openseize by identifying reusable and required methods needed to
-create producers that Openseize's algorithms can process. Second, DSP
-operations are strongly interdependent. By identifying and abstracting
-common methods, the algorithms in Openseize are smaller, more maintainable
-and above all, easier to understand.  \autoref{fig:types} diagrams the
-currently available DSP methods grouped by their abstract types or module
-names.
+In addition to its scalability, Openseize employs an extensible
+object-oriented architecture. This feature, missing in many currently
+available DSP packages, is crucial in neuroscience research for two reasons.
+First, there are many different data file types in-use. Abstract base
+classes [@GOF] help future developers integrate their file types into
+Openseize by identifying required methods needed to create producers that
+Openseize's algorithms can process. Second, DSP operations are strongly
+interdependent. By identifying and abstracting common methods, the
+algorithms in Openseize are smaller, more maintainable and above all, easier
+to understand.  \autoref{fig:types} diagrams the currently available DSP
+methods grouped by their abstract types or module names.
 
  ![Partial list of DSP classes and methods available in Openseize grouped by
 abstract type and/or module (gray boxes). Each gray box indicates a point of
@@ -106,9 +105,9 @@ functions within a module.\label{fig:types}](types.png)
 ### Intuitive API
 
 Finally, Openseize has an intuitive application programming interface (API).
-While under the hood, Openseize is using a functional programming approach,
-from the end-user's perspective, the calling of its functions are similar to
-Scipy's DSP call signatures. The main difference is that producers do not
+While under the hood, Openseize is using a declarative programming approach,
+from the end-user's perspective, the calling of its functions are similar
+to Scipy's DSP call signatures. The main difference is that producers do not
 return DSP processed values when created. Rather, the values are generated
 when the producer is iterated over. To help new users understand the
 implications of this, Openseize includes extensive in-depth discussions
