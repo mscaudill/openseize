@@ -8,7 +8,11 @@
 *.npz
 *.edf
 *.txt
+
+# distribution / packaging
+*.egg
 *.egg-info/
+dist/
 
 # paper files
 *.bak
