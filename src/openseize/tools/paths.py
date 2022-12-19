@@ -104,18 +104,3 @@ def mismatches(files, others):
     file_stems = [Path(f).stem for f in files]
     other_stems = [Path(o).stem for o in others]
     return set(file_stems).symmetric_difference(set(other_stems))
-
-
-
-
-if __name__ == '__main__':
-
-    from openseize.io.dialogs import standard
-
-    path = standard('askopenfilename',
-                    initialdir='/home/matt/python/nri/data/rett_eeg')
-
-    mdata = MetaData(path, side=['Left', 'Right'], animal='\d+',
-            group=['\s(A)', '\s(B)'], treatment=['-(D)', '-(S)'])
-
-
