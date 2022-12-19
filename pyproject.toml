@@ -11,11 +11,23 @@ description = "Digital Signal Processing for Big EEG Datasets"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {file = "LICENSE.txt"}
-keywords = ["EEG", "signal processing", "seizure", "DSP", "EDF"]
+keywords = [
+    "EEG",
+    "signal analysis",
+    "digital signal processing",
+    "seizure",
+    "big data"
+]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
     "License :: OSI Approved :: BSD License",
-    "Operating System :: OS Independent",
+    "Topic :: Education",
+    "Topic :: Software Development",
     "Topic :: Scientific/Engineering"
 ]
 
