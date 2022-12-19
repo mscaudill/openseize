@@ -26,7 +26,7 @@
                      target=_blank>https://github.com/mscaudill/opensieze
                     </a>
 * **White Paper:** <a href="https://github.com/mscaudill/opensieze">
-JOSS LINK</a>
+LINK</a>
 
 <hr>
 
