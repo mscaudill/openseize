@@ -1,6 +1,0 @@
-#include pip requirements and conda env. file
-include requirements.txt
-include environment.yml
-
-# include all jupyter notebook tutorials in demos.tutorials
-include src/openseize/demos/tutorials/*.ipynb
