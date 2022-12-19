@@ -140,7 +140,12 @@ $ conda activate openseize
 If you would like to develop Openseize further, you'll need the source code
 and all development dependencies. Here are the steps:
 
-1. Create a virtual environment 
+1. Create a virtual environment with latest pip version.
+```Shell
+$ python3 -m venv env
+$ source env/bin/activate
+$ pip install --upgrade pip
+```
 
 2. Get the source code
 ```Shell
