@@ -1,0 +1,9 @@
+[data-md-color-scheme="space"] {
+ 
+  /* Header colors */ 
+  --md-primary-fg-color:            hsla(275, 100%, 15%, 1);
+ 
+  /* Footer Colors */
+  --md-footer-bg-color:             hsla(275, 100%, 15%, 1);
+
+}

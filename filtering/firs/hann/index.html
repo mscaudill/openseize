@@ -1,0 +1,2399 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      <link rel="icon" href="../../../imgs/tinylogo.png">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-8.5.10">
+    
+    
+      
+        <title>Hann - OPENSEIZE</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.975780f9.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.2505c338.min.css">
+        
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra_styles.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="space" data-md-color-primary="" data-md-color-accent="">
+  
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&"object"==typeof palette.color)for(var key of Object.keys(palette.color))document.body.setAttribute("data-md-color-"+key,palette.color[key])</script>
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#openseize.filtering.fir.Hann" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="OPENSEIZE" class="md-header__button md-logo" aria-label="OPENSEIZE" data-md-component="logo">
+      
+  <img src="../../../imgs/tinylogo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OPENSEIZE
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Hann
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      <form class="md-header__option" data-md-component="palette">
+        
+          
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="space" data-md-color-primary="" data-md-color-accent=""  aria-label="Dark Mode"  type="radio" name="__palette" id="__palette_1">
+          
+            <label class="md-header__button md-icon" title="Dark Mode" for="__palette_2" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            </label>
+          
+        
+          
+          
+          
+          <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent=""  aria-label="Light Mode"  type="radio" name="__palette" id="__palette_2">
+          
+            <label class="md-header__button md-icon" title="Light Mode" for="__palette_1" hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+            </label>
+          
+        
+      </form>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mscaudill/openseize" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mscaudill/openseize
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-tabs__inner md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../.." class="md-tabs__link">
+      Home
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../../quickstart/" class="md-tabs__link">
+      Quickstart
+    </a>
+  </li>
+
+      
+        
+  
+  
+
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../tutorials/producers/" class="md-tabs__link">
+        Tutorials
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+    
+  
+
+
+  
+  
+  
+    
+
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../producer/producer/" class="md-tabs__link md-tabs__link--active">
+        Reference
+      </a>
+    </li>
+  
+
+  
+
+      
+        
+  
+  
+
+
+  <li class="md-tabs__item">
+    <a href="../../../about/" class="md-tabs__link">
+      About
+    </a>
+  </li>
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="OPENSEIZE" class="md-nav__button md-logo" aria-label="OPENSEIZE" data-md-component="logo">
+      
+  <img src="../../../imgs/tinylogo.png" alt="logo">
+
+    </a>
+    OPENSEIZE
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mscaudill/openseize" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    mscaudill/openseize
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        Home
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../quickstart/" class="md-nav__link">
+        Quickstart
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3">
+          Tutorials
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Tutorials" data-md-level="1">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          Tutorials
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/producers/" class="md-nav__link">
+        Producers
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/file_reading/" class="md-nav__link">
+        File Reading
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/filtering/" class="md-nav__link">
+        Filtering
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/resampling/" class="md-nav__link">
+        Resampling
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/fourier_transform/" class="md-nav__link">
+        Fourier Transform
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../tutorials/spectra/" class="md-nav__link">
+        Spectral Analysis
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4">
+          Reference
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Reference" data-md-level="1">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Reference
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_1" type="checkbox" id="__nav_4_1" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_1">
+          Producers
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Producers" data-md-level="2">
+        <label class="md-nav__title" for="__nav_4_1">
+          <span class="md-nav__icon md-icon"></span>
+          Producers
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../producer/producer/" class="md-nav__link">
+        producer
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2" type="checkbox" id="__nav_4_2" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_2">
+          File IO
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="File IO" data-md-level="2">
+        <label class="md-nav__title" for="__nav_4_2">
+          <span class="md-nav__icon md-icon"></span>
+          File IO
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_1" type="checkbox" id="__nav_4_2_1" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_2_1">
+          EDF
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="EDF" data-md-level="3">
+        <label class="md-nav__title" for="__nav_4_2_1">
+          <span class="md-nav__icon md-icon"></span>
+          EDF
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../file_io/edf/edf_intro/" class="md-nav__link">
+        Introduction
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../file_io/edf/edf_reader/" class="md-nav__link">
+        Reader
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../file_io/edf/edf_writer/" class="md-nav__link">
+        Writer
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../file_io/edf/edf_splitter/" class="md-nav__link">
+        Splitter
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_2" type="checkbox" id="__nav_4_2_2" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_2_2">
+          Annotations
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Annotations" data-md-level="3">
+        <label class="md-nav__title" for="__nav_4_2_2">
+          <span class="md-nav__icon md-icon"></span>
+          Annotations
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../file_io/annotations/ann_intro/" class="md-nav__link">
+        Introduction
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../file_io/annotations/pinnacle/" class="md-nav__link">
+        Pinnacle
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../file_io/annotations/as_mask/" class="md-nav__link">
+        as_mask
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_3" type="checkbox" id="__nav_4_3" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_3">
+          Filters
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Filters" data-md-level="2">
+        <label class="md-nav__title" for="__nav_4_3">
+          <span class="md-nav__icon md-icon"></span>
+          Filters
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_3_1" type="checkbox" id="__nav_4_3_1" checked>
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_3_1">
+          FIR Filters
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="FIR Filters" data-md-level="3">
+        <label class="md-nav__title" for="__nav_4_3_1">
+          <span class="md-nav__icon md-icon"></span>
+          FIR Filters
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fir_intro/" class="md-nav__link">
+        Introduction
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kaiser/" class="md-nav__link">
+        Kaiser
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rectangular/" class="md-nav__link">
+        Rectangular
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bartlett/" class="md-nav__link">
+        Bartlett
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Hann
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Hann
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.fir.Hann" class="md-nav__link">
+    Hann
+  </a>
+  
+    <nav class="md-nav" aria-label="Hann">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#openseize.filtering.fir.Hann.__init__" class="md-nav__link">
+    __init__()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#openseize.filtering.fir.Hann.numtaps" class="md-nav__link">
+    numtaps()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bases-and-mixins" class="md-nav__link">
+    Bases and Mixins
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fir-base" class="md-nav__link">
+    FIR Base
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.btype" class="md-nav__link">
+    btype()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.ftype" class="md-nav__link">
+    ftype()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.pass_attenuation" class="md-nav__link">
+    pass_attenuation()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.cutoff" class="md-nav__link">
+    cutoff()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.__call__" class="md-nav__link">
+    __call__()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#viewer-mixin" class="md-nav__link">
+    Viewer Mixin
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.mixins.Viewer.plot" class="md-nav__link">
+    plot()
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hamming/" class="md-nav__link">
+        Hamming
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../blackman/" class="md-nav__link">
+        Blackman
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../remez/" class="md-nav__link">
+        Remez
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_3_2" type="checkbox" id="__nav_4_3_2" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_3_2">
+          IIR Filters
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="IIR Filters" data-md-level="3">
+        <label class="md-nav__title" for="__nav_4_3_2">
+          <span class="md-nav__icon md-icon"></span>
+          IIR Filters
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../iirs/iir_intro/" class="md-nav__link">
+        Introduction
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../iirs/butter/" class="md-nav__link">
+        Butterworth
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../iirs/cheby1/" class="md-nav__link">
+        Chebyshev I
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../iirs/cheby2/" class="md-nav__link">
+        Chebyshev II
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../iirs/ellip/" class="md-nav__link">
+        Elliptical
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../iirs/notch/" class="md-nav__link">
+        Notch
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_4" type="checkbox" id="__nav_4_4" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_4">
+          Resampling
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Resampling" data-md-level="2">
+        <label class="md-nav__title" for="__nav_4_4">
+          <span class="md-nav__icon md-icon"></span>
+          Resampling
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../resampling/resampling/" class="md-nav__link">
+        Resampling
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_5" type="checkbox" id="__nav_4_5" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_5">
+          Spectra
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Spectra" data-md-level="2">
+        <label class="md-nav__title" for="__nav_4_5">
+          <span class="md-nav__icon md-icon"></span>
+          Spectra
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_5_1" type="checkbox" id="__nav_4_5_1" >
+      
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_5_1">
+          Estimators
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" aria-label="Estimators" data-md-level="3">
+        <label class="md-nav__title" for="__nav_4_5_1">
+          <span class="md-nav__icon md-icon"></span>
+          Estimators
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spectra/estimators/psd/" class="md-nav__link">
+        Power Spectrum
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spectra/estimators/stft/" class="md-nav__link">
+        Short-time Fourier Transform
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spectra/spectra_metrics/" class="md-nav__link">
+        Metrics
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../spectra/spectra_plotting/" class="md-nav__link">
+        Plotting
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../about/" class="md-nav__link">
+        About
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.fir.Hann" class="md-nav__link">
+    Hann
+  </a>
+  
+    <nav class="md-nav" aria-label="Hann">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#openseize.filtering.fir.Hann.__init__" class="md-nav__link">
+    __init__()
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#openseize.filtering.fir.Hann.numtaps" class="md-nav__link">
+    numtaps()
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#bases-and-mixins" class="md-nav__link">
+    Bases and Mixins
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fir-base" class="md-nav__link">
+    FIR Base
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.btype" class="md-nav__link">
+    btype()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.ftype" class="md-nav__link">
+    ftype()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.pass_attenuation" class="md-nav__link">
+    pass_attenuation()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.cutoff" class="md-nav__link">
+    cutoff()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.bases.FIR.__call__" class="md-nav__link">
+    __call__()
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#viewer-mixin" class="md-nav__link">
+    Viewer Mixin
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#openseize.filtering.mixins.Viewer.plot" class="md-nav__link">
+    plot()
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  <h1>Hann</h1>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="openseize.filtering.fir.Hann" class="doc doc-heading">
+        <code>openseize.filtering.fir.Hann</code>
+
+
+</h2>
+
+
+  <div class="doc doc-contents first">
+      <p class="doc doc-class-bases">
+        Bases: <code><span title="openseize.filtering.bases.FIR">FIR</span></code></p>
+
+  
+      <p>A callable type I FIR using a Hann window.</p>
+<p>The Hann window has higher side lobe heights than the Hamming window but
+a faster roll-off. Thus, this filter has higher ripple than the Hamming
+but it attenuates faster. It is a good general purpose window with
+strong attenuation and fast roll-off.</p>
+
+  <p><strong>Attributes:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code></code></td>
+          <td>
+          </td>
+          <td><p>see FIR Base for attributes</p></td>
+        </tr>
+    </tbody>
+  </table>
+
+<details class="window-characteristics">
+  <summary>Window Characteristics</summary>
+  <ul>
+<li>main lobe width (MLW) = 8 pi / len(taps)</li>
+<li>side lobe height (SLH) = -31.5 dB</li>
+<li>side lobe roll-off rate (SLRR) = -18 dB/octave</li>
+<li>approximate peak error (APE) = -44 dB</li>
+</ul>
+</details>
+<p><strong>Examples:</strong></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hann</span> <span class="o">=</span> <span class="n">Hann</span><span class="p">(</span><span class="n">fpass</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">fstop</span><span class="o">=</span><span class="mi">350</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hann</span><span class="o">.</span><span class="n">btype</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="go">&#39;lowpass&#39;</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hann</span> <span class="o">=</span> <span class="n">Hann</span><span class="p">(</span><span class="n">fpass</span><span class="o">=</span><span class="mi">600</span><span class="p">,</span> <span class="n">fstop</span><span class="o">=</span><span class="mi">400</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">1800</span><span class="p">)</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hann</span><span class="o">.</span><span class="n">btype</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="go">&#39;highpass&#39;</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hann</span> <span class="o">=</span> <span class="n">Hann</span><span class="p">(</span><span class="n">fpass</span><span class="o">=</span><span class="p">[</span><span class="mi">400</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span> <span class="n">fstop</span><span class="o">=</span><span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">1200</span><span class="p">],</span> <span class="n">fs</span><span class="o">=</span><span class="mi">4000</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hann</span><span class="o">.</span><span class="n">btype</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="go">&#39;bandpass&#39;</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hann</span> <span class="o">=</span> <span class="n">Hann</span><span class="p">(</span><span class="n">fpass</span><span class="o">=</span><span class="p">[</span><span class="mi">200</span><span class="p">,</span> <span class="mi">1200</span><span class="p">],</span> <span class="n">fstop</span><span class="o">=</span><span class="p">[</span><span class="mi">400</span><span class="p">,</span> <span class="mi">1000</span><span class="p">],</span> <span class="n">fs</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">hann</span><span class="o">.</span><span class="n">btype</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="go">&#39;bandstop&#39;</span>
+</code></pre></div>
+
+
+        <details class="quote">
+          <summary>Source code in <code>openseize/filtering/fir.py</code></summary>
+          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-276">276</a></span>
+<span class="normal"><a href="#__codelineno-0-277">277</a></span>
+<span class="normal"><a href="#__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="k">class</span> <span class="nc">Hann</span><span class="p">(</span><span class="n">FIR</span><span class="p">):</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>    <span class="sd">&quot;&quot;&quot;A callable type I FIR using a Hann window.</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">    The Hann window has higher side lobe heights than the Hamming window but</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">    a faster roll-off. Thus, this filter has higher ripple than the Hamming</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    but it attenuates faster. It is a good general purpose window with</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">    strong attenuation and fast roll-off.</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">    Attributes:</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">        :see FIR Base for attributes</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    Window Characteristics:</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">        - main lobe width (MLW) = 8 pi / len(taps)</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">        - side lobe height (SLH) = -31.5 dB</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">        - side lobe roll-off rate (SLRR) = -18 dB/octave</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        - approximate peak error (APE) = -44 dB</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    Examples:</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">        &gt;&gt;&gt; hann = Hann(fpass=300, fstop=350, fs=5000)</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">        &gt;&gt;&gt; hann.btype</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">        &#39;lowpass&#39;</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">        &gt;&gt;&gt; hann = Hann(fpass=600, fstop=400, fs=1800)</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">        &gt;&gt;&gt; hann.btype</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">        &#39;highpass&#39;</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">        &gt;&gt;&gt; hann = Hann(fpass=[400, 1000], fstop=[200, 1200], fs=4000)</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">        &gt;&gt;&gt; hann.btype</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">        &#39;bandpass&#39;</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">        &gt;&gt;&gt; hann = Hann(fpass=[200, 1200], fstop=[400, 1000], fs=5000)</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">        &gt;&gt;&gt; hann.btype</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">        &#39;bandstop&#39;</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>                 <span class="n">fpass</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>                 <span class="n">fstop</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>                 <span class="n">fs</span><span class="p">:</span> <span class="nb">int</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>        <span class="sd">&quot;&quot;&quot;Initialize this Hann windowed FIR.</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">        Args:</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">            fpass:</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">                The pass band edge frequency in the same units as fs OR</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">                a 2-el sequence of edge frequencies that are monotonically</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">                increasing and in [0, fs/2].</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">            fstop:</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">                The stop band edge frequency in the same units as fs OR</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">                a 2-el sequence of edge frequencies that are monotonically</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">                increasing and in [0, fs/2].</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">            fs:</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">                The sampling rate of the digital system.</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">        &quot;&quot;&quot;</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>        <span class="c1"># for plotting, provide a gpass calculated from the peak error</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>        <span class="n">peak_err</span> <span class="o">=</span> <span class="o">-</span><span class="mi">44</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="n">gpass</span> <span class="o">=</span> <span class="o">-</span><span class="mi">20</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">peak_err</span> <span class="o">/</span> <span class="mi">20</span><span class="p">))</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fpass</span><span class="p">,</span> <span class="n">fstop</span><span class="p">,</span> <span class="n">gpass</span><span class="o">=</span><span class="n">gpass</span><span class="p">,</span> <span class="n">gstop</span><span class="o">=</span><span class="n">peak_err</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">)</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="nd">@property</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="k">def</span> <span class="nf">numtaps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="sd">&quot;&quot;&quot;Return the number of taps to meet the transition width.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="n">ntaps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">8</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">nyq</span><span class="p">))</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>        <span class="c1"># odd tap number to ensure group delay is integer samples</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>        <span class="k">return</span> <span class="n">ntaps</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">ntaps</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">ntaps</span>
+</code></pre></div></td></tr></table></div>
+        </details>
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h3 id="openseize.filtering.fir.Hann.__init__" class="doc doc-heading">
+<code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">fpass</span><span class="p">,</span> <span class="n">fstop</span><span class="p">,</span> <span class="n">fs</span><span class="p">)</span></code>
+
+</h3>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Initialize this Hann windowed FIR.</p>
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>fpass</code></td>
+          <td>
+                <code><span title="typing.Union">Union</span>[float, <span title="typing.Tuple">Tuple</span>[float, float]]</code>
+          </td>
+          <td><p>The pass band edge frequency in the same units as fs OR
+a 2-el sequence of edge frequencies that are monotonically
+increasing and in [0, fs/2].</p></td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>fstop</code></td>
+          <td>
+                <code><span title="typing.Union">Union</span>[float, <span title="typing.Tuple">Tuple</span>[float, float]]</code>
+          </td>
+          <td><p>The stop band edge frequency in the same units as fs OR
+a 2-el sequence of edge frequencies that are monotonically
+increasing and in [0, fs/2].</p></td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>fs</code></td>
+          <td>
+                <code>int</code>
+          </td>
+          <td><p>The sampling rate of the digital system.</p></td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+      <details class="quote">
+        <summary>Source code in <code>openseize/filtering/fir.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>             <span class="n">fpass</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>             <span class="n">fstop</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>             <span class="n">fs</span><span class="p">:</span> <span class="nb">int</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="sd">&quot;&quot;&quot;Initialize this Hann windowed FIR.</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">        fpass:</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">            The pass band edge frequency in the same units as fs OR</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">            a 2-el sequence of edge frequencies that are monotonically</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">            increasing and in [0, fs/2].</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">        fstop:</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">            The stop band edge frequency in the same units as fs OR</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">            a 2-el sequence of edge frequencies that are monotonically</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">            increasing and in [0, fs/2].</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">        fs:</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">            The sampling rate of the digital system.</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>    <span class="c1"># for plotting, provide a gpass calculated from the peak error</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="n">peak_err</span> <span class="o">=</span> <span class="o">-</span><span class="mi">44</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="n">gpass</span> <span class="o">=</span> <span class="o">-</span><span class="mi">20</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="mi">10</span> <span class="o">**</span> <span class="p">(</span><span class="n">peak_err</span> <span class="o">/</span> <span class="mi">20</span><span class="p">))</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">fpass</span><span class="p">,</span> <span class="n">fstop</span><span class="p">,</span> <span class="n">gpass</span><span class="o">=</span><span class="n">gpass</span><span class="p">,</span> <span class="n">gstop</span><span class="o">=</span><span class="n">peak_err</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="n">fs</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h3 id="openseize.filtering.fir.Hann.numtaps" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">numtaps</span><span class="p">()</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h3>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Return the number of taps to meet the transition width.</p>
+
+      <details class="quote">
+        <summary>Source code in <code>openseize/filtering/fir.py</code></summary>
+        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="nd">@property</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="k">def</span> <span class="nf">numtaps</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="sd">&quot;&quot;&quot;Return the number of taps to meet the transition width.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">ntaps</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">8</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">width</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">nyq</span><span class="p">))</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="c1"># odd tap number to ensure group delay is integer samples</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="k">return</span> <span class="n">ntaps</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">ntaps</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">ntaps</span>
+</code></pre></div></td></tr></table></div>
+      </details>
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div><h2 id="bases-and-mixins"><strong>Bases and Mixins</strong></h2>
+<h2 id="fir-base">FIR Base</h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+  <div class="doc doc-contents first">
+      <p class="doc doc-class-bases">
+        Bases: <code>abc.<span title="abc.ABC">ABC</span></code>, <code><span title="openseize.core.mixins">mixins</span>.<span title="openseize.core.mixins.ViewInstance">ViewInstance</span></code>, <code><span title="openseize.filtering.mixins.FIRViewer">FIRViewer</span></code></p>
+
+  
+      <p>Base class for finite impulse response filters.</p>
+
+  <p><strong>Attributes:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>fpass</code></td>
+          <td>
+                <code><span title="numpy">np</span>.<span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td><p>1-D numpy array of start and stop edge frequencies of this
+filter's passband(s).</p></td>
+        </tr>
+        <tr>
+          <td><code>fstop</code></td>
+          <td>
+                <code><span title="numpy">np</span>.<span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td><p>1-D numpy array of start and stop edge frequencies of this
+filter's stopband(s).</p></td>
+        </tr>
+        <tr>
+          <td><code>gpass</code></td>
+          <td>
+                <code>float</code>
+          </td>
+          <td><p>Maximum ripple in the passband(s) in dB.</p></td>
+        </tr>
+        <tr>
+          <td><code>gstop</code></td>
+          <td>
+                <code>float</code>
+          </td>
+          <td><p>Minimum attenuation in the stopbands in dB.</p></td>
+        </tr>
+        <tr>
+          <td><code>fs</code></td>
+          <td>
+                <code>int</code>
+          </td>
+          <td><p>The sampling rate of the digital system.</p></td>
+        </tr>
+        <tr>
+          <td><code>nyq</code></td>
+          <td>
+                <code>float</code>
+          </td>
+          <td><p>The nyquist rate of the digital sytem, fs/2.</p></td>
+        </tr>
+        <tr>
+          <td><code>width</code></td>
+          <td>
+                <code>float</code>
+          </td>
+          <td><p>The minimum transition width between the pass and stopbands.</p></td>
+        </tr>
+        <tr>
+          <td><code>coeffs</code></td>
+          <td>
+                <code><span title="numpy">np</span>.<span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td><p>A 1-D numpy array of filter coeffecients.</p></td>
+        </tr>
+    </tbody>
+  </table>
+
+<details class="notes">
+  <summary>Notes</summary>
+  <p>This FIR ABC defines the common and expected methods of all concrete
+FIR filters in the openseize.filtering.fir module. Inheritors must
+overide abstract methods &amp; properties of this base to be
+instantiable.</p>
+</details>
+
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="openseize.filtering.bases.FIR.btype" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">btype</span><span class="p">()</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h2>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Returns the string band type of this filter.</p>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="openseize.filtering.bases.FIR.ftype" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">ftype</span><span class="p">()</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h2>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Returns the string name of this FIR filter.</p>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="openseize.filtering.bases.FIR.pass_attenuation" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">pass_attenuation</span><span class="p">()</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h2>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Converts the max passband ripple, gpass, into a pass band
+attenuation in dB.</p>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="openseize.filtering.bases.FIR.cutoff" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">cutoff</span><span class="p">()</span></code>
+  
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+</h2>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Returns an ndarray of the -6 dB points of each transition
+band.</p>
+
+  </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="openseize.filtering.bases.FIR.__call__" class="doc doc-heading">
+<code class="highlight language-python"><span class="fm">__call__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">chunksize</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;same&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+
+</h2>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Apply this filter to an ndarray or producer of ndarrays.</p>
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>data</code></td>
+          <td>
+                <code><span title="typing.Union">Union</span>[<span title="openseize.core.producer.Producer">Producer</span>, <span title="numpy">np</span>.<span title="numpy.ndarray">ndarray</span>]</code>
+          </td>
+          <td><p>The data to be filtered.</p></td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>chunksize</code></td>
+          <td>
+                <code>int</code>
+          </td>
+          <td><p>The number of samples to hold in memory during filtering.</p></td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr>
+          <td><code>axis</code></td>
+          <td>
+                <code>int</code>
+          </td>
+          <td><p>The axis of data along which to apply the filter. If data is
+multidimensional, the filter will be independently applied
+along all slices of axis.</p></td>
+          <td>
+                <code>-1</code>
+          </td>
+        </tr>
+        <tr>
+          <td><code>mode</code></td>
+          <td>
+                <code>str</code>
+          </td>
+          <td><p>A numpy convolve mode; one of 'full', 'same', 'valid'.</p>
+<ul>
+<li>Full:
+    This mode includes all points of the convolution of
+    the filter window and data. This mode does not
+    compensate for the delay introduced by the filter.</li>
+<li>Same:
+    This mode (Default) returns data of the same size
+    as the input. This mode adjust for the delay
+    introduced by the filter.</li>
+<li>Valid:
+    This mode returns values only when the filter and
+    data completely overlap. The result using this mode
+    is to shift the data (num_taps - 1) / 2 samples to
+    the left of the input data.</li>
+</ul></td>
+          <td>
+                <code>&#39;same&#39;</code>
+          </td>
+        </tr>
+        <tr>
+          <td><code>kwargs</code></td>
+          <td>
+          </td>
+          <td><p>Any valid keyword argument for the producer constructor.</p></td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+  <p><strong>Returns:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td>
+                <code><span title="typing.Union">Union</span>[<span title="openseize.core.producer.Producer">Producer</span>, <span title="numpy">np</span>.<span title="numpy.ndarray">ndarray</span>]</code>
+          </td>
+          <td><p>Filtered result with type matching input 'data' parameter.</p></td>
+        </tr>
+    </tbody>
+  </table>
+
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div><h2 id="viewer-mixin">Viewer Mixin</h2>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+  <div class="doc doc-contents first">
+
+  
+      <p>A collection of common plotting methods for both IIR, FIR and 
+Parks-McClellan filters.</p>
+<p>All filters in openseize have the ability to plot their impulse response
+and frequency response to a matplotlib figure called the Viewer. This
+mixin is inherited by specific IIR, FIR and ParksMcClellan Viewers in
+this file. Each of these specific viewers is inherited by the 
+corresponding filter type (i.e. IIR, FIR, ParksMcClellan) in the 
+openseize filtering module.</p>
+
+
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+
+<h2 id="openseize.filtering.mixins.Viewer.plot" class="doc doc-heading">
+<code class="highlight language-python"><span class="n">plot</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">gridalpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">worN</span><span class="o">=</span><span class="mi">2048</span><span class="p">,</span> <span class="n">rope</span><span class="o">=-</span><span class="mi">100</span><span class="p">,</span> <span class="n">axarr</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+
+</h2>
+
+
+  <div class="doc doc-contents ">
+  
+      <p>Plots the impulse and frequency response of this filter.</p>
+
+  <p><strong>Parameters:</strong></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr>
+          <td><code>size</code></td>
+          <td>
+                <code><span title="typing.Tuple">Tuple</span>[int, int]</code>
+          </td>
+          <td><p>tuple
+The figure size to display for the plots. Default is 8 x 6.</p></td>
+          <td>
+                <code>(8, 6)</code>
+          </td>
+        </tr>
+        <tr>
+          <td><code>gridalpha</code></td>
+          <td>
+                <code>float</code>
+          </td>
+          <td><p>float in [0, 1]
+The alpha transparency of each subplots grid. Default is 0.3</p></td>
+          <td>
+                <code>0.3</code>
+          </td>
+        </tr>
+        <tr>
+          <td><code>worN</code></td>
+          <td>
+                <code>int</code>
+          </td>
+          <td><p>int
+The number of frequencies to compute the gain and phase
+responses over. Default is 2048 frequencies.</p></td>
+          <td>
+                <code>2048</code>
+          </td>
+        </tr>
+        <tr>
+          <td><code>rope</code></td>
+          <td>
+                <code>float</code>
+          </td>
+          <td><p>float
+For plotting, all values below this region of pratical
+equivalence will be set to this value. Default is -100
+dB. Any filter response smaller than this will be set to
+-100 for plotting.</p></td>
+          <td>
+                <code>-100</code>
+          </td>
+        </tr>
+        <tr>
+          <td><code>axarr</code></td>
+          <td>
+                <code><span title="typing.Optional">Optional</span>[<span title="typing.Sequence">Sequence</span>[<span title="matplotlib.pyplot">plt</span>.<span title="matplotlib.pyplot.Axes">Axes</span>]]</code>
+          </td>
+          <td><p>A Matplotlib axis array.
+An optional axis array to plot the impulse and frequency
+responses to. Default None means a new axis is created.</p></td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+  </div>
+
+</div>
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+    <nav class="md-footer__inner md-grid" aria-label="Footer" >
+      
+        
+        <a href="../bartlett/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Bartlett" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              Bartlett
+            </div>
+          </div>
+        </a>
+      
+      
+        
+        <a href="../hamming/" class="md-footer__link md-footer__link--next" aria-label="Next: Hamming" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              Hamming
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4Z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        <div class="md-social">
+  
+    
+    
+      
+      
+    
+    <a href="https://github.com/mscaudill" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs", "navigation.tabs.sticky"], "search": "../../../assets/javascripts/workers/search.16e2a7d4.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version.title": "Select version"}}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.5a2dcb6a.min.js"></script>
+      
+    
+    
+  </body>
+</html>
