@@ -4,13 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openseize"
-version = "1.0.0"
-dynamic = ["dependencies"]
+version = "1.0.0.post1"
 authors =[{ name="Matthew Caudill", email="mscaudill@gmail.com" }]
 description = "Digital Signal Processing for Big EEG Datasets"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {file = "LICENSE"}
 keywords = [
     "EEG",
     "signal analysis",
@@ -25,14 +23,21 @@ classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
-    "License :: OSI Approved",
+    "License :: OSI Approved :: BSD License",
     "Topic :: Education",
     "Topic :: Software Development",
     "Topic :: Scientific/Engineering"
 ]
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
+dependencies = [
+    "requests",
+    "wget",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "ipython",
+    "notebook",
+    "psutil"
+]
 
 [project.optional-dependencies]
 dev = ["isort",
@@ -49,7 +54,6 @@ dev = ["isort",
     "build",
     "twine"
 ]
-
 test = ["pytest", "pytest-cov"]
 
 [project.urls]
