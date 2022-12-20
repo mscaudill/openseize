@@ -17,6 +17,9 @@ dist/
 # paper files
 *.bak
 
+# ignore builds of websites
+site/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
