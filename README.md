@@ -45,7 +45,7 @@ filtering, as on-the-fly iterables that "produce" DSP results one fragment
 of the data at a time. Additionally, Openseize is built using time-tested
 software design principles that support extensions while maintaining
 a simple interface. Finally, Openseize's <a
-href=https://github.com/mscaudill/openseize target=_blank>documentation</a>
+href=https://mscaudill.github.io/openseize/ target=_blank>documentation</a>
 features in-depth discussions of iterative DSP processing and its
 implementation.
 
@@ -89,7 +89,7 @@ href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environme
 
 1. Create your virtual environment, Here we name it `my_venv`. 
 ```Shell
-$ python -m venv my_venv
+$ python3 -m venv my_venv
 ```
 
 2. Activate your 'my_venv' environment
@@ -99,13 +99,13 @@ $ source my_venv/bin/activate
 
 3. Install openseize into your virtual environment
 ```Shell
-(my_venv)$ python -m pip install openseize
+(my_venv)$ pip install openseize
 ```
 
 ### Conda
 
 The `conda` environment manager is more advanced than `venv`. When a `conda`
-environment is created, `conda` *simultaneously* looks at all the packages
+environment is updated, `conda` *simultaneously* looks at all the packages
 to be installed to reduce package conflicts. Having said that, `conda` and
 `pip`, the tool used to install Openseize from pypi, do not always work
 well together. The developers of `conda` recommend installing all possible
@@ -237,9 +237,11 @@ following dependencies:
 
 # Documentation
 
-Openseize documentation site has a [quickstart guide](), [extensive tutorials]()
-and [reference pages]() for all publicly available modules, classes and
-functions.
+Openseize documentation site has a [quickstart guide](
+https://mscaudill.github.io.openseize/quickstart/), [extensive tutorials](
+https://mscaudill.github.io/openseize/tutorials/producers/) and [
+reference pages](https://mscaudill.github.io/openseize/producer/producer/)
+for all publicly available modules, classes and functions.
 
 # Attribution
 

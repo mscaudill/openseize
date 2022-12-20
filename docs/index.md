@@ -30,7 +30,7 @@ hide:
                      target=_blank>https://github.com/mscaudill/opensieze
                     </a>
 * **White Paper:** <a href="https://github.com/mscaudill/opensieze">
-JOSS LINK</a>
+LINK</a>
 
 <hr>
 
@@ -49,7 +49,7 @@ filtering, as on-the-fly iterables that "produce" DSP results one fragment
 of the data at a time. Additionally, Openseize is built using time-tested
 software design principles that support extensions while maintaining
 a simple interface. Finally , Openseize's <a
-href=https://github.com/mscaudill/openseize target=_blank>documentation</a>
+href=https://mscaudill.github.io/openseize/ target=_blank>documentation</a>
 features in-depth discussions of iterative DSP processing and its
 implementation.
 
@@ -111,7 +111,7 @@ $ source my_venv/bin/activate
 ### Conda
 
 The `conda` environment manager is more advanced than `venv`. When a `conda`
-environment is created, `conda` *simultaneously* looks at all the packages 
+environment are updated, `conda` *simultaneously* looks at all the packages 
 to be installed to reduce package conflicts. Having said that, `conda`
 and `pip`, the tool used to install from pypi, do not always work well
 together. The developers of `conda` recommend installing all possible
@@ -242,9 +242,12 @@ Openseize requires <b>Python <span>&#8805;</span> 3.8</b> and has the following 
 
 # Documentation
 
-Openseize documentation site has a [quickstart guide](), [extensive tutorials]()
-and [reference pages]() for all publicly available modules, classes and
-functions.
+Openseize documentation site has a [quickstart guide](
+https://mscaudill.github.io.openseize/quickstart/), [extensive tutorials](
+https://mscaudill.github.io/openseize/tutorials/producers/) and [
+reference pages](https://mscaudill.github.io/openseize/producer/producer/)
+for all publicly available modules, classes and functions.
+
 <hr>
 
 # Attribution

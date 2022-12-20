@@ -92,7 +92,7 @@ nav:
               - Bartlett: 'filtering/firs/bartlett.md'
               - Hann: 'filtering/firs/hann.md'
               - Hamming: 'filtering/firs/hamming.md'
-              - Blackman: 'firs/blackman.md'
+              - Blackman: 'filtering/firs/blackman.md'
               - Remez: 'filtering/firs/remez.md'
             - 'IIR Filters':
               - Introduction: 'filtering/iirs/iir_intro.md'
