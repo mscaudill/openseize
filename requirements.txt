@@ -1,3 +1,4 @@
+# openseize default requirements
 requests
 wget
 numpy
