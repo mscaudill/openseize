@@ -238,7 +238,7 @@ following dependencies:
 # Documentation
 
 Openseize documentation site has a [quickstart guide](
-https://mscaudill.github.io.openseize/quickstart/), [extensive tutorials](
+https://mscaudill.github.io/openseize/quickstart/), [extensive tutorials](
 https://mscaudill.github.io/openseize/tutorials/producers/) and [
 reference pages](https://mscaudill.github.io/openseize/producer/producer/)
 for all publicly available modules, classes and functions.
