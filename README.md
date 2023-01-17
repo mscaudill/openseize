@@ -9,14 +9,14 @@
 
 
 <p align="center"  style="font-size: 20px">
-<a href="#key-features">Key Features</a>   |  
-<a href="#installation">Installation</a>   |  
-<a href="#dependencies">Dependencies</a>   |  
-<a href="#documentation">Documentation</a>   |  
-<a href="#attribution">Attribution</a>   |  
-<a href="#contributions">Contributions</a>   |  
-<a href="#issues">Issues</a>   |  
-<a href="#license">License</a> |
+<a href="#Key-Features">Key Features</a>   |  
+<a href="#Installation">Installation</a>   |  
+<a href="#Dependencies">Dependencies</a>   |  
+<a href="#Documentation">Documentation</a>   |  
+<a href="#Attribution">Attribution</a>   |  
+<a href="#Contributions">Contributions</a>   |  
+<a href="#Issues">Issues</a>   |  
+<a href="#License">License</a> |
 <a href="#Acknowledgements">Acknowledgements</a> 
 </p>
 
