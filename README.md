@@ -17,7 +17,7 @@
 <a href="#contributions">Contributions</a>   |  
 <a href="#issues">Issues</a>   |  
 <a href="#license">License</a> |
-<a href="acknowledgements">Acknowledgements</a> 
+<a href="#Acknowledgements">Acknowledgements</a> 
 </p>
 
 <hr>
