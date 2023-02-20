@@ -1286,7 +1286,7 @@
 <a href="#contributions">Contributions</a>   |  
 <a href="#issues">Issues</a>   |  
 <a href="#license">License</a> |
-<a href="#acknowledgements">Acknowledgements</a> 
+<a href="#acknowledgements">Acknowledgements</a>
 </p>
 
 <hr>
@@ -1319,13 +1319,13 @@ features in-depth discussions of iterative DSP processing and its
 implementation.</p>
 <p><font color='black'></p>
 <ul style="background-color:#DEF5E8;">
-  <li>Construct sequences of DSP steps that operate completely 'out-of-core' 
+  <li>Construct sequences of DSP steps that operate completely 'out-of-core'
   to process data too large to fit into memory.</li>
-  <li>DSP pipelines are constructed using a familiar Scipy-like API, so you 
+  <li>DSP pipelines are constructed using a familiar Scipy-like API, so you
   can start quickly without sweating the details.</li>
-  <li> Supports processing of data from multiple file types including the 
+  <li> Supports processing of data from multiple file types including the
   popular European Data Format (EDF).</li>
-  <li>Supports 'masking' to filter data sections by artifacts, behavioral 
+  <li>Supports 'masking' to filter data sections by artifacts, behavioral
   states or any externally measured signals or annotations.</li>
   <li> Effeciently process large data using the amount of memory <u>you</u>
   choose to use.</li>
@@ -1339,23 +1339,23 @@ implementation.</p>
 <hr>
 
 <h1 id="installation">Installation</h1>
-<p>For each installation guide below, we <strong>strongly</strong> recommend creating a 
-virtual environment. This environment will isolate external dependencies 
-that may conflict with packages you already have installed on your system. 
-Python comes installed with a virtual environment manager called <code>venv</code>. 
-Additionally, there are environment managers like <code>conda</code> that can check 
+<p>For each installation guide below, we <strong>strongly</strong> recommend creating a
+virtual environment. This environment will isolate external dependencies
+that may conflict with packages you already have installed on your system.
+Python comes installed with a virtual environment manager called <code>venv</code>.
+Additionally, there are environment managers like <code>conda</code> that can check
 for package conflicts when the environment is created or updated. For more
 information please see:</p>
 <ul>
 <li><a href=https://realpython.com/python-virtual-environments-a-primer/
-   target=_blank>Python Virtual Enironments</a> </li>
-<li><a 
-href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html target=_blank>Conda Enironments</a> </li>
+   target=_blank>Python Virtual Enironments</a></li>
+<li><a
+href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html target=_blank>Conda Enironments</a></li>
 </ul>
 <h3 id="python-virtual-environment">Python Virtual Environment</h3>
 <ol>
 <li>
-<p>Create your virtual environment, Here we name it <code>my_venv</code>. 
+<p>Create your virtual environment, Here we name it <code>my_venv</code>.
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">$ </span>python -m venv my_venv
 </code></pre></div></p>
 </li>
@@ -1372,20 +1372,20 @@ href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environme
 </ol>
 <h3 id="conda">Conda</h3>
 <p>The <code>conda</code> environment manager is more advanced than <code>venv</code>. When a <code>conda</code>
-environment are updated, <code>conda</code> <em>simultaneously</em> looks at all the packages 
+environment are updated, <code>conda</code> <em>simultaneously</em> looks at all the packages
 to be installed to reduce package conflicts. Having said that, <code>conda</code>
 and <code>pip</code>, the tool used to install from pypi, do not always work well
 together. The developers of <code>conda</code> recommend installing all possible
 packages from conda repositories before installing non-conda
-packages using <code>pip</code>. To ensure this order of installs, Openseize's source 
+packages using <code>pip</code>. To ensure this order of installs, Openseize's source
 code includes an environment configuration file (yml) that will build an
 openseize <code>conda</code> environment. Once built you can then use <code>pip</code> to install
 the openseize package into this environment. Here are the steps:</p>
 <ol>
 <li>
 <p>Download the openseize environment <a
-href=https://github.com/mscaudill/openseize/blob/master/environment.yml 
-target=_blank>configuration yaml</a> </p>
+href=https://github.com/mscaudill/openseize/blob/master/environment.yml
+target=_blank>configuration yaml</a></p>
 </li>
 <li>
 <p>Create a conda openseize environment.
@@ -1408,7 +1408,7 @@ target=_blank>configuration yaml</a> </p>
 and all development dependencies. Here are the steps:</p>
 <ol>
 <li>
-<p>Create a virtual environment </p>
+<p>Create a virtual environment</p>
 </li>
 <li>
 <p>Get the source code
@@ -1416,7 +1416,7 @@ and all development dependencies. Here are the steps:</p>
 </code></pre></div></p>
 </li>
 <li>
-<p>CD into the directory containing the pyproject.toml and create an 
+<p>CD into the directory containing the pyproject.toml and create an
 editable install with <code>pip</code>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$ pip install -e .[dev]
 </code></pre></div></p>
@@ -1435,7 +1435,7 @@ editable install with <code>pip</code>
   </tr>
 
 <tr>
-    <td><a href="https://requests.readthedocs.io/en/latest/" 
+    <td><a href="https://requests.readthedocs.io/en/latest/"
         target=_blank>requests</a></td>
     <td>https://pypi.org/project/requests/</td>
     <td align='center'><span>&#10003;</span></td>
@@ -1449,49 +1449,49 @@ editable install with <code>pip</code>
   </tr>
 
 <tr>
-    <td><a href="https://numpy.org/doc/stable/index.html#" 
+    <td><a href="https://numpy.org/doc/stable/index.html#"
         target=_blank>numpy</a></td>
     <td>https://pypi.org/project/numpy/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href="https://scipy.org/" 
+    <td><a href="https://scipy.org/"
         target=_blank>scipy</a></td>
     <td>https://pypi.org/project/scipy/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href="https://matplotlib.org/" 
+    <td><a href="https://matplotlib.org/"
         target=_blank>matplotlib</a></td>
     <td>https://pypi.org/project/matplotlib/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href="https://ipython.org/" 
+    <td><a href="https://ipython.org/"
         target=_blank>ipython</a></td>
     <td>https://pypi.org/project/ipython/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href=https://jupyter.org/ 
+    <td><a href=https://jupyter.org/
         target=_blank>notebook</a></td>
     <td>https://pypi.org/project/jupyter/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href=https://docs.pytest.org/ 
+    <td><a href=https://docs.pytest.org/
         target=_blank>pytest</a></td>
     <td>https://pypi.org/project/pytest/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href=https://psutil.readthedocs.io/en/latest/ 
+    <td><a href=https://psutil.readthedocs.io/en/latest/
         target=_blank>psutil</a></td>
     <td>https://pypi.org/project/psutil/</td>
     <td align='center'><span>&#10003;</span></td>
@@ -1502,7 +1502,7 @@ editable install with <code>pip</code>
 <hr>
 
 <h1 id="documentation">Documentation</h1>
-<p>Openseize documentation site has a <a href="https://mscaudill.github.io.openseize/quickstart/">quickstart guide</a>, <a href="https://mscaudill.github.io/openseize/tutorials/producers/">extensive tutorials</a> and <a href="https://mscaudill.github.io/openseize/producer/producer/">
+<p>Openseize documentation site has a <a href="https://mscaudill.github.io/openseize/quickstart/">quickstart guide</a>, <a href="https://mscaudill.github.io/openseize/tutorials/producers/">extensive tutorials</a> and <a href="https://mscaudill.github.io/openseize/producer/producer/">
 reference pages</a>
 for all publicly available modules, classes and functions.</p>
 <hr>
@@ -1511,7 +1511,7 @@ for all publicly available modules, classes and functions.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Citation to be added
 </code></pre></div>
 <p>And if you really like Openseize, you can star the <a
-href=https://github.com/mscaudill/openseize>repository</a> 
+href=https://github.com/mscaudill/openseize>repository</a>
 <span>&#11088;</span>!</p>
 <hr>
 
@@ -1525,13 +1525,13 @@ to get started.</p>
 <p>Openseize provides custom issue templates for filing bugs, requesting
 feature enhancements, suggesting documentation changes, or just asking
 questions. <em>Ready to discuss?</em> File an issue <a
-href=https://github.com/mscaudill/openseize/issues/new/choose>here</a>. </p>
+href=https://github.com/mscaudill/openseize/issues/new/choose>here</a>.</p>
 <h1 id="license">License</h1>
 <p>Openseize is licensed under the terms of the 3-Clause BSD License.</p>
 <hr>
 
 <h1 id="acknowledgements">Acknowledgements</h1>
-<p><strong>This work was generously supported through the Ting Tsung and Wei Fong Chao 
+<p><strong>This work was generously supported through the Ting Tsung and Wei Fong Chao
 Foundation.</strong></p>
 
 
