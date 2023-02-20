@@ -21,7 +21,7 @@ hide:
 <a href="#contributions">Contributions</a>   |  
 <a href="#issues">Issues</a>   |  
 <a href="#license">License</a> |
-<a href="#acknowledgements">Acknowledgements</a> 
+<a href="#acknowledgements">Acknowledgements</a>
 </p>
 
 <hr>
@@ -55,13 +55,13 @@ implementation.
 
 <font color='black'>
 <ul style="background-color:#DEF5E8;">
-  <li>Construct sequences of DSP steps that operate completely 'out-of-core' 
+  <li>Construct sequences of DSP steps that operate completely 'out-of-core'
   to process data too large to fit into memory.</li>
-  <li>DSP pipelines are constructed using a familiar Scipy-like API, so you 
+  <li>DSP pipelines are constructed using a familiar Scipy-like API, so you
   can start quickly without sweating the details.</li>
-  <li> Supports processing of data from multiple file types including the 
+  <li> Supports processing of data from multiple file types including the
   popular European Data Format (EDF).</li>
-  <li>Supports 'masking' to filter data sections by artifacts, behavioral 
+  <li>Supports 'masking' to filter data sections by artifacts, behavioral
   states or any externally measured signals or annotations.</li>
   <li> Effeciently process large data using the amount of memory <u>you</u>
   choose to use.</li>
@@ -77,23 +77,23 @@ implementation.
 
 # Installation
 
-For each installation guide below, we **strongly** recommend creating a 
-virtual environment. This environment will isolate external dependencies 
-that may conflict with packages you already have installed on your system. 
-Python comes installed with a virtual environment manager called `venv`. 
-Additionally, there are environment managers like `conda` that can check 
+For each installation guide below, we **strongly** recommend creating a
+virtual environment. This environment will isolate external dependencies
+that may conflict with packages you already have installed on your system.
+Python comes installed with a virtual environment manager called `venv`.
+Additionally, there are environment managers like `conda` that can check
 for package conflicts when the environment is created or updated. For more
 information please see:
 
 * <a href=https://realpython.com/python-virtual-environments-a-primer/
-   target=_blank>Python Virtual Enironments</a> 
-* <a 
-href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html target=_blank>Conda Enironments</a> 
+   target=_blank>Python Virtual Enironments</a>
+* <a
+href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html target=_blank>Conda Enironments</a>
 
 
 ### Python Virtual Environment
 
-1. Create your virtual environment, Here we name it `my_venv`. 
+1. Create your virtual environment, Here we name it `my_venv`.
 ```console
 $ python -m venv my_venv
 ```
@@ -111,19 +111,19 @@ $ source my_venv/bin/activate
 ### Conda
 
 The `conda` environment manager is more advanced than `venv`. When a `conda`
-environment are updated, `conda` *simultaneously* looks at all the packages 
+environment are updated, `conda` *simultaneously* looks at all the packages
 to be installed to reduce package conflicts. Having said that, `conda`
 and `pip`, the tool used to install from pypi, do not always work well
 together. The developers of `conda` recommend installing all possible
 packages from conda repositories before installing non-conda
-packages using `pip`. To ensure this order of installs, Openseize's source 
+packages using `pip`. To ensure this order of installs, Openseize's source
 code includes an environment configuration file (yml) that will build an
 openseize `conda` environment. Once built you can then use `pip` to install
 the openseize package into this environment. Here are the steps:
 
 1. Download the openseize environment <a
-href=https://github.com/mscaudill/openseize/blob/master/environment.yml 
-target=_blank>configuration yaml</a> 
+href=https://github.com/mscaudill/openseize/blob/master/environment.yml
+target=_blank>configuration yaml</a>
 
 
 2. Create a conda openseize environment.
@@ -146,14 +146,14 @@ $ conda activate openseize
 If you would like to develop Openseize further, you'll need the source code
 and all development dependencies. Here are the steps:
 
-1. Create a virtual environment 
+1. Create a virtual environment
 
 2. Get the source code
 ```
 $ git clone https://github.com/mscaudill/openseize.git
 ```
 
-3. CD into the directory containing the pyproject.toml and create an 
+3. CD into the directory containing the pyproject.toml and create an
 editable install with `pip`
 ```
 $ pip install -e .[dev]
@@ -174,7 +174,7 @@ Openseize requires <b>Python <span>&#8805;</span> 3.8</b> and has the following 
   </tr>
 
 <tr>
-    <td><a href="https://requests.readthedocs.io/en/latest/" 
+    <td><a href="https://requests.readthedocs.io/en/latest/"
         target=_blank>requests</a></td>
     <td>https://pypi.org/project/requests/</td>
     <td align='center'><span>&#10003;</span></td>
@@ -188,49 +188,49 @@ Openseize requires <b>Python <span>&#8805;</span> 3.8</b> and has the following 
   </tr>
 
 <tr>
-    <td><a href="https://numpy.org/doc/stable/index.html#" 
+    <td><a href="https://numpy.org/doc/stable/index.html#"
         target=_blank>numpy</a></td>
     <td>https://pypi.org/project/numpy/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href="https://scipy.org/" 
+    <td><a href="https://scipy.org/"
         target=_blank>scipy</a></td>
     <td>https://pypi.org/project/scipy/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href="https://matplotlib.org/" 
+    <td><a href="https://matplotlib.org/"
         target=_blank>matplotlib</a></td>
     <td>https://pypi.org/project/matplotlib/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href="https://ipython.org/" 
+    <td><a href="https://ipython.org/"
         target=_blank>ipython</a></td>
     <td>https://pypi.org/project/ipython/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href=https://jupyter.org/ 
+    <td><a href=https://jupyter.org/
         target=_blank>notebook</a></td>
     <td>https://pypi.org/project/jupyter/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href=https://docs.pytest.org/ 
+    <td><a href=https://docs.pytest.org/
         target=_blank>pytest</a></td>
     <td>https://pypi.org/project/pytest/</td>
     <td align='center'><span>&#10003;</span></td>
   </tr>
 
 <tr>
-    <td><a href=https://psutil.readthedocs.io/en/latest/ 
+    <td><a href=https://psutil.readthedocs.io/en/latest/
         target=_blank>psutil</a></td>
     <td>https://pypi.org/project/psutil/</td>
     <td align='center'><span>&#10003;</span></td>
@@ -243,7 +243,7 @@ Openseize requires <b>Python <span>&#8805;</span> 3.8</b> and has the following 
 # Documentation
 
 Openseize documentation site has a [quickstart guide](
-https://mscaudill.github.io.openseize/quickstart/), [extensive tutorials](
+https://mscaudill.github.io/openseize/quickstart/), [extensive tutorials](
 https://mscaudill.github.io/openseize/tutorials/producers/) and [
 reference pages](https://mscaudill.github.io/openseize/producer/producer/)
 for all publicly available modules, classes and functions.
@@ -257,7 +257,7 @@ Citation to be added
 ```
 
 And if you really like Openseize, you can star the <a
-href=https://github.com/mscaudill/openseize>repository</a> 
+href=https://github.com/mscaudill/openseize>repository</a>
 <span>&#11088;</span>!
 <hr>
 
@@ -274,7 +274,7 @@ to get started.
 Openseize provides custom issue templates for filing bugs, requesting
 feature enhancements, suggesting documentation changes, or just asking
 questions. *Ready to discuss?* File an issue <a
-href=https://github.com/mscaudill/openseize/issues/new/choose>here</a>. 
+href=https://github.com/mscaudill/openseize/issues/new/choose>here</a>.
 
 
 # License
@@ -284,8 +284,5 @@ Openseize is licensed under the terms of the 3-Clause BSD License.
 
 # Acknowledgements
 
-**This work was generously supported through the Ting Tsung and Wei Fong Chao 
+**This work was generously supported through the Ting Tsung and Wei Fong Chao
 Foundation.**
-
-
-
