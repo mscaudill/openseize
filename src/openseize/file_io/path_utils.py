@@ -2,108 +2,120 @@
 
 This module includes the following utilities:
 
-    - match: Regex matching of paths from two sequences of paths.
+    - re_match: Regex matching of paths from two sequences of paths.
     - mismatched: Locates paths from two sequences with mismatched path stems.
     - rename: In-place path renaming by substring search & replacement.
     - metadata: Path instance metadata extraction to a dictionary.
 """
 
-import os
 from pathlib import Path
-from pathlib import PosixPath
 import re
-from typing import List, Pattern, Sequence, Set, Tuple, Union
+from typing import Dict, List, Sequence, Set, Tuple, Union
 
 
-def match(files: Sequence[Path], others: Sequence[Path], pattern: Pattern 
+def re_match(paths: List[Path], others: List[Path], pattern: str
 )-> (List[Tuple[Path, Path]]):
-    """Matches 2 equal lengthed sequences of Path instances using a regex
-    pattern common to both.
+    r"""Matches 2 equal lengthed sequences of Path instances using a regex
+    pattern string common to both.
 
     Args:
-        files:
-            A sequence of path instances.
+        paths:
+            A list of path instances.
         others:
-            Another sequence of path instances.
+            Another list of path instances.
         pattern:
-            A regular expression pattern to match files with others by.
+            A regular expression pattern to match paths with others by.
 
     Returns:
-        A list of matched file tuples.
+        A list of matched path instance tuples.
 
     Raises:
-        ValueError if length of files does not match length of others or if
-        pattern is missing in any of files or others.
-        
+        ValueError if length of paths does not equal length of others or if
+        pattern is missing in any of paths or others or if a match can not be
+        found.
+
     Examples:
-        >>> files = [Path(x) for x in ['test_01_a.edf', 'test_02_b.edf']]
+        >>> paths = [Path(x) for x in ['test_01_a.edf', 'test_02_b.edf']]
         >>> others = [Path(x) for x in ['test_01.txt', 'test_02.txt']]
         >>> # match from the start looking for letters then '_' then nums
-        >>> match(files, others, '^\w+_\d+') # doctest: +NORMALIZE_WHITESPACE
-        [(PosixPath('test_01_a.edf'), PosixPath('test_01.txt')), 
+        >>> re_match(paths, others, '^\w+_\d+') # doctest: +NORMALIZE_WHITESPACE
+        [(PosixPath('test_01_a.edf'), PosixPath('test_01.txt')),
         (PosixPath('test_02_b.edf'), PosixPath('test_02.txt'))]
     """
 
-    # validate the number of passed files match
-    if len(files) != len(others):
-        msg = 'Number of paths in files and others must match: {} != {}'
-        raise ValueError(msg.format(len(files), len(others)))
+    # validate the number of passed paths match
+    if len(paths) != len(others):
+        msg = 'Number of paths in paths and others must match: {} != {}'
+        raise ValueError(msg.format(len(paths), len(others)))
 
-    # validate that the pattern exist in all passed files
-    if not all([re.search(pattern, str(x)) for x in files + others]):
-        msg = 'Pattern {} is missing from at least one file in files or others.'
-        raise ValueError(msg.format(pattern))
+    # validate that the pattern exist in all passed paths
+    missing = [str(fp) for fp in paths + others
+               if not re.search(pattern, str(fp))]
+    if missing:
+        msg = 'Pattern {} is missing in paths: {}'
+        raise ValueError(msg.format(pattern, missing))
 
     result = []
-    for fname in files:
-        matched = re.search(pattern, str(fname))
-        oname = [other for other in others if matched.group() in str(other)][0]
-        result.append((fname, oname))
+    for apath in paths:
+        matched = re.search(pattern, str(apath))
+        # missing guard ensures matched is not None (i.e. has group) for mypy
+        opath = [other for other in others
+                if matched.group() in str(other)] #type: ignore[union-attr]
+
+        if len(opath) != 1:
+            msg = ('The matches for path {} using pattern {} are {}. '
+                   'The number of matches must be exactly 1.')
+            msg = msg.format(str(apath), pattern, [str(x) for x in opath])
+            raise ValueError(msg)
+
+        result.append((apath, opath[0]))
 
     return result
 
 
-def mismatched(files: Sequence[Path], others: Sequence[Path]) -> Set[Path]:
-    """Identifies mismatched Path stems between files and others.
+def mismatched(paths: Sequence[Path], others: Sequence[Path]) -> Set[str]:
+    """Identifies mismatched Path stems between paths and others.
 
     Args:
-        files:
+        paths:
             A sequence of Path instances.
         others:
             Another sequence of Path instances.
-    
+
     Returns:
-        A set of stems from files that have no match in others.
+        A set of stems that have no matches in either paths or others.
 
     Examples:
-        >>> files = [Path(x) for x in ['test_01.edf', 'test_02_b.edf']]
+        >>> paths = [Path(x) for x in ['test_01.edf', 'test_02_b.edf']]
         >>> others = [Path(x) for x in ['test_01.txt', 'test_02.text']]
         >>> # find mismatches
-        >>> sorted(list(mismatched(files, others)))
+        >>> sorted(list(mismatched(paths, others)))
         ['test_02', 'test_02_b']
     """
 
-    file_stems = set(fp.stem for fp in files)
+    stems = set(fp.stem for fp in paths)
     other_stems = set(op.stem for op in others)
-    return file_stems.symmetric_difference(other_stems)
+    return stems.symmetric_difference(other_stems)
 
 
-def rename(files: Sequence[Path], substring: str, replacement: str):
-    """Renames each file in files by replacing substring in file name with
+def rename(paths: Sequence[Path], substring: str, replacement: str):
+    """Renames each filepath in paths by replacing substring in file name with
     replacement.
 
+    Note: This function renames the file in-place (no copy).
+
     Args:
-        files: 
+        paths:
             A sequence of Path instances.
         substr:
-            A substring in each file to be replaced.
+            A substring in each path name to be replaced.
         replacement:
             A string to substitute in-place of substr.
 
     Returns: None
 
     Raises:
-        FileNotFoundError if any file in files does not exist.
+        FileNotFoundError if any filepath in paths does not exist.
 
     Examples:
         >>> import tempfile
@@ -119,24 +131,24 @@ def rename(files: Sequence[Path], substring: str, replacement: str):
         ['demo_1.edf', 'demo_2.edf']
     """
 
-    for fp in files:
-        if substring in str(fp):
-            target = Path(str(fp).replace(substring, replacement))
-            fp.rename(target)
+    for file_path in paths:
+        if substring in str(file_path):
+            target = Path(str(file_path).replace(substring, replacement))
+            file_path.rename(target)
 
 
-def metadata(path: Union[Path, str], strict: bool = True, **patterns: Pattern):
-    """Converts a path into a dictionary of metadata.
+def metadata(path: Union[Path, str], **patterns: str,
+) -> Dict:
+    r"""Converts a path into a dictionary of metadata.
 
     Args:
-        path: 
+        path:
             A string or Path instance to extract metadata from.
-        strict:
-            If True, this function will raise a ValueError if the pattern search
-            is None else it will silently ignore the pattern.
         **patterns:
             A collection of named regex expression patterns used to search path
-            and store matches.
+            and store matches. This pattern's value must contain one and only one
+            regex group within the pattern e.g. cohort = 'cohort_(\d+)' where
+            (\d+) group is the value to extract for the cohort named pattern.
 
     Returns:
         A dictionary of metadata.
@@ -146,45 +158,21 @@ def metadata(path: Union[Path, str], strict: bool = True, **patterns: Pattern):
         >>> print(metadata(path, group='Group_(\w)', cohort='cohort_(\d)',
         ... mouse='m_(\d)'))
         {'group': 'A', 'cohort': '1', 'mouse': '3'}
+
+    Notes:
+        Named patterns missing from path will NOT raise an error but be skipped.
     """
-    
-    # TODO we need a note here that we only look for group 1 so regex must use
-    # groups
 
     fname = str(path)
 
-    result = dict()
+    result = {}
     for name, pattern in patterns.items():
 
         match = re.search(pattern, fname)
         if not match:
+            # skip missing patterns
             continue
-        
-        else:
-            result[name] = match.group(1)
-    
+
+        result[name] = match.group(1)
+
     return result
-
-
-
-
-    
-
-
-
-
-
-if __name__ == '__main__':
-
-    files = [Path(x) for x in ['test_01_a.edf', 'test_02_b.edf']]
-    others = [Path(x) for x in ['test_01.txt', 'test_02.text']]
-    # match from the start looking for letters then '_' then nums
-    results = match(files, others, pattern='^\w+_\d+')
-
-    #results = mismatched(files, others)
-
-    #rename(files, 'test', 'demo')
-
-    #fp = Path('Group_A_cohort_v_m_3')
-    #meta = as_metadata(fp, group='Group_(\w)', cohort='cohort_(\w)', mouse='m_(\d)')
-
