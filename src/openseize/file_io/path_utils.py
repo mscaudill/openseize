@@ -14,7 +14,7 @@ from typing import Dict, List, Sequence, Set, Tuple, Union
 
 
 def re_match(paths: List[Path], others: List[Path], pattern: str
-)-> (List[Tuple[Path, Path]]):
+) -> List[Tuple[Path, Path]]:
     r"""Matches 2 equal lengthed sequences of Path instances using a regex
     pattern string common to both.
 
