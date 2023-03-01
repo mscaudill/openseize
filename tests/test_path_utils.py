@@ -1,10 +1,11 @@
 """A module for testing Openseize's path utilities,
 
 Typical usage example:
-    !pytest test_path_utils.py::<TEST_NAME>
+    !pytest -rA test_path_utils.py::<TEST_NAME>
 """
 
 import re
+import tempfile
 import pytest
 from openseize.file_io import path_utils
 
@@ -124,8 +125,8 @@ def test_re_match_multimatches(matched_paths):
     paths, others = matched_paths
 
     with pytest.raises(ValueError) as e:
-        # go to first underscore from start -- not enough to resolve
-        path_utils.re_match(paths, others, pattern=r'^\w+_')
+        # go to through mouse part of name-- not enough to resolve
+        path_utils.re_match(paths, others, pattern=r'[A-Z_a-z]+')
     
     print(e.value)
 
@@ -139,4 +140,52 @@ def test_mismatched(unmatched_stems):
     assert result == set([paths[0].stem, others[0].stem])
 
 
+def test_rename(matched_paths):
+    """Creates paths in a temporary dir, renames them in-place and then verifies
+    the new names match the expected renamed paths."""
 
+    paths, others = matched_paths
+    all_paths = paths + others
+
+    # make a temp dir holding matched paths
+    tempdir = tempfile.mkdtemp()
+    # create the files in tempdir
+    paths = [Path(tempdir).joinpath(path) for path in all_paths]
+    x = [path.touch() for path in paths]
+    # rename the 'mouse' substring to 'subject'
+    path_utils.rename(paths, 'mouse', 'subject')
+    # read the renamed paths
+    renamed = list(Path(tempdir).glob('*.*'))
+    print('renamed paths', renamed)
+    # assert that the mouse group has been changed to 'subject'
+    tokens = [re.search(r'[a-z]+', str(path.stem)).group() for path in renamed]
+    assert all([token == 'subject' for token in tokens])
+
+
+def test_metadata(matched_paths):
+    """Test if metadata returns the correct metadata dict from a path
+    instance."""
+
+    paths, others = matched_paths
+
+    # get user, cohort and trial for first path
+    fp = paths[0]
+    result = path_utils.metadata(fp, user=r'([A-Z]+)', 
+                                 cohort=r'cohort_([a-z]+)',
+                                 trial=r'trial_(\d+)')
+    assert result == {'user': 'MSC', 'cohort': 'a', 'trial': '9'}
+
+
+def test_metadata_missing(matched_paths):
+    """Test that metadata skips over missing patterns."""
+
+    paths, others = matched_paths
+
+    # get user, cohort and trial for first path
+    fp = paths[0]
+    result = path_utils.metadata(fp, user=r'([A-Z]+)', 
+                                 cohort=r'cohort_([a-z]+)',
+                                 trial=r'trial_(\d+)', 
+                                 group=r'^\d+')
+
+    assert result == {'user': 'MSC', 'cohort': 'a', 'trial': '9'}
