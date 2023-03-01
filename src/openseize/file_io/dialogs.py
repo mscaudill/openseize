@@ -3,6 +3,9 @@ import tkinter.filedialog as tkdialogs
 import tkinter.messagebox as tkmsgbox
 import re
 from pathlib import Path
+from collections import defaultdict
+from openseize.file_io.path_utils import re_match
+from typing import List, Tuple
 
 
 def root_deco(dialog):
@@ -53,6 +56,70 @@ def message(kind, **options):
     """
 
     return getattr(tkmsgbox, kind)(**options)
+
+
+def matching(kind: str, pattern: str, **options) -> List[Tuple[Path, Path]]:
+    r"""A dialog that regex pattern matches files with different suffixes
+    residing in a single directory or are selected with 2 file dialogs.
+
+    Args:
+        kind:
+            A tkinter dialog string name; must be 'askdirectory' or
+            'askopenfilenames'. If askdirectory, the files to be matched are
+            assumed to be in the selected directory. If askopenfilenames, the
+            user will use two dialogs to select the files to match.
+        pattern:
+            A regular expression pattern raw string used to perform match.
+        **options:
+            - initialdir (str):     The dir to begin path selection. Default is
+                                    current dir.
+            - filetypes (list):     sequence of (label, pattern tuples). The '*'
+                                    wildcard allowed. This option is only valid
+                                    if kind is 'askopenfilenames'.
+
+    Returns:
+        A list of matched path instance tuples.
+
+    Examples:
+        >>> import tempfile
+        >>> # make a temp dir containing 2 .edf & 2 .txt files
+        >>> tempdir = tempfile.mkdtemp()
+        >>> print(tempdir)
+        >>> paths = [Path(tempdir).joinpath(x) 
+        ... for x in ['eeg_1.edf', 'eeg_2.edf']]
+        >>> others = [Path(tempdir).joinpath(x)
+        ... for x in ['annotation_1.txt', 'annotation_2.txt']]
+        >>> x = [path.touch() for path in paths+others]
+        >>> # match the files stored in the dir
+        >>> result = matching('askdirectory', r'\d+')
+    """
+
+    if kind == 'askdirectory':
+        # separate file paths in dir by suffix
+        dirpath = standard(kind, **options)
+        filepaths = dirpath.glob('*.*')
+        sorted_paths = defaultdict(list)
+        for path in filepaths:
+            sorted_paths[path.suffix].append(path)
+        
+        result = list(sorted_paths.values())
+        
+    elif kind == 'askopenfilenames':
+        # open two dialogs to user select files to match
+        paths = standard(kind, title='Select File Set 1', **options)
+        others = standard(kind, title='Select File Set 2', **options)
+        
+        result = [paths, others]
+
+    else:
+        msg = "matching dialog requires a dialog with name '{}' or '{}'"
+        raise TypeError(msg.format('askdirectory', 'askopenfilenames'))
+
+    return re_match(*result, pattern)
+
+
+
+    
 
 
 def matching_dialog(titles=['', ''], regex=None, initialdir=None):
@@ -237,3 +304,11 @@ class _Matcher:
             results.append(tup)
 
         return results
+
+
+if __name__ == '__main__':
+
+    #result = matching('askopenfilenames', r'\d+_\w+\s\w')
+    result = matching('askdirectory', r'\d+_\w+\s\w')
+
+    
