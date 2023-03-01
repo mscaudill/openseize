@@ -38,7 +38,7 @@ def re_match(paths: List[Path], others: List[Path], pattern: str
         >>> paths = [Path(x) for x in ['test_01_a.edf', 'test_02_b.edf']]
         >>> others = [Path(x) for x in ['test_01.txt', 'test_02.txt']]
         >>> # match from the start looking for letters then '_' then nums
-        >>> re_match(paths, others, '^\w+_\d+') # doctest: +NORMALIZE_WHITESPACE
+        >>> re_match(paths, others, r'\w+_\d+') # doctest: +NORMALIZE_WHITESPACE
         [(PosixPath('test_01_a.edf'), PosixPath('test_01.txt')),
         (PosixPath('test_02_b.edf'), PosixPath('test_02.txt'))]
     """
@@ -155,8 +155,8 @@ def metadata(path: Union[Path, str], **patterns: str,
 
     Examples:
         >>> path = 'Group_A_cohort_1_m_3.edf'
-        >>> print(metadata(path, group='Group_(\w)', cohort='cohort_(\d)',
-        ... mouse='m_(\d)'))
+        >>> print(metadata(path, group=r'Group_(\w)', cohort=r'cohort_(\d)',
+        ... mouse=r'm_(\d)'))
         {'group': 'A', 'cohort': '1', 'mouse': '3'}
 
     Notes:
