@@ -16,7 +16,7 @@ from typing import Dict, List, Sequence, Set, Tuple, Union
 def re_match(paths: List[Path], others: List[Path], pattern: str
 ) -> List[Tuple[Path, Path]]:
     r"""Matches 2 equal lengthed sequences of Path instances using a regex
-    pattern string common to both.
+    pattern string common to the Path stems of both.
 
     Args:
         paths:
@@ -24,15 +24,14 @@ def re_match(paths: List[Path], others: List[Path], pattern: str
         others:
             Another list of path instances.
         pattern:
-            A regular expression pattern to match paths with others by.
+            A regex pattern to match path stems with other stems by.
 
     Returns:
         A list of matched path instance tuples.
 
     Raises:
         ValueError if length of paths does not equal length of others or if
-        pattern is missing in any of paths or others or if a match can not be
-        found.
+        pattern is missing in any stem or if a match can not be found.
 
     Examples:
         >>> paths = [Path(x) for x in ['test_01_a.edf', 'test_02_b.edf']]
@@ -48,24 +47,24 @@ def re_match(paths: List[Path], others: List[Path], pattern: str
         msg = 'Number of paths in paths and others must match: {} != {}'
         raise ValueError(msg.format(len(paths), len(others)))
 
-    # validate that the pattern exist in all passed paths
-    missing = [str(fp) for fp in paths + others
-               if not re.search(pattern, str(fp))]
+    # validate that the pattern exist in all passed path stems
+    missing = [fp.stem for fp in paths + others
+               if not re.search(pattern, fp.stem)]
     if missing:
-        msg = 'Pattern {} is missing in paths: {}'
+        msg = 'Pattern {} is missing in path stems: {}'
         raise ValueError(msg.format(pattern, missing))
 
     result = []
     for apath in paths:
-        matched = re.search(pattern, str(apath))
+        matched = re.search(pattern, apath.stem)
         # missing guard ensures matched is not None (i.e. has group) for mypy
         opath = [other for other in others
-                if matched.group() in str(other)] #type: ignore[union-attr]
+                if matched.group() in other.stem] #type: ignore[union-attr]
 
         if len(opath) != 1:
             msg = ('The matches for path {} using pattern {} are {}. '
                    'The number of matches must be exactly 1.')
-            msg = msg.format(str(apath), pattern, [str(x) for x in opath])
+            msg = msg.format(str(apath), pattern, [x.stem for x in opath])
             raise ValueError(msg)
 
         result.append((apath, opath[0]))
