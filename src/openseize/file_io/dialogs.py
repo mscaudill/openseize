@@ -3,13 +3,12 @@
 This module contains the following functions
 ```
     standard:
-        A unified dialog that can open any tkinter dialog by name and gracefully
-        destroys itself on successful exit or can be manually closed on error.
+        A unified tkinter filedialog that gracefully destroys itself when
+        a selection is complete or the window is closed.
 
     message:
-        A unified message box that can open any tkinter messagebox by name and
-        gracefully destroys itself on successful exit or can be manually closed
-        on error.
+        A unified tkinter messagebox that gracefully destroys itself when the
+        window is closed.
 
     matching:
         A dialog that uses regex patterns to match file stems of two sets of
@@ -51,13 +50,13 @@ def standard(kind: str, **options: str) -> Union[Path, List[Path]]:
         kind:
             Name of a tkinter file dialog.
         options:
-            title (str):            title of the dialog window
-            initialdir (str):       dir dialog starts in
-            initialfile (str):      file selected on dialog open
-            filetypes (seq):        sequence of (label, pattern tuples) '*'
+            - title (str):            title of the dialog window
+            - initialdir (str):       dir dialog starts in
+            - initialfile (str):      file selected on dialog open
+            - filetypes (seq):        sequence of (label, pattern tuples) '*'
                                     with wildcard allowed
-            defaultextension (str): default ext to append during save dialogs
-            multiple (bool):        when True multiple selection enabled
+            - defaultextension (str): default ext to append during save dialogs
+            - multiple (bool):        when True multiple selection enabled
 
     Returns:
         A Path instance or list of Path instances.
