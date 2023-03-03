@@ -29,7 +29,7 @@
     alt="Openseize's test status" />
   </a>
  <a href="https://github.com/mscaudill/openseize/pulls"><img 
-    src="https://img.shields.io/badge/PRs-welcome-pink"
+    src="https://img.shields.io/badge/PRs-welcome-F8A3A3"
     alt="Pull Request Welcomed!" />
   </a>
  <a href=""><img 
