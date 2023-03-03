@@ -98,4 +98,10 @@ attr-naming-style = "any"
 
 [tool.isort]
 profile = 'google'
-line_length = 76
+line_length = 80
+
+[tool.codespell]
+skip = '*.edf,*.json,*.txt,*.npy,*.ipynb'
+before-context = 3
+after-context = 3
+quiet-level = 3

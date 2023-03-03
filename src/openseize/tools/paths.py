@@ -34,7 +34,7 @@ class MetaData(dict):
             value to match in path (like 'side'). If both match only the
             first occurrence is stored. If kwarg is a single regex 
             (like '\d+') we search for first occurrence of the regex. If 
-            parantheses are used (like 'group'), this means search for the
+            parentheses are used (like 'group'), this means search for the
             entire pattern but only keep what is inside. For example here 
             we used parenthesis to differentiate the group (a) from 
             genotype (a) by including the surrounding context 'group_(<>)' or

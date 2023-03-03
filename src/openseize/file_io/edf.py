@@ -425,7 +425,7 @@ class Reader(bases.Reader):
         stop samples for each channel in channels.
 
         Notes:
-            The number of samples for each chanel will be different if the
+            The number of samples for each channel will be different if the
             sample rates are unequal. Thus, this method returns a first and
             last record number for each channel.
 
@@ -449,7 +449,7 @@ class Reader(bases.Reader):
     def _records(self, a: int, b: int):
         """Reads samples in the ath to bth record.
 
-        If b exceeds the number of records in the EDF, then samples upto the
+        If b exceeds the number of records in the EDF, then samples up to the
         end of file are returned. If a exceeds the number of records, an
         empty array is returned.
 
@@ -490,7 +490,7 @@ class Reader(bases.Reader):
             arrs:
                 A ragged sequence of 1-D arrays to combine.
             value:
-                Padding value used to lenghten 1-D arrays.
+                Padding value used to lengthen 1-D arrays.
             axis:
                 The axis along which to stack the padded 1-D arrays.
 
@@ -611,7 +611,7 @@ class Writer(bases.Writer):
     """
 
     def __init__(self, path: Union[str, Path]) -> None:
-        """Initialize this Writer. See base class for futher details."""
+        """Initialize this Writer. See base class for further details."""
 
         super().__init__(path, mode='wb')
 
@@ -774,7 +774,7 @@ def splitter(path: Path,
              mapping: Dict,
              outdir: Optional[Union[str, Path]] = None,
 ) -> None:
-    """Creates seperate EDFs from a multichannel EDF.
+    """Creates separate EDFs from a multichannel EDF.
 
     This tool is useful for partitioning an EDF with channels from different
     subjects into multiple single subject EDFs. The original 'unsplit' EDF

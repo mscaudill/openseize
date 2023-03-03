@@ -191,7 +191,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """On context exit, close this reader's file object and propogate
+        """On context exit, close this reader's file object and propagate
         errors by returning None."""
 
         self.close()

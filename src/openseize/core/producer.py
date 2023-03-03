@@ -155,7 +155,7 @@ def as_producer(func):
 
     # only decorate generator functions
     if not inspect.isgeneratorfunction(func):
-        msg = 'as_producer requries a generating function not {}'
+        msg = 'as_producer requires a generating function not {}'
         raise TypeError(msg.format(type(func)))
 
     @functools.wraps(func)

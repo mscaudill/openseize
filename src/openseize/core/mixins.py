@@ -28,7 +28,7 @@ class ViewInstance:
         """Returns non_protected properties."""
 
         def isproperty(item):
-            """Helper returing True if item is a property."""
+            """Helper returning True if item is a property."""
 
             return isinstance(item, property)
 

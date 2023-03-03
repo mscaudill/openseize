@@ -19,6 +19,8 @@ dependencies:
     # pypi packages
     - pip
     - pip:
+        # spell checking
+        - codespell 
         # versioning
         - bumpver
         # doc builders

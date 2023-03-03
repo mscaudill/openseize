@@ -90,7 +90,7 @@ def psd(data: Union[npt.NDArray[np.float64], Producer],
             before computing the periodogram of that segment. For a full
             list of windows see scipy.signal.windows.
         overlap:
-            A percentage in [0, 1) of the data segement overlap . If 0 this
+            A percentage in [0, 1) of the data segment overlap . If 0 this
             estimate is equivalent to Bartletts method (2).
         detrend:
             A string indicating whether to subtract the mean ('constant') or
@@ -133,7 +133,7 @@ def psd(data: Union[npt.NDArray[np.float64], Producer],
     - (2) M.S. Bartlett, "Periodogram Analysis and Continuous
         Spectra", Biometrika, vol. 37, pp. 1-16, 1950.
 
-    - (3) B. Porat, "A Course In Digitial Signal Processing" Chapters
+    - (3) B. Porat, "A Course In Digital Signal Processing" Chapters
         4 & 13. Wiley and Sons 1997.
     """
 
@@ -182,7 +182,7 @@ def stft(data: Union[npt.NDArray[np.float64], Producer],
     segment. This results in a sequence of complex values containing the
     frequency and phase content in each segment. These segments are then
     concatenated to create an estimate of the frequency content as
-    a function of time X(frequncy, time). This is the STFT estimate.
+    a function of time X(frequency, time). This is the STFT estimate.
 
     Args:
         data:
@@ -202,7 +202,7 @@ def stft(data: Union[npt.NDArray[np.float64], Producer],
             segment before computing the modified DFT of that segment. For
             a full list of windows see scipy.signal.windows.
         overlap:
-            A percentage in [0, 1) of the data segement that should overlap
+            A percentage in [0, 1) of the data segment that should overlap
             with the next data segment. If 0 this estimate is equivalent to
             Bartletts method (2).
         detrend:
@@ -218,7 +218,7 @@ def stft(data: Union[npt.NDArray[np.float64], Producer],
             A boolean indicating if data should be padded along axis at both
             ends with nfft//2 zeros. Here nfft is the number of dft points
             in a segment (fs/resolution). If True, the endpts of the signal
-            will recieve the same window weight as all other points allowing
+            will receive the same window weight as all other points allowing
             for accurate reconstruction of the signal from the stft estimate
             through inversion (istft not implemented).
         padded:
@@ -230,7 +230,7 @@ def stft(data: Union[npt.NDArray[np.float64], Producer],
         asarray:
             A boolean indicating if the estimator should attempt to return
             the result as an ndarry. If False the returned result will be
-            a producer that produces segements of the STFT estimate.
+            a producer that produces segments of the STFT estimate.
 
     Notes:
         Scipy allows for non-zero boundary padding. Since zero extension has
@@ -264,7 +264,7 @@ def stft(data: Union[npt.NDArray[np.float64], Producer],
 
     - (1) Oppenheim, Alan V., Ronald W. Schafer, John R. Buck
       “Discrete-Time Signal Processing”, Prentice Hall, 1999.
-    - (2) B. Porat, "A Course In Digitial Signal Processing" Chapters
+    - (2) B. Porat, "A Course In Digital Signal Processing" Chapters
       4 & 13. Wiley and Sons 1997.
     """
 

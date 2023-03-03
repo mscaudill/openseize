@@ -251,7 +251,7 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
             arr = fifo.get()
             z = _cconvolve(arr, H, nfft, wlen, axis)
             
-            #split segement & next overlap
+            #split segment & next overlap
             y, new_overlap = split_along_axis(z, step, axis=axis)
 
             # add previous overlap & update overlap
@@ -342,7 +342,7 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
              chunksize along axis
 
     Notes: 
-        1. This iterative algorithm is not nearly as effecient as working on
+        1. This iterative algorithm is not nearly as efficient as working on
            the full array. For each forward/backward filtered sub arr in
            producer we must perform a forward/backward filter of two
            subarrs in producer. This gives us the correct initial conditions
@@ -382,7 +382,7 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
 
             b = next(b_gen)
             # for reverse filter, use final delay values from flipped
-            # advanced 'b' arr as inital values for current flipped arr. 
+            # advanced 'b' arr as initial values for current flipped arr. 
             bflipped = np.flip(b, axis=axis)
             b_0 = slice_along_axis(bflipped, 0, 1, axis=axis)
             _, zf = sps.sosfilt(sos, bflipped, axis=axis, zi=zi*b_0)
@@ -415,7 +415,7 @@ def lfilter(pro, coeffs, axis, zi=None):
             The axis along which to apply the filter in chunksize batches
         zi: ndarray
            The initial output values of the filtered data. If None
-           (default), the iniitial values are zeros. Please see scipy
+           (default), the initial values are zeros. Please see scipy
            signal lfilter for more details.
     
     Returns: A producer of filtered values of len chunksize along axis.    
@@ -452,7 +452,7 @@ def filtfilt(pro, coeffs, axis, **kwargs):
     Returns: A producer of filtered values of len chunksize along axis.
 
     Notes:
-        1. This iterative algorithm is not nearly as effecient as working on
+        1. This iterative algorithm is not nearly as efficient as working on
            the full array. For each forward/backward filtered sub arr in
            producer we must perform a forward/backward filter of two
            subarrs in producer. This gives us the correct initial conditions
@@ -655,7 +655,7 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
             V**2 / Hz.
 
     Returns:
-        A 1-D array of length nfft//2 + 1 of postive frequencies at which
+        A 1-D array of length nfft//2 + 1 of positive frequencies at which
         the DFT was computed.
 
         An ndarray of DFT the same shape as array except along axis which
@@ -744,7 +744,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
             density estimate.
             
     Returns:
-        A 1-D array of length NFFT/2 of postive frequencies at which the 
+        A 1-D array of length NFFT/2 of positive frequencies at which the 
         estimate was computed.
 
         An ndarray of power spectral (density) estimates the same shape as
@@ -860,7 +860,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
             segment before computing the periodogram of that segment. For
             a full list of windows see scipy.signal.windows.
         overlap: float
-            A percentage in [0, 1) of the data segement that should overlap
+            A percentage in [0, 1) of the data segment that should overlap
             with the next data segment. If 0 this estimate is equivalent to
             Bartletts method (2)
         axis: int
@@ -876,7 +876,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
             V**2 / Hz.
 
     Returns:
-        A tuple containing a 1-D array of frequencies of lenght nfft//2 + 1
+        A tuple containing a 1-D array of frequencies of length nfft//2 + 1
         and a producer of PS(D) estimates for each overlapped segment.
 
     Notes:
@@ -884,7 +884,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         to be different. This allows for interpolation of frequencies. Given
         that EEG data typically has many samples, openseize locks the
         segment length to the nfft amount (i.e. no interpolation). Finer
-        resolutions of the estimate will require longer data segements.
+        resolutions of the estimate will require longer data segments.
 
         Scipy welch drops the last segment of data if the number of points in 
         the segment is less than nfft. Openseize welch follows the same 
@@ -903,7 +903,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         (2) M.S. Bartlett, "Periodogram Analysis and Continuous Spectra", 
         Biometrika, vol. 37, pp. 1-16, 1950.
 
-        (3) B. Porat, "A Course In Digitial Signal Processing" Chapters 4 &
+        (3) B. Porat, "A Course In Digital Signal Processing" Chapters 4 &
         13. Wiley and Sons 1997.
     """
 
@@ -948,7 +948,7 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
             segment before computing the periodogram of that segment. For
             a full list of windows see scipy.signal.windows.
         overlap: float
-            A percentage in [0, 1) of the data segement that should overlap
+            A percentage in [0, 1) of the data segment that should overlap
             with the next data segment. In order for the STFT to be
             invertible. The overlap amount needs to equally weight all
             samples in pro. This is called the "constant overlap-add" COLA
@@ -994,7 +994,7 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
         to be different. This allows for interpolation of frequencies. Given
         that EEG data typically has many samples, openseize locks the
         segment length to the nfft amount (i.e. no interpolation). Finer
-        resolutions of the estimate will require longer data segements.
+        resolutions of the estimate will require longer data segments.
 
         Openseize assumes the produced data is real-valued. This is
         appropriate for all EEG data. If you are calling this method on
@@ -1006,7 +1006,7 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
         Analysis : Guide to Biomedical and Electrical Engineering 
         Applications. 3rd ed.
 
-        (2) B. Porat, "A Course In Digitial Signal Processing" Chapters 4 &
+        (2) B. Porat, "A Course In Digital Signal Processing" Chapters 4 &
         13. Wiley and Sons 1997.
     """
 

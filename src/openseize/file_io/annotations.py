@@ -89,7 +89,7 @@ class Pinnacle(Annotations):
             start:
                 The row number of the column headers in the file.
             delimiter:
-                The string character seperating columns in the file.
+                The string character separating columns in the file.
             **kwargs:
                 Any valid keyword argument for CSV.DictReader builtin.
 
@@ -139,7 +139,7 @@ def as_mask(annotations: Sequence[Annotation],
     """Creates a boolean mask from a sequence of annotation dataclass
     instances..
 
-    Producers of EEG data may recieve an optional boolean array mask.  This
+    Producers of EEG data may receive an optional boolean array mask.  This
     function creates a boolean mask from a sequence of annotations and is
     therefore useful for filtering EEG data by annotation label during
     processing.
@@ -166,7 +166,7 @@ def as_mask(annotations: Sequence[Annotation],
         >>> from openseize.demos import paths
         >>> filepath = paths.locate('annotations_001.txt')
         >>> from openseize.io.annotations import Pinnacle
-        >>> # read the 'rest' anotations
+        >>> # read the 'rest' annotations
         >>> with Pinnacle(filepath, start=6) as pinnacle:
         >>>     annotations = pinnacle.read(labels=['rest'])
         >>> # create a mask measuring 3700 secs at 5000 Hz

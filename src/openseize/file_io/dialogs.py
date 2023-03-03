@@ -76,7 +76,7 @@ def message(kind: str, **options: str):
         kind:
             Name of a tkinter messagebox (eg. 'askyesno')
         options:
-            Any valid otion for the message box except for 'parent'.
+            Any valid option for the message box except for 'parent'.
 
     Returns:
         A subset of (True, False, OK, None, Yes, No).
@@ -92,7 +92,7 @@ def matching(pattern: str, kind: Optional[str] = None,
 ) -> List[Tuple[Path, Path]]:
     r"""A dialog that regex pattern matches Path stems of two sets of files.
 
-    This dialog can match two sets of files from two seperate dialogs or
+    This dialog can match two sets of files from two separate dialogs or
     match two sets of files contained in a single directory specified by
     a single dialog or a manually supplied directory path.
 
@@ -105,7 +105,7 @@ def matching(pattern: str, kind: Optional[str] = None,
             in a single dir. If None a dirpath must be supplied.
         dirpath:
             A optional path to a directory. If given, kind argument is ignored
-            and no dialogs are opened. It is assummed that all paths to match
+            and no dialogs are opened. It is assumed that all paths to match
             are in the given dir.
         **options:
             - initialdir (str):     The dir to begin path selection. Default is

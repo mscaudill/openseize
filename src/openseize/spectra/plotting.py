@@ -129,7 +129,7 @@ class STFTViewer:
         # initialize viewer to display all frequencies
         self.limits = (freqs[0], freqs[-1])
 
-        # intialize a configured figure to contain this viewer
+        # initialize a configured figure to contain this viewer
         self.init_figure(figsize)
 
         # add a configured widgets to this viewers figure

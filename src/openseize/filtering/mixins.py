@@ -155,7 +155,7 @@ class Viewer:
                 The number of frequencies to compute the gain and phase
                 responses over. Default is 2048 frequencies.
             rope: float
-                For plotting, all values below this region of pratical
+                For plotting, all values below this region of practical
                 equivalence will be set to this value. Default is -100
                 dB. Any filter response smaller than this will be set to
                 -100 for plotting.
@@ -245,7 +245,7 @@ class IIRViewer(Viewer):
                 The number of frequencies in [0, Nyquist) to evaluate
                 response over.
             rope: float
-                For plotting, all values below this region of pratical
+                For plotting, all values below this region of practical
                 equivalence will be set to this value. E.g if rope = -100
                 dB. Any filter response smaller than this will be set to
                 -100 for plotting.
@@ -294,7 +294,7 @@ class FIRViewer(Viewer):
                 The number of frequencies in [0, Nyquist) to evaluate
                 response over.
             rope: float
-                For plotting, all values below this region of pratical
+                For plotting, all values below this region of practical
                 equivalence will be set to this value. E.g if rope = -100
                 dB. Any filter response smaller than this will be set to
                 -100 for plotting.

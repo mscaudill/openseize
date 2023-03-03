@@ -71,7 +71,7 @@ def expand_along_axis(arr, l, value=0, axis=-1):
     Args:
         arr (ndarray):              an ndarray to expand
         l (int):                    the expansion factor. l-1 replicates of
-                                    value will be inserted betwee samples
+                                    value will be inserted between samples
         value (float):              value to insert between samples
         axis (int):                 axis along which to expand
 
@@ -132,7 +132,7 @@ def filter1D(size, indices):
     >>> p = filter1D(60, [1,5,8])
     >>> q = filter1D(60, [[2,3,4], [7,11, 21, 22]])
 
-    Returns: 1-D array of False values everwhere except indices
+    Returns: 1-D array of False values everywhere except indices
 
     # TODO: In future this will support ndarray filtering
     """

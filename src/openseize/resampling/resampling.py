@@ -5,7 +5,7 @@ This module contains the following functions:
 
 **downsample:**
 A function that downsamples an array or producer of arrays by an
-integer decimation factor in conjuction with an antialiasing filter.
+integer decimation factor in conjunction with an antialiasing filter.
 
 Examples:
     >>> # Get demo data and build a reader then a producer
@@ -25,7 +25,7 @@ Examples:
 ___
 **upsample:**
 A function that upsamples an array or producer of arrays by an
-integer expansion factor in conjuction with an interpolation filter.
+integer expansion factor in conjunction with an interpolation filter.
 
 Examples:
     >>> # use previous downsampled array x and upsample by 3

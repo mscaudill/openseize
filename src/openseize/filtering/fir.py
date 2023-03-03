@@ -488,7 +488,7 @@ class Remez(FIR):
 
     Attributes:
         bands (Sequence):
-            A monitonically increaing sequence of pass and stop band edge
+            A monitonically increasing sequence of pass and stop band edge
             frequencies that must include 0 and the nyquist frequencies.
         desired (Sequence):
             A sequence of desired gains in each band of bands.
@@ -504,7 +504,7 @@ class Remez(FIR):
             - numtaps (int):
                 The number of taps used to construct this filter. This
                 overrides Remez's internal numtaps property.
-            - weight (Sequnce):
+            - weight (Sequence):
                 A sequence the same length as desired with weights to
                 relatively weight each band. If no value is passed
                 the weights are the inverse of the percentage loss and
@@ -569,7 +569,7 @@ class Remez(FIR):
                 - numtaps (int):
                     The number of taps used to construct this filter. This
                     overrides Remez's internal numtaps property.
-                - weight (Sequnce):
+                - weight (Sequence):
                     A sequence the same length as desired with weights to
                     relatively weight each band. If no value is passed
                     the weights are the inverse of the percentage loss and

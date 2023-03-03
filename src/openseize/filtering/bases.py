@@ -41,14 +41,14 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
             - 'zpk': This format is not used and will be converted to 'sos'.
 
         nyq (float):
-            The nyquist rate of the digital sytem, fs/2.
+            The nyquist rate of the digital system, fs/2.
         coeffs (np.ndarray):
             A numpy array of filter coeffecients.
 
     Notes:
         This IIR ABC defines the common and expected methods of all concrete
         IIR filters in the openseize.filtering.iir module. Inheritors must
-        overide abstract methods and properties of this base to be
+        override abstract methods and properties of this base to be
         instantiable.
     """
 
@@ -218,7 +218,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         fs (int):
             The sampling rate of the digital system.
         nyq (float):
-            The nyquist rate of the digital sytem, fs/2.
+            The nyquist rate of the digital system, fs/2.
         width (float):
             The minimum transition width between the pass and stopbands.
         coeffs (np.ndarray):
@@ -227,7 +227,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
     Notes:
         This FIR ABC defines the common and expected methods of all concrete
         FIR filters in the openseize.filtering.fir module. Inheritors must
-        overide abstract methods & properties of this base to be
+        override abstract methods & properties of this base to be
         instantiable.
     """
 
