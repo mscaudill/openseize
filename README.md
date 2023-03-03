@@ -10,6 +10,8 @@
 ![PyPI - License](https://img.shields.io/pypi/l/openseize?color=229954)
 ![PyPI](https://img.shields.io/pypi/v/openseize?color=%238E44AD)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/openseize)
+![GitHub Workflow Status](
+    https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/test.yml)
 
 
 <p align="center"  style="font-size: 20px">
