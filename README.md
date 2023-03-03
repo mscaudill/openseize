@@ -7,16 +7,44 @@
   <i><font color='gray'>Digital Signal Processing for Big EEGs</font></i>
 </h2>
 
-[![status](https://joss.theoj.org/papers/f737f4eb377a3bed6602dac51f6b13b4/status.svg)](
-    https://joss.theoj.org/papers/f737f4eb377a3bed6602dac51f6b13b4)
-![PyPI - License](https://img.shields.io/pypi/l/openseize?color=229954)
-![PyPI](https://img.shields.io/pypi/v/openseize?color=%238E44AD)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/openseize)
-![GitHub Workflow Status](
-    https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/test.yml)
-[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](
-    https://github.com/PyCQA/pylint)
-https://img.shields.io/badge/PRs-welcome-pink
+<p align="center">
+
+  <a href="https://joss.theoj.org/papers/f737f4eb377a3bed6602dac51f6b13b4"><img 
+    src="https://joss.theoj.org/papers/f737f4eb377a3bed6602dac51f6b13b4/status.svg" 
+    alt="JOSS Review" />
+  </a>
+
+  <a href="https://github.com/mscaudill/openseize/blob/master/LICENSE"><img
+    src="https://img.shields.io/pypi/l/openseize?color=teal" 
+    alt="Openseize is released under the BSD 3-Clause license." />
+  </a>
+  
+  <a href="https://pypi.org/project/openseize/"><img 
+    src="https://img.shields.io/pypi/v/openseize?color=%238E44AD)" 
+    alt="Openseize pypi release" />
+  </a>
+
+  <a href="https://github.com/mscaudill/openseize/tree/master#Dependencies"><img 
+    src="https://img.shields.io/pypi/pyversions/openseize" 
+    alt="Python versions supported." />
+  </a>
+
+  <a href=""><img 
+    src="https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/test.yml" 
+    alt="Openseize's build status" />
+  </a>
+
+ <a href=""><img 
+    src="https://img.shields.io/badge/PRs-welcome-pink"
+    alt="Pull Request Welcomed!" />
+  </a>
+
+ <a href=""><img 
+    src="" 
+    alt="" />
+  </a>
+
+</p>
 
 
 <p align="center"  style="font-size: 20px">
