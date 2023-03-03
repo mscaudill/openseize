@@ -17,7 +17,7 @@
     alt="Openseize is released under the BSD 3-Clause license." />
   </a>
   <a href="https://pypi.org/project/openseize/"><img 
-    src="https://img.shields.io/pypi/v/openseize?color=%238E44AD)" 
+    src="https://img.shields.io/pypi/v/openseize?color=A569BD)" 
     alt="Openseize pypi release" />
   </a>
   <a href="https://github.com/mscaudill/openseize/tree/master#Dependencies"><img 
@@ -27,6 +27,11 @@
   <a href=""><img 
     src="https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/test.yml" 
     alt="Openseize's build status" />
+  </a>
+  <a href=""><img 
+    src="https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/
+test.yml?label=CI&logo=github" 
+    alt="Openseize's test status" />
   </a>
  <a href="https://github.com/mscaudill/openseize/pulls"><img 
     src="https://img.shields.io/badge/PRs-welcome-pink"
