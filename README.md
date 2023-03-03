@@ -7,6 +7,7 @@
   <i><font color='gray'>Digital Signal Processing for Big EEGs</font></i>
 </h2>
 
+![PyPI - License](https://img.shields.io/pypi/l/openseize?color=blue&style=flat-square)
 
 <p align="center"  style="font-size: 20px">
 <a href="#Key-Features">Key Features</a>   |  
