@@ -75,6 +75,7 @@ nav:
         - Producers:
           - producer: 'producer/producer.md'
         - 'File IO':
+          - 'Dialogs': 'file_io/dialogs.md'
           - EDF: 
             - Introduction: 'file_io/edf/edf_intro.md' 
             - Reader: 'file_io/edf/edf_reader.md'
