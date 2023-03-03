@@ -13,11 +13,11 @@
     alt="JOSS Review" />
   </a>
   <a href="https://github.com/mscaudill/openseize/blob/master/LICENSE"><img
-    src="https://img.shields.io/pypi/l/openseize?color=teal" 
+    src="https://img.shields.io/badge/License-BSD%203--Clause-teal" 
     alt="Openseize is released under the BSD 3-Clause license." />
   </a>
   <a href="https://pypi.org/project/openseize/"><img 
-    src="https://img.shields.io/pypi/v/openseize?color=4D2B51&logo=pypi&logoColor=white" 
+    src="https://img.shields.io/pypi/v/openseize?color=78437E&logo=pypi&logoColor=white" 
     alt="Openseize pypi release" />
   </a>
   <a href="https://github.com/mscaudill/openseize/tree/master#Dependencies"><img 
