@@ -17,7 +17,7 @@
     alt="Openseize is released under the BSD 3-Clause license." />
   </a>
   <a href="https://pypi.org/project/openseize/"><img 
-    src="https://img.shields.io/pypi/v/openseize?color=plum)" 
+    src="https://img.shields.io/pypi/v/openseize?color=plum&logo=pypi&logoColor=gold" 
     alt="Openseize pypi release" />
   </a>
   <a href="https://github.com/mscaudill/openseize/tree/master#Dependencies"><img 
