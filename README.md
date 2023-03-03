@@ -16,6 +16,7 @@
     https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/test.yml)
 [![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](
     https://github.com/PyCQA/pylint)
+https://img.shields.io/badge/PRs-welcome-pink
 
 
 <p align="center"  style="font-size: 20px">
