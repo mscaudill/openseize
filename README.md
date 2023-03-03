@@ -29,8 +29,7 @@
     alt="Openseize's build status" />
   </a>
   <a href=""><img 
-    src="https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/
-test.yml?label=CI&logo=github" 
+    src="https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/test.yml?label=CI&logo=github" 
     alt="Openseize's test status" />
   </a>
  <a href="https://github.com/mscaudill/openseize/pulls"><img 
