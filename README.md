@@ -7,12 +7,15 @@
   <i><font color='gray'>Digital Signal Processing for Big EEGs</font></i>
 </h2>
 
-[![status](https://joss.theoj.org/papers/f737f4eb377a3bed6602dac51f6b13b4/status.svg)](https://joss.theoj.org/papers/f737f4eb377a3bed6602dac51f6b13b4)
+[![status](https://joss.theoj.org/papers/f737f4eb377a3bed6602dac51f6b13b4/status.svg)](
+    https://joss.theoj.org/papers/f737f4eb377a3bed6602dac51f6b13b4)
 ![PyPI - License](https://img.shields.io/pypi/l/openseize?color=229954)
 ![PyPI](https://img.shields.io/pypi/v/openseize?color=%238E44AD)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/openseize)
 ![GitHub Workflow Status](
     https://img.shields.io/github/actions/workflow/status/mscaudill/openseize/test.yml)
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](
+    https://github.com/PyCQA/pylint)
 
 
 <p align="center"  style="font-size: 20px">
