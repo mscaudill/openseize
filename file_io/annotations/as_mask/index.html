@@ -575,22 +575,36 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../dialogs/" class="md-nav__link">
+        Dialogs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
     
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_1" type="checkbox" id="__nav_4_2_1" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_2" type="checkbox" id="__nav_4_2_2" >
       
       
       
       
-        <label class="md-nav__link" for="__nav_4_2_1">
+        <label class="md-nav__link" for="__nav_4_2_2">
           EDF
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="EDF" data-md-level="3">
-        <label class="md-nav__title" for="__nav_4_2_1">
+        <label class="md-nav__title" for="__nav_4_2_2">
           <span class="md-nav__icon md-icon"></span>
           EDF
         </label>
@@ -670,18 +684,18 @@
     <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_2" type="checkbox" id="__nav_4_2_2" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_3" type="checkbox" id="__nav_4_2_3" checked>
       
       
       
       
-        <label class="md-nav__link" for="__nav_4_2_2">
+        <label class="md-nav__link" for="__nav_4_2_3">
           Annotations
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Annotations" data-md-level="3">
-        <label class="md-nav__title" for="__nav_4_2_2">
+        <label class="md-nav__title" for="__nav_4_2_3">
           <span class="md-nav__icon md-icon"></span>
           Annotations
         </label>
@@ -1341,7 +1355,7 @@
   
       <p>Creates a boolean mask from a sequence of annotation dataclass
 instances..</p>
-<p>Producers of EEG data may recieve an optional boolean array mask.  This
+<p>Producers of EEG data may receive an optional boolean array mask.  This
 function creates a boolean mask from a sequence of annotations and is
 therefore useful for filtering EEG data by annotation label during
 processing.</p>
@@ -1427,7 +1441,7 @@ annotations are located.</p></td>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">openseize.demos</span> <span class="kn">import</span> <span class="n">paths</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">filepath</span> <span class="o">=</span> <span class="n">paths</span><span class="o">.</span><span class="n">locate</span><span class="p">(</span><span class="s1">&#39;annotations_001.txt&#39;</span><span class="p">)</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">openseize.io.annotations</span> <span class="kn">import</span> <span class="n">Pinnacle</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># read the &#39;rest&#39; anotations</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># read the &#39;rest&#39; annotations</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">Pinnacle</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span> <span class="k">as</span> <span class="n">pinnacle</span><span class="p">:</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span>    <span class="n">annotations</span> <span class="o">=</span> <span class="n">pinnacle</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;rest&#39;</span><span class="p">])</span>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># create a mask measuring 3700 secs at 5000 Hz</span>
@@ -1497,7 +1511,7 @@ annotations are located.</p></td>
 <a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="sd">&quot;&quot;&quot;Creates a boolean mask from a sequence of annotation dataclass</span>
 <a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">    instances..</span>
 <a id="__codelineno-0-141" name="__codelineno-0-141"></a>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="sd">    Producers of EEG data may recieve an optional boolean array mask.  This</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="sd">    Producers of EEG data may receive an optional boolean array mask.  This</span>
 <a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">    function creates a boolean mask from a sequence of annotations and is</span>
 <a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">    therefore useful for filtering EEG data by annotation label during</span>
 <a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">    processing.</span>
@@ -1524,7 +1538,7 @@ annotations are located.</p></td>
 <a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">        &gt;&gt;&gt; from openseize.demos import paths</span>
 <a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">        &gt;&gt;&gt; filepath = paths.locate(&#39;annotations_001.txt&#39;)</span>
 <a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">        &gt;&gt;&gt; from openseize.io.annotations import Pinnacle</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">        &gt;&gt;&gt; # read the &#39;rest&#39; anotations</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">        &gt;&gt;&gt; # read the &#39;rest&#39; annotations</span>
 <a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">        &gt;&gt;&gt; with Pinnacle(filepath, start=6) as pinnacle:</span>
 <a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">        &gt;&gt;&gt;     annotations = pinnacle.read(labels=[&#39;rest&#39;])</span>
 <a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">        &gt;&gt;&gt; # create a mask measuring 3700 secs at 5000 Hz</span>

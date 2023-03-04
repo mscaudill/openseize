@@ -573,22 +573,36 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../file_io/dialogs/" class="md-nav__link">
+        Dialogs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
     
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_1" type="checkbox" id="__nav_4_2_1" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_2" type="checkbox" id="__nav_4_2_2" >
       
       
       
       
-        <label class="md-nav__link" for="__nav_4_2_1">
+        <label class="md-nav__link" for="__nav_4_2_2">
           EDF
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="EDF" data-md-level="3">
-        <label class="md-nav__title" for="__nav_4_2_1">
+        <label class="md-nav__title" for="__nav_4_2_2">
           <span class="md-nav__icon md-icon"></span>
           EDF
         </label>
@@ -666,18 +680,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_2" type="checkbox" id="__nav_4_2_2" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_3" type="checkbox" id="__nav_4_2_3" >
       
       
       
       
-        <label class="md-nav__link" for="__nav_4_2_2">
+        <label class="md-nav__link" for="__nav_4_2_3">
           Annotations
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Annotations" data-md-level="3">
-        <label class="md-nav__title" for="__nav_4_2_2">
+        <label class="md-nav__title" for="__nav_4_2_3">
           <span class="md-nav__icon md-icon"></span>
           Annotations
         </label>
@@ -1518,7 +1532,7 @@ response A(F) from the desired frequency response D(f) for f in
           <td>
                 <code><span title="typing.Sequence">Sequence</span></code>
           </td>
-          <td><p>A monitonically increaing sequence of pass and stop band edge
+          <td><p>A monitonically increasing sequence of pass and stop band edge
 frequencies that must include 0 and the nyquist frequencies.</p></td>
         </tr>
         <tr>
@@ -1560,7 +1574,7 @@ The minimum attenuation in the stop band(s) (dB).</p></td>
 <li>numtaps (int):
     The number of taps used to construct this filter. This
     overrides Remez's internal numtaps property.</li>
-<li>weight (Sequnce):
+<li>weight (Sequence):
     A sequence the same length as desired with weights to
     relatively weight each band. If no value is passed
     the weights are the inverse of the percentage loss and
@@ -1791,7 +1805,7 @@ filter designed with Remez be visually inspected before use.</p>
 <a id="__codelineno-0-488" name="__codelineno-0-488"></a>
 <a id="__codelineno-0-489" name="__codelineno-0-489"></a><span class="sd">    Attributes:</span>
 <a id="__codelineno-0-490" name="__codelineno-0-490"></a><span class="sd">        bands (Sequence):</span>
-<a id="__codelineno-0-491" name="__codelineno-0-491"></a><span class="sd">            A monitonically increaing sequence of pass and stop band edge</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a><span class="sd">            A monitonically increasing sequence of pass and stop band edge</span>
 <a id="__codelineno-0-492" name="__codelineno-0-492"></a><span class="sd">            frequencies that must include 0 and the nyquist frequencies.</span>
 <a id="__codelineno-0-493" name="__codelineno-0-493"></a><span class="sd">        desired (Sequence):</span>
 <a id="__codelineno-0-494" name="__codelineno-0-494"></a><span class="sd">            A sequence of desired gains in each band of bands.</span>
@@ -1807,7 +1821,7 @@ filter designed with Remez be visually inspected before use.</p>
 <a id="__codelineno-0-504" name="__codelineno-0-504"></a><span class="sd">            - numtaps (int):</span>
 <a id="__codelineno-0-505" name="__codelineno-0-505"></a><span class="sd">                The number of taps used to construct this filter. This</span>
 <a id="__codelineno-0-506" name="__codelineno-0-506"></a><span class="sd">                overrides Remez&#39;s internal numtaps property.</span>
-<a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">            - weight (Sequnce):</span>
+<a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">            - weight (Sequence):</span>
 <a id="__codelineno-0-508" name="__codelineno-0-508"></a><span class="sd">                A sequence the same length as desired with weights to</span>
 <a id="__codelineno-0-509" name="__codelineno-0-509"></a><span class="sd">                relatively weight each band. If no value is passed</span>
 <a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="sd">                the weights are the inverse of the percentage loss and</span>
@@ -1872,7 +1886,7 @@ filter designed with Remez be visually inspected before use.</p>
 <a id="__codelineno-0-569" name="__codelineno-0-569"></a><span class="sd">                - numtaps (int):</span>
 <a id="__codelineno-0-570" name="__codelineno-0-570"></a><span class="sd">                    The number of taps used to construct this filter. This</span>
 <a id="__codelineno-0-571" name="__codelineno-0-571"></a><span class="sd">                    overrides Remez&#39;s internal numtaps property.</span>
-<a id="__codelineno-0-572" name="__codelineno-0-572"></a><span class="sd">                - weight (Sequnce):</span>
+<a id="__codelineno-0-572" name="__codelineno-0-572"></a><span class="sd">                - weight (Sequence):</span>
 <a id="__codelineno-0-573" name="__codelineno-0-573"></a><span class="sd">                    A sequence the same length as desired with weights to</span>
 <a id="__codelineno-0-574" name="__codelineno-0-574"></a><span class="sd">                    relatively weight each band. If no value is passed</span>
 <a id="__codelineno-0-575" name="__codelineno-0-575"></a><span class="sd">                    the weights are the inverse of the percentage loss and</span>
@@ -2059,7 +2073,7 @@ attenuation is applied to all stop bands.</p></td>
 <li>numtaps (int):
     The number of taps used to construct this filter. This
     overrides Remez's internal numtaps property.</li>
-<li>weight (Sequnce):
+<li>weight (Sequence):
     A sequence the same length as desired with weights to
     relatively weight each band. If no value is passed
     the weights are the inverse of the percentage loss and
@@ -2176,7 +2190,7 @@ attenuation is applied to all stop bands.</p></td>
 <a id="__codelineno-0-569" name="__codelineno-0-569"></a><span class="sd">            - numtaps (int):</span>
 <a id="__codelineno-0-570" name="__codelineno-0-570"></a><span class="sd">                The number of taps used to construct this filter. This</span>
 <a id="__codelineno-0-571" name="__codelineno-0-571"></a><span class="sd">                overrides Remez&#39;s internal numtaps property.</span>
-<a id="__codelineno-0-572" name="__codelineno-0-572"></a><span class="sd">            - weight (Sequnce):</span>
+<a id="__codelineno-0-572" name="__codelineno-0-572"></a><span class="sd">            - weight (Sequence):</span>
 <a id="__codelineno-0-573" name="__codelineno-0-573"></a><span class="sd">                A sequence the same length as desired with weights to</span>
 <a id="__codelineno-0-574" name="__codelineno-0-574"></a><span class="sd">                relatively weight each band. If no value is passed</span>
 <a id="__codelineno-0-575" name="__codelineno-0-575"></a><span class="sd">                the weights are the inverse of the percentage loss and</span>
@@ -2409,7 +2423,7 @@ filter's stopband(s).</p></td>
           <td>
                 <code>float</code>
           </td>
-          <td><p>The nyquist rate of the digital sytem, fs/2.</p></td>
+          <td><p>The nyquist rate of the digital system, fs/2.</p></td>
         </tr>
         <tr>
           <td><code>width</code></td>
@@ -2432,7 +2446,7 @@ filter's stopband(s).</p></td>
   <summary>Notes</summary>
   <p>This FIR ABC defines the common and expected methods of all concrete
 FIR filters in the openseize.filtering.fir module. Inheritors must
-overide abstract methods &amp; properties of this base to be
+override abstract methods &amp; properties of this base to be
 instantiable.</p>
 </details>
 
@@ -2737,7 +2751,7 @@ responses over. Default is 2048 frequencies.</p></td>
                 <code>float</code>
           </td>
           <td><p>float
-For plotting, all values below this region of pratical
+For plotting, all values below this region of practical
 equivalence will be set to this value. Default is -100
 dB. Any filter response smaller than this will be set to
 -100 for plotting.</p></td>

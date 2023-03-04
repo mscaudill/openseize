@@ -575,22 +575,36 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../../file_io/dialogs/" class="md-nav__link">
+        Dialogs
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
     
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_1" type="checkbox" id="__nav_4_2_1" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_2" type="checkbox" id="__nav_4_2_2" >
       
       
       
       
-        <label class="md-nav__link" for="__nav_4_2_1">
+        <label class="md-nav__link" for="__nav_4_2_2">
           EDF
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="EDF" data-md-level="3">
-        <label class="md-nav__title" for="__nav_4_2_1">
+        <label class="md-nav__title" for="__nav_4_2_2">
           <span class="md-nav__icon md-icon"></span>
           EDF
         </label>
@@ -668,18 +682,18 @@
     <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_2" type="checkbox" id="__nav_4_2_2" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4_2_3" type="checkbox" id="__nav_4_2_3" >
       
       
       
       
-        <label class="md-nav__link" for="__nav_4_2_2">
+        <label class="md-nav__link" for="__nav_4_2_3">
           Annotations
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <nav class="md-nav" aria-label="Annotations" data-md-level="3">
-        <label class="md-nav__title" for="__nav_4_2_2">
+        <label class="md-nav__title" for="__nav_4_2_3">
           <span class="md-nav__icon md-icon"></span>
           Annotations
         </label>
@@ -1337,7 +1351,7 @@ computes a modified (windowed) Discrete Fourier Transform for each
 segment. This results in a sequence of complex values containing the
 frequency and phase content in each segment. These segments are then
 concatenated to create an estimate of the frequency content as
-a function of time X(frequncy, time). This is the STFT estimate.</p>
+a function of time X(frequency, time). This is the STFT estimate.</p>
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -1411,7 +1425,7 @@ a full list of windows see scipy.signal.windows.</p></td>
           <td>
                 <code>float</code>
           </td>
-          <td><p>A percentage in [0, 1) of the data segement that should overlap
+          <td><p>A percentage in [0, 1) of the data segment that should overlap
 with the next data segment. If 0 this estimate is equivalent to
 Bartletts method (2).</p></td>
           <td>
@@ -1451,7 +1465,7 @@ estimate for each segment will have units V^2/Hz.</p></td>
           <td><p>A boolean indicating if data should be padded along axis at both
 ends with nfft//2 zeros. Here nfft is the number of dft points
 in a segment (fs/resolution). If True, the endpts of the signal
-will recieve the same window weight as all other points allowing
+will receive the same window weight as all other points allowing
 for accurate reconstruction of the signal from the stft estimate
 through inversion (istft not implemented).</p></td>
           <td>
@@ -1479,7 +1493,7 @@ through inversion (istft not implemented).</p></td>
           </td>
           <td><p>A boolean indicating if the estimator should attempt to return
 the result as an ndarry. If False the returned result will be
-a producer that produces segements of the STFT estimate.</p></td>
+a producer that produces segments of the STFT estimate.</p></td>
           <td>
                 <code>True</code>
           </td>
@@ -1536,7 +1550,7 @@ along axis where nfft = fs // resolution.</li>
 <ul>
 <li>(1) Oppenheim, Alan V., Ronald W. Schafer, John R. Buck
   “Discrete-Time Signal Processing”, Prentice Hall, 1999.</li>
-<li>(2) B. Porat, "A Course In Digitial Signal Processing" Chapters
+<li>(2) B. Porat, "A Course In Digital Signal Processing" Chapters
   4 &amp; 13. Wiley and Sons 1997.</li>
 </ul>
 
@@ -1692,7 +1706,7 @@ along axis where nfft = fs // resolution.</li>
 <a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="sd">    segment. This results in a sequence of complex values containing the</span>
 <a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">    frequency and phase content in each segment. These segments are then</span>
 <a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">    concatenated to create an estimate of the frequency content as</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">    a function of time X(frequncy, time). This is the STFT estimate.</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">    a function of time X(frequency, time). This is the STFT estimate.</span>
 <a id="__codelineno-0-186" name="__codelineno-0-186"></a>
 <a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    Args:</span>
 <a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">        data:</span>
@@ -1712,7 +1726,7 @@ along axis where nfft = fs // resolution.</li>
 <a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">            segment before computing the modified DFT of that segment. For</span>
 <a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">            a full list of windows see scipy.signal.windows.</span>
 <a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">        overlap:</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">            A percentage in [0, 1) of the data segement that should overlap</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">            A percentage in [0, 1) of the data segment that should overlap</span>
 <a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">            with the next data segment. If 0 this estimate is equivalent to</span>
 <a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">            Bartletts method (2).</span>
 <a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">        detrend:</span>
@@ -1728,7 +1742,7 @@ along axis where nfft = fs // resolution.</li>
 <a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">            A boolean indicating if data should be padded along axis at both</span>
 <a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">            ends with nfft//2 zeros. Here nfft is the number of dft points</span>
 <a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">            in a segment (fs/resolution). If True, the endpts of the signal</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">            will recieve the same window weight as all other points allowing</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">            will receive the same window weight as all other points allowing</span>
 <a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">            for accurate reconstruction of the signal from the stft estimate</span>
 <a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">            through inversion (istft not implemented).</span>
 <a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">        padded:</span>
@@ -1740,7 +1754,7 @@ along axis where nfft = fs // resolution.</li>
 <a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">        asarray:</span>
 <a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">            A boolean indicating if the estimator should attempt to return</span>
 <a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">            the result as an ndarry. If False the returned result will be</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">            a producer that produces segements of the STFT estimate.</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">            a producer that produces segments of the STFT estimate.</span>
 <a id="__codelineno-0-234" name="__codelineno-0-234"></a>
 <a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">    Notes:</span>
 <a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">        Scipy allows for non-zero boundary padding. Since zero extension has</span>
@@ -1774,7 +1788,7 @@ along axis where nfft = fs // resolution.</li>
 <a id="__codelineno-0-264" name="__codelineno-0-264"></a>
 <a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">    - (1) Oppenheim, Alan V., Ronald W. Schafer, John R. Buck</span>
 <a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">      “Discrete-Time Signal Processing”, Prentice Hall, 1999.</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">    - (2) B. Porat, &quot;A Course In Digitial Signal Processing&quot; Chapters</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">    - (2) B. Porat, &quot;A Course In Digital Signal Processing&quot; Chapters</span>
 <a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">      4 &amp; 13. Wiley and Sons 1997.</span>
 <a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-270" name="__codelineno-0-270"></a>
