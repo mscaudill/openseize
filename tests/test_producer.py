@@ -381,7 +381,7 @@ def test_padproducer0():
 
 def test_padproducer1():
     """Test that pad_producer produces the correct padded sequence of
-    ndarrays when the pad amt is an interger."""
+    ndarrays when the pad amt is an integer."""
 
     rng = np.random.default_rng(seed=0)
     arr = rng.random((52060, 4, 7, 2))

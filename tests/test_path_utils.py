@@ -16,7 +16,7 @@ from pathlib import Path
 def matched_paths():
     """Returns 2 lists of path instances that can be matched with a regex."""
 
-    # these will need to be matched upto cohort
+    # these will need to be matched up to cohort
     paths = ['MSC_mouse_07_11-2-2023_cohort_a_trial_9.edf',
              'DBD_mouse_14_11-09-2023_cohort_b_trial_0.edf',
              'MSC_mouse_07_10-10-2019_cohort_a_trial_6.edf']

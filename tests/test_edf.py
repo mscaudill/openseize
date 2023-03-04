@@ -73,7 +73,7 @@ def pyread(eeg, start, stop, channels=None):
     channel in channels.
 
     The pyEDF reader (unlike openseize) cannot read multiple channels 
-    simultaneously so this funtion performs multiple reads to gather data
+    simultaneously so this function performs multiple reads to gather data
     across channels.
 
     Args:
@@ -123,7 +123,7 @@ def test_random_reads(demo_data):
     pyeeg.close()
 
 def test_random_reads_chs(demo_data):
-    """Compares randomly read arrays for a specifc set of channels from
+    """Compares randomly read arrays for a specific set of channels from
     pyEDF and openseize."""
 
     fetches = 10
