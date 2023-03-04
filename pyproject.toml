@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openseize"
-version = "1.0.0.post1"
+version = "1.0.0"
 authors =[{ name="Matthew Caudill", email="mscaudill@gmail.com" }]
 description = "Digital Signal Processing for Big EEG Datasets"
 readme = "README.md"
@@ -62,8 +62,8 @@ Homepage = "https://github.com/mscaudill/openseize"
 # bumpver configuration
 [tool.bumpver]
 current_version = "1.0.0"
-version_pattern = "MAJOR.MINOR.PATCH[-TAG]"
-commit_message = "bump version {old_version} -> {new_version}"
+version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"
+commit_message = 'bump version {old_version} -> {new_version}'
 commit = true
 tag = true
 push = true
