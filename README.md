@@ -90,7 +90,7 @@ implementation.
   popular European Data Format (EDF).</li>
   <li>Supports 'masking' to filter data sections by artifacts, behavioral 
   states or any externally measured signals or annotations.</li>
-  <li> Effeciently process large data using the amount of memory <u>you</u>
+  <li> Efficiently process large data using the amount of memory <u>you</u>
   choose to use.</li>
   <li> DSP tools currently include a large number of FIR & IIR Filters,
   polyphase decomposition resamplers, and spectral estimation tools for both
@@ -111,9 +111,9 @@ for package conflicts when the environment is created or updated. For more
 information please see:
 
 * <a href=https://realpython.com/python-virtual-environments-a-primer/
-   target=_blank>Python Virtual Enironments</a> 
+   target=_blank>Python Virtual Environments</a> 
 * <a 
-href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html target=_blank>Conda Enironments</a> 
+href=https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html target=_blank>Conda Environments</a> 
 
 
 ### Python Virtual Environment

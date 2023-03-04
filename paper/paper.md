@@ -63,7 +63,7 @@ a program. These memory-efficient producers generate on-the-fly fragments
 of processed data. Importantly, all of Openseize's functions and methods
 accept and return producers. This feature allows for the composition of DSP
 functions into iterative processing pipelines (\autoref{fig:pipeline}) that
-yield processed data lazily during an iteration protocal such as a for-loop.
+yield processed data lazily during an iteration protocol such as a for-loop.
 
 ![Example DSP pipeline for computing the power spectrum of a large EEG
 dataset. Each DSP process in the pipeline receives and returns a producer
