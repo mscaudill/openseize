@@ -16,11 +16,9 @@
     options:
         members_order:
             source
-        members:
-            - close
         show_source: 
-            false
+            true
         show_root_heading:
-            false
+            true
         show_root_toc_entry: 
             false
