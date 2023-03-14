@@ -66,7 +66,9 @@ nav:
     - Quickstart: quickstart.ipynb
     - Tutorials:
         - 'Producers': 'tutorials/producers.ipynb'
-        - 'File Reading': 'tutorials/file_reading.ipynb'
+        - 'File Reading': 
+          - 'EDF Format': 'tutorials/edf_format.ipynb'
+          - 'Other Formats': 'tutorials/other_formats.ipynb'
         - 'Filtering': 'tutorials/filtering.ipynb'
         - 'Resampling': 'tutorials/resampling.ipynb'
         - 'Fourier Transform': 'tutorials/fourier_transform.ipynb'
