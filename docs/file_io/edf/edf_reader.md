@@ -14,8 +14,8 @@
 ## Reader Base
 ::: openseize.file_io.bases.Reader
     options:
-        members_order:
-            source
+        members:
+            - None
         show_source: 
             true
         show_root_heading:
