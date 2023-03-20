@@ -290,6 +290,14 @@ class ReaderProducer(Producer):
     The data attribute in this Producer is a Reader instance
     """
 
+    def __init__(self, data, chunksize, axis, **kwargs):
+        """ """
+
+        # TODO DOC why this method is here now
+        super().__init__(data, chunksize, axis, **kwargs)
+        if self.data._fobj:
+            self.data.close()
+
     @property
     def shape(self):
         """Return the summed shape of all arrays in this Reader."""
@@ -298,6 +306,10 @@ class ReaderProducer(Producer):
 
     def __iter__(self):
         """Builds an iterator yielding channels x chunksize shape arrays."""
+
+        #TODO Doc why you now open and close here
+
+        self.data.open()
 
         # make generators of start, stop samples & exhaust reader
         starts = itertools.count(start=0, step=self.chunksize)
@@ -311,8 +323,12 @@ class ReaderProducer(Producer):
 
             yield arr
 
+        self.data.close()
+
     def close(self):
         """Closes this producer's file resource."""
+
+        #FIXME This to be deprecated
 
         if hasattr(self.data, 'close'):
             self.data.close()

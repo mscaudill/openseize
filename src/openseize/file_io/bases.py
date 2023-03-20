@@ -143,7 +143,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
             plain text files or 'rb' for binary file types.
     """
 
-    def __init__(self, path: typing.Union[str, Path], mode: str) -> None:
+    def __init__(self, path: typing.Union[str, Path], mode: str, **kwargs) -> None:
         """Initialize this reader.
 
         Args:
@@ -155,10 +155,23 @@ class Reader(abc.ABC, mixins.ViewInstance):
         """
 
         self.path = Path(path)
+        self.mode = mode
+        self.kwargs = kwargs
+        self.open()
+
+    # TODO make sure you're happy with this new method relying on a 
+    # specifically named _fobj attr
+    def open(self):
+        """Opens the EEG file at path for reading.
+
+        This method stores the opened file object under the _fobj attr.
+        All overriders of this method are expected to do the same.
+        """
+
         # allow Readers to read with or without context management
         # the file may be raw bytes so leave encoding unspecified
         # pylint: disable-next=consider-using-with, unspecified-encoding
-        self._fobj = open(path, mode)
+        self._fobj = open(self.path, self.mode, **self.kwargs)
 
     @property
     @abc.abstractmethod
@@ -200,6 +213,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
         """Close this reader instance's opened file object."""
 
         self._fobj.close()
+        self._fobj = None
 
 
 class Writer(abc.ABC, mixins.ViewInstance):
