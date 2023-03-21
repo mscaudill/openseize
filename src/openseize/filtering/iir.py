@@ -361,7 +361,7 @@ class Notch(IIR):
 
     Examples:
         >>> # design a Notch filter around 60 Hz with a 8 Hz transition
-        >>> ellip = Notch(fstop=60, width=8, fs=5000)
+        >>> notch = Notch(fstop=60, width=8, fs=5000)
         >>> # print the pass and stop bands
         >>> notch.fpass
         array([56., 64.])
