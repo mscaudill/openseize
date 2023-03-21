@@ -39,7 +39,7 @@ class Header(dict):
             A python path instance to an EEG datafile with header.
     """
 
-    def __init__(self, 
+    def __init__(self,
                  path: typing.Optional[typing.Union[str, Path]]
     ) -> None:
         """Initialize this Header.
@@ -141,9 +141,12 @@ class Reader(abc.ABC, mixins.ViewInstance):
         mode:
             String file mode option for 'open' builtin. Must be 'r' for
             plain text files or 'rb' for binary file types.
+        kwargs:
+            Additional kwargs needed for opening the file at path.
     """
 
-    def __init__(self, path: typing.Union[str, Path], mode: str, **kwargs) -> None:
+    def __init__(self, path: typing.Union[str, Path], mode: str, **kwargs: str
+    ) -> None:
         """Initialize this reader.
 
         Args:
@@ -152,24 +155,21 @@ class Reader(abc.ABC, mixins.ViewInstance):
             mode:
                 A mode for reading the eeg file. Must be 'r' for plain
                 text files and 'rb' for binary files.
+            kwargs:
+                Any additional kwargs are routed to the open method.
         """
 
         self.path = Path(path)
         self.mode = mode
         self.kwargs = kwargs
+        self._fobj = None
         self.open()
 
-    # TODO make sure you're happy with this new method relying on a 
-    # specifically named _fobj attr
     def open(self):
-        """Opens the EEG file at path for reading.
-
-        This method stores the opened file object under the _fobj attr.
-        All overriders of this method are expected to do the same.
-        """
+        """Opens the file at path for reading & stores the file descriptor to
+        this Reader's '_fobj' attribute."""
 
         # allow Readers to read with or without context management
-        # the file may be raw bytes so leave encoding unspecified
         # pylint: disable-next=consider-using-with, unspecified-encoding
         self._fobj = open(self.path, self.mode, **self.kwargs)
 
@@ -182,6 +182,11 @@ class Reader(abc.ABC, mixins.ViewInstance):
     @abc.abstractmethod
     def channels(self, val: int):
         """Sets the channels that this Reader will read."""
+
+    @property
+    @abc.abstractmethod
+    def shape(self):
+        """Returns the summed shape of all arrays the Reader will read."""
 
     @abc.abstractmethod
     def read(self, start: int, stop:int) -> npt.NDArray[np.float64]:
@@ -210,10 +215,17 @@ class Reader(abc.ABC, mixins.ViewInstance):
         self.close()
 
     def close(self):
-        """Close this reader instance's opened file object."""
+        """Close this reader instance's opened file object and destroy the
+        reference to the file object.
 
-        self._fobj.close()
-        self._fobj = None
+        File descriptors whether opened or closed are not serializable. To
+        support concurrent processing we close & remove all references to the
+        file descriptor on close.
+        """
+
+        if self._fobj:
+            self._fobj.close()
+            self._fobj = None
 
 
 class Writer(abc.ABC, mixins.ViewInstance):
@@ -243,6 +255,7 @@ class Writer(abc.ABC, mixins.ViewInstance):
 
         self.path = Path(path)
         self.mode = mode
+        self._fobj = None
 
     def __enter__(self):
         """Return instance as target variable of this context."""
