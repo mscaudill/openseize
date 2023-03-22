@@ -37,7 +37,6 @@ Examples:
 
 from abc import abstractmethod
 from collections import abc
-import sys # added
 import functools
 import inspect
 import itertools
