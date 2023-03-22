@@ -32,10 +32,6 @@
     src="https://img.shields.io/badge/PRs-welcome-F8A3A3"
     alt="Pull Request Welcomed!" />
   </a>
- <a href="https://doi.org/10.5281/zenodo.7760376"><img 
-    src="https://zenodo.org/badge/DOI/10.5281/zenodo.7760376.svg" 
-    alt="DOI" />
- </a>
 </p>
 
 
