@@ -40,11 +40,10 @@ def random2D(rng):
     return rng.random((5, 17834000))
 
 
-def test_pickling():
+def test_pickling(demo_data):
     """Assert that a producer from a reader is picklable."""
 
-    file_path = paths.locate('recording_001.edf')
-    reader = edf.Reader(file_path)
+    reader = edf.Reader(demo_data)
 
     pro = producer(reader, chunksize=30e5, axis=-1)
 
@@ -62,14 +61,13 @@ def pipeline(pro):
     return np.array([np.mean(arr, axis=-1) for arr in notch_pro])
 
 
-def test_pipelines(random2D):
+def test_pipelines(random2D, demo_data):
     """Verifies that a pipeline run concurrently on multiple producers yields
     the same result as calling the pipeline sequentially on the same producers.
     """
 
     # build a producer from the demo data
-    file_path = paths.locate('recording_001.edf')
-    reader = edf.Reader(file_path)
+    reader = edf.Reader(demo_data)
     rpro = producer(reader, chunksize=20e5, axis=-1)
 
     # build a producer from a random 2D array
