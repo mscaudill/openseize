@@ -287,8 +287,18 @@ class ReaderProducer(Producer):
         kwargs: dict
             Arguments passed to read method of a file reader instance.
 
-    The data attribute in this Producer is a Reader instance
+    Notes:
+        The data attribute of this Producer is a closed Reader instance which is
+        opened during iteration. This allows producers to be serialized for
+        concurrent processing. It also means that when a ReaderProducer is
+        created all other producers using the same file will stop producing.
     """
+
+    def __init__(self, data, chunksize, axis, **kwargs):
+        """Initialize this Producer with a closed 'data' Reader instance."""
+
+        super().__init__(data, chunksize, axis, **kwargs)
+        self.data.close()
 
     @property
     def shape(self):
@@ -299,23 +309,19 @@ class ReaderProducer(Producer):
     def __iter__(self):
         """Builds an iterator yielding channels x chunksize shape arrays."""
 
+        # Open the data reader
+        self.data.open(**self.kwargs)
         # make generators of start, stop samples & exhaust reader
         starts = itertools.count(start=0, step=self.chunksize)
         stops = itertools.count(start=self.chunksize, step=self.chunksize)
 
         for start, stop in zip(starts, stops):
-            arr = self.data.read(start, stop=stop, **self.kwargs)
+            arr = self.data.read(start, stop=stop)
             # if exhausted close reader and exit
             if arr.size == 0:
                 break
 
             yield arr
-
-    def close(self):
-        """Closes this producer's file resource."""
-
-        if hasattr(self.data, 'close'):
-            self.data.close()
 
 
 class ArrayProducer(Producer):
