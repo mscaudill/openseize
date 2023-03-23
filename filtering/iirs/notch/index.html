@@ -1553,7 +1553,7 @@ centered on a single rejection frequency.</p>
 
 <p><strong>Examples:</strong></p>
     <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># design a Notch filter around 60 Hz with a 8 Hz transition</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">ellip</span> <span class="o">=</span> <span class="n">Notch</span><span class="p">(</span><span class="n">fstop</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">notch</span> <span class="o">=</span> <span class="n">Notch</span><span class="p">(</span><span class="n">fstop</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="c1"># print the pass and stop bands</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">notch</span><span class="o">.</span><span class="n">fpass</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">array([56., 64.])</span>
@@ -1625,7 +1625,7 @@ centered on a single rejection frequency.</p>
 <a id="__codelineno-0-361" name="__codelineno-0-361"></a>
 <a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="sd">    Examples:</span>
 <a id="__codelineno-0-363" name="__codelineno-0-363"></a><span class="sd">        &gt;&gt;&gt; # design a Notch filter around 60 Hz with a 8 Hz transition</span>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="sd">        &gt;&gt;&gt; ellip = Notch(fstop=60, width=8, fs=5000)</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="sd">        &gt;&gt;&gt; notch = Notch(fstop=60, width=8, fs=5000)</span>
 <a id="__codelineno-0-365" name="__codelineno-0-365"></a><span class="sd">        &gt;&gt;&gt; # print the pass and stop bands</span>
 <a id="__codelineno-0-366" name="__codelineno-0-366"></a><span class="sd">        &gt;&gt;&gt; notch.fpass</span>
 <a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="sd">        array([56., 64.])</span>

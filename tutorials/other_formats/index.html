@@ -2631,8 +2631,8 @@ from openseize.demos import paths</div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <p><font size=3>Extending Openseize's Readers is by far the best option for reading non-EDF files. Openseize's developers felt so strongly about this that they developed a protocol for writing new <em>concrete</em> readers. The Reader protocol is a collection of related methods in the <em>abstract</em> Reader base class. This collection ensures that all concrete readers have a common set of methods that the producer can call upon to produce from a reader object.</p>
-<p><font size=3>What are these common methods? In another tab open the reference docs for the <a href="https://mscaudill.github.io/openseize/file_io/edf/edf_reader/#bases-and-mixins">abstract base Reader</a>. If you expand the source-code tab you should see 7 methods <font color='seagreen'>(init, channels (setter), channels (getter), read, enter, exit, and close).</font> The methods <em>without</em> the <strong>abc.abstractmethod decorator</strong> are methods that you get for free whenever you inherit this abstract Reader base class. These methods handle initialization of concrete Reader instances and context management.</p>
-<p><font size=3>Importantly, the methods marked with <b>@abc.abstractmethod</b> are methods that your new concrete Reader must supply because all readers must have these methods. If you build a concrete reader with the channels and read method supplied, Openseize can produce from it! As an example, we are going to pseudocode what a concrete HDF5 reader would look like. <font color=darkcyan>It uses h5py which is not included with openseize and it assumes a specific file layout so don't expect it to run, but it will give you a good idea of how to develop your own concrete reader.</font></p>
+<p><font size=3>What are these common methods? In another tab open the reference docs for the <a href="https://mscaudill.github.io/openseize/file_io/edf/edf_reader/#bases-and-mixins">abstract base Reader</a>. If you expand the source-code tab you should see 7 methods <font color='seagreen'>(init, channels (setter), channels (getter), shape, read, enter, exit, and close).</font> The methods <em>without</em> the <strong>abc.abstractmethod decorator</strong> are methods that you get for free whenever you inherit this abstract Reader base class. These methods handle initialization of concrete Reader instances and context management.</p>
+<p><font size=3>Importantly, the methods marked with <b>@abc.abstractmethod</b> are methods that your new concrete Reader must supply because all readers must have these methods. If you build a concrete reader with the channels, shape and read methods supplied, Openseize can produce from it! As an example, we are going to pseudocode what a concrete HDF5 reader would look like. <font color=darkcyan>It uses h5py which is not included with openseize and it assumes a specific file layout so don't expect it to run, but it will give you a good idea of how to develop your own concrete reader.</font></p>
 
 </div>
 </div>
@@ -2643,7 +2643,7 @@ from openseize.demos import paths</div>
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[2]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
         
         
         <div class="CodeMirror cm-s-jupyter">
@@ -2725,10 +2725,6 @@ from openseize.demos import paths</div>
         
     <span class="k">def</span> <span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Returns a shape tuple of the dataset in the HDF5 file.&quot;&quot;&quot;</span> 
-        
-        <span class="c1"># Shape isn&#39;t in the base reader but it&#39;s a good idea to include one just</span>
-        <span class="c1"># like we did for EDFs. In the future this may become a required method </span>
-        <span class="c1"># of the Reader base class</span>
         
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fobj</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="c1"># shape is a property of hdf5 datasets</span>
     
@@ -2812,10 +2808,6 @@ class HDF5Reader(bases.Reader): # inherit from the base Reader class
     def shape(self):
         """Returns a shape tuple of the dataset in the HDF5 file.""" 
         
-        # Shape isn't in the base reader but it's a good idea to include one just
-        # like we did for EDFs. In the future this may become a required method 
-        # of the Reader base class
-        
         return self._fobj[self.name].shape # shape is a property of hdf5 datasets
     
     def read(self, start, stop):
@@ -2844,7 +2836,7 @@ class HDF5Reader(bases.Reader): # inherit from the base Reader class
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p><font size=3>The HDF5 Reader fulfills the obligation (by inheritance) to supply channels and read methods. For free we get context management:</p>
+<p><font size=3>The HDF5 Reader fulfills the obligation (by inheritance) to supply channels, shape and read methods. For free we get context management:</p>
 
 </div>
 </div>

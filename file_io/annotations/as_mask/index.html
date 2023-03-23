@@ -1674,49 +1674,49 @@ created from.</p></td>
 
         <details class="quote">
           <summary>Source code in <code>openseize/file_io/bases.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#__codelineno-0-254">254</a></span>
-<span class="normal"><a href="#__codelineno-0-255">255</a></span>
-<span class="normal"><a href="#__codelineno-0-256">256</a></span>
-<span class="normal"><a href="#__codelineno-0-257">257</a></span>
-<span class="normal"><a href="#__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#__codelineno-0-259">259</a></span>
-<span class="normal"><a href="#__codelineno-0-260">260</a></span>
-<span class="normal"><a href="#__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#__codelineno-0-262">262</a></span>
-<span class="normal"><a href="#__codelineno-0-263">263</a></span>
-<span class="normal"><a href="#__codelineno-0-264">264</a></span>
-<span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span>
-<span class="normal"><a href="#__codelineno-0-267">267</a></span>
-<span class="normal"><a href="#__codelineno-0-268">268</a></span>
-<span class="normal"><a href="#__codelineno-0-269">269</a></span>
-<span class="normal"><a href="#__codelineno-0-270">270</a></span>
-<span class="normal"><a href="#__codelineno-0-271">271</a></span>
-<span class="normal"><a href="#__codelineno-0-272">272</a></span>
-<span class="normal"><a href="#__codelineno-0-273">273</a></span>
-<span class="normal"><a href="#__codelineno-0-274">274</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="nd">@dataclass</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="k">class</span> <span class="nc">Annotation</span><span class="p">:</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="sd">&quot;&quot;&quot;An object for storing a predefined set of annotation attributes that</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">    can be updated with user defined attributes after object creation.</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    Attributes:</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">        label (str):</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">            The string name of this annotation.</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">        time (float):</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">            The time this annotation was made in seconds relative to the</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">            recording start.</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">        duration (float):</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">            The duration of this annotation in seconds.</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">        channel (Any):</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">            The string name or integer index of the channel this annotation</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">            created from.</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">label</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>    <span class="n">time</span><span class="p">:</span> <span class="nb">float</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>    <span class="n">duration</span><span class="p">:</span> <span class="nb">float</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="n">channel</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span>
+          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="nd">@dataclass</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="k">class</span> <span class="nc">Annotation</span><span class="p">:</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="sd">&quot;&quot;&quot;An object for storing a predefined set of annotation attributes that</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">    can be updated with user defined attributes after object creation.</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    Attributes:</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">        label (str):</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">            The string name of this annotation.</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">        time (float):</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">            The time this annotation was made in seconds relative to the</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">            recording start.</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        duration (float):</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">            The duration of this annotation in seconds.</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">        channel (Any):</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">            The string name or integer index of the channel this annotation</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">            created from.</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>    <span class="n">label</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>    <span class="n">time</span><span class="p">:</span> <span class="nb">float</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="n">duration</span><span class="p">:</span> <span class="nb">float</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="n">channel</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span>
 </code></pre></div></td></tr></table></div>
         </details>
 

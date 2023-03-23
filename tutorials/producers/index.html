@@ -515,6 +515,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resource-recovery" class="md-nav__link">
+    Resource Recovery
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summary" class="md-nav__link">
     Summary
   </a>
@@ -1547,6 +1554,13 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-recovery" class="md-nav__link">
+    Resource Recovery
+  </a>
   
 </li>
       
@@ -3638,6 +3652,7 @@ split0.edf                     &#39;/home/matt/python...os/data/split0.edf&#39;
 irregular_write_test.edf       &#39;/home/matt/python...lar_write_test.edf&#39;
 write_test.edf                 &#39;/home/matt/python...ata/write_test.edf&#39;
 CW0259_SWDs.npy                &#39;/home/matt/python...ta/CW0259_SWDs.npy&#39;
+subset_001.edf                 &#39;/home/matt/python...ata/subset_001.edf&#39;
 split1.edf                     &#39;/home/matt/python...os/data/split1.edf&#39;
 </pre>
 </div>
@@ -3739,6 +3754,7 @@ split0.edf                     &#39;/home/matt/python...os/data/split0.edf&#39;
 irregular_write_test.edf       &#39;/home/matt/python...lar_write_test.edf&#39;
 write_test.edf                 &#39;/home/matt/python...ata/write_test.edf&#39;
 CW0259_SWDs.npy                &#39;/home/matt/python...ta/CW0259_SWDs.npy&#39;
+subset_001.edf                 &#39;/home/matt/python...ata/subset_001.edf&#39;
 split1.edf                     &#39;/home/matt/python...os/data/split1.edf&#39;
 </pre>
 </div>
@@ -3904,11 +3920,20 @@ class Reader(openseize.file_io.bases.Reader)
  |      Return reader instance as target variable of this context.
  |  
  |  __exit__(self, exc_type, exc_value, traceback)
- |      On context exit, close this reader&#39;s file object and propogate
+ |      On context exit, close this reader&#39;s file object and propagate
  |      errors by returning None.
  |  
  |  close(self)
- |      Close this reader instance&#39;s opened file object.
+ |      Close this reader instance&#39;s opened file object and destroy the
+ |      reference to the file object.
+ |      
+ |      File descriptors whether opened or closed are not serializable. To
+ |      support concurrent processing we close &amp; remove all references to the
+ |      file descriptor on close.
+ |  
+ |  open(self)
+ |      Opens the file at path for reading &amp; stores the file descriptor to
+ |      this Reader&#39;s &#39;_fobj&#39; attribute.
  |  
  |  ----------------------------------------------------------------------
  |  Data descriptors inherited from openseize.file_io.bases.Reader:
@@ -4123,6 +4148,8 @@ print(reader)</div>
 <pre>Reader Object
 ---Attributes &amp; Properties---
 {&#39;path&#39;: PosixPath(&#39;/home/matt/python/nri/openseize/src/openseize/demos/data/recording_001.edf&#39;),
+ &#39;mode&#39;: &#39;rb&#39;,
+ &#39;kwargs&#39;: {},
  &#39;header&#39;: {&#39;version&#39;: &#39;0&#39;,
             &#39;patient&#39;: &#39;PIN-42 M 11-MAR-1952 Animal&#39;,
             &#39;recording&#39;: &#39;Startdate 15-AUG-2020 X X X&#39;,
@@ -4633,6 +4660,7 @@ split0.edf                     &#39;/home/matt/python...os/data/split0.edf&#39;
 irregular_write_test.edf       &#39;/home/matt/python...lar_write_test.edf&#39;
 write_test.edf                 &#39;/home/matt/python...ata/write_test.edf&#39;
 CW0259_SWDs.npy                &#39;/home/matt/python...ta/CW0259_SWDs.npy&#39;
+subset_001.edf                 &#39;/home/matt/python...ata/subset_001.edf&#39;
 split1.edf                     &#39;/home/matt/python...os/data/split1.edf&#39;
 </pre>
 </div>
@@ -4941,7 +4969,7 @@ as_mask(annotations: Sequence[openseize.file_io.bases.Annotation], size: int, fs
     Creates a boolean mask from a sequence of annotation dataclass
     instances..
     
-    Producers of EEG data may recieve an optional boolean array mask.  This
+    Producers of EEG data may receive an optional boolean array mask.  This
     function creates a boolean mask from a sequence of annotations and is
     therefore useful for filtering EEG data by annotation label during
     processing.
@@ -4968,7 +4996,7 @@ as_mask(annotations: Sequence[openseize.file_io.bases.Annotation], size: int, fs
         &gt;&gt;&gt; from openseize.demos import paths
         &gt;&gt;&gt; filepath = paths.locate(&#39;annotations_001.txt&#39;)
         &gt;&gt;&gt; from openseize.io.annotations import Pinnacle
-        &gt;&gt;&gt; # read the &#39;rest&#39; anotations
+        &gt;&gt;&gt; # read the &#39;rest&#39; annotations
         &gt;&gt;&gt; with Pinnacle(filepath, start=6) as pinnacle:
         &gt;&gt;&gt;     annotations = pinnacle.read(labels=[&#39;rest&#39;])
         &gt;&gt;&gt; # create a mask measuring 3700 secs at 5000 Hz
@@ -6153,6 +6181,17 @@ Type help(ReaderProducer) for full documentation
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
 <p><font size=3>These producers can be iterated over independently.</font></p>
 
+</div>
+</div>
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="resource-recovery">Resource Recovery<a class="anchor-link" href="#resource-recovery">&#182;</a></h2>
 </div>
 </div>
 </div>

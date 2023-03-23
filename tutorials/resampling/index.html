@@ -605,6 +605,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resource-recovery" class="md-nav__link">
+    Resource Recovery
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#references" class="md-nav__link">
     References
   </a>
@@ -1548,6 +1555,13 @@
         <li class="md-nav__item">
   <a href="#resampling" class="md-nav__link">
     Resampling
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-recovery" class="md-nav__link">
+    Resource Recovery
   </a>
   
 </li>
@@ -3758,7 +3772,7 @@ print('Producer with shape {} was downsampled in {} secs'.format(pro.shape, elap
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Producer with shape (4, 18875000) was downsampled in 0.00021731499873567373 secs
+<pre>Producer with shape (4, 18875000) was downsampled in 0.00017939899771590717 secs
 </pre>
 </div>
 </div>
@@ -3831,7 +3845,7 @@ print('Producer with shape {} was downsampled in {} secs'.format(pro.shape, elap
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Producer with shape (4, 18875000) was downsampled in 3.6876659040008235 secs
+<pre>Producer with shape (4, 18875000) was downsampled in 3.7424030090005544 secs
 </pre>
 </div>
 </div>
@@ -4275,7 +4289,7 @@ print('Array with shape {} was downsampled in {} secs'.format(x.shape, elapsed))
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Array with shape (1, 20000) was downsampled in 0.008141280000927509 secs
+<pre>Array with shape (1, 20000) was downsampled in 0.010576804001175333 secs
 </pre>
 </div>
 </div>
@@ -4723,7 +4737,7 @@ print('Producer with shape {} = {:.2f} hours was resampled in {} secs'.format(pr
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Producer with shape (4, 18875000) = 1.05 hours was resampled in 3.6383870210011082 secs
+<pre>Producer with shape (4, 18875000) = 1.05 hours was resampled in 3.7136126769983093 secs
 </pre>
 </div>
 </div>
@@ -4823,7 +4837,7 @@ print('Scipy Array with shape {}  = {:.2f} hours was resampled in {} secs'.forma
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Scipy Array with shape (4, 18875000)  = 1.05 hours was resampled in 2.9340959479995945 secs
+<pre>Scipy Array with shape (4, 18875000)  = 1.05 hours was resampled in 2.993395033001434 secs
 </pre>
 </div>
 </div>
@@ -5063,6 +5077,55 @@ print(msg.format(*sp_poly.shape, np.allclose(sp_poly, op_poly)))</div>
 
 </div>
 
+</div>
+
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="resource-recovery">Resource Recovery<a class="anchor-link" href="#resource-recovery">&#182;</a></h2>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[23]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+        
+        
+        <div class="CodeMirror cm-s-jupyter">
+        <div class="zeroclipboard-container">
+            <clipboard-copy for="cell-23">
+            <div>
+                <span class="notice" hidden>Copied!</span>
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" version="1.1"  data-view-component="true" class="clipboard-copy-icon">
+                    <path fill="currentColor" fill-rule="evenodd" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"></path>
+                    <path fill="currentColor" fill-rule="evenodd" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"></path>
+                </svg>
+                </div>
+            </clipboard-copy>
+        </div>
+            <div class="highlight-ipynb hl-python"><pre><span></span><span class="c1"># In this tutorial we have used a reader instance to read and resample data. This</span>
+<span class="c1"># reader maintains an open link to a file an continues to use resources until it is</span>
+<span class="c1"># explicitly closed. Lets close the reader</span>
+<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+<div id="cell-23" class="clipboard-copy-txt"># In this tutorial we have used a reader instance to read and resample data. This
+# reader maintains an open link to a file an continues to use resources until it is
+# explicitly closed. Lets close the reader
+reader.close()</div>
+    
+        </div>
+    </div>
+
+</div>
 </div>
 
 </div>

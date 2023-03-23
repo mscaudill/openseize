@@ -618,6 +618,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#resource-recovery" class="md-nav__link">
+    Resource Recovery
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#references" class="md-nav__link">
     References
   </a>
@@ -1602,6 +1609,13 @@
         <li class="md-nav__item">
   <a href="#notch-filters" class="md-nav__link">
     Notch Filters
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-recovery" class="md-nav__link">
+    Resource Recovery
   </a>
   
 </li>
@@ -5125,7 +5139,7 @@ help(fir.Remez.__init__)</div>
 
     Attributes:
         bands (Sequence):
-            A monitonically increaing sequence of pass and stop band edge
+            A monitonically increasing sequence of pass and stop band edge
             frequencies that must include 0 and the nyquist frequencies.
         desired (Sequence):
             A sequence of desired gains in each band of bands.
@@ -5141,7 +5155,7 @@ help(fir.Remez.__init__)</div>
             - numtaps (int):
                 The number of taps used to construct this filter. This
                 overrides Remez&#39;s internal numtaps property.
-            - weight (Sequnce):
+            - weight (Sequence):
                 A sequence the same length as desired with weights to
                 relatively weight each band. If no value is passed
                 the weights are the inverse of the percentage loss and
@@ -5201,7 +5215,7 @@ __init__(self, bands: Sequence[float], desired: Sequence[float], fs: int, gpass:
             - numtaps (int):
                 The number of taps used to construct this filter. This
                 overrides Remez&#39;s internal numtaps property.
-            - weight (Sequnce):
+            - weight (Sequence):
                 A sequence the same length as desired with weights to
                 relatively weight each band. If no value is passed
                 the weights are the inverse of the percentage loss and
@@ -5865,6 +5879,8 @@ print(reader)</div>
 <pre>Reader Object
 ---Attributes &amp; Properties---
 {&#39;path&#39;: PosixPath(&#39;/home/matt/python/nri/openseize/src/openseize/demos/data/recording_001.edf&#39;),
+ &#39;mode&#39;: &#39;rb&#39;,
+ &#39;kwargs&#39;: {},
  &#39;header&#39;: {&#39;version&#39;: &#39;0&#39;,
             &#39;patient&#39;: &#39;PIN-42 M 11-MAR-1952 Animal&#39;,
             &#39;recording&#39;: &#39;Startdate 15-AUG-2020 X X X&#39;,
@@ -6042,7 +6058,7 @@ print(time.perf_counter() - t0)</div>
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>0.00025209400155290496
+<pre>0.00027866899836226366
 </pre>
 </div>
 </div>
@@ -6120,7 +6136,7 @@ print(msg.format(filtered.shape[-1], filtered.shape[-1]/(5000*3600), elapsed))</
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Openseize produced 18875000 filtered samples (~ 1.05 hrs) in 3.64 secs
+<pre>Openseize produced 18875000 filtered samples (~ 1.05 hrs) in 3.39 secs
 </pre>
 </div>
 </div>
@@ -6225,7 +6241,7 @@ print(msg.format(scipy_filtered.shape[-1], scipy_filtered.shape[-1]/(5000*3600),
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Scipy produced 18875000 filtered samples (~ 1.05 hrs) in 2.72 secs
+<pre>Scipy produced 18875000 filtered samples (~ 1.05 hrs) in 2.60 secs
 </pre>
 </div>
 </div>
@@ -6619,16 +6635,10 @@ $$</p>
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-<p>The roots or poles as they are called in signal processing are values of s where the denominator is zero. This happens if:
-&lt;/br&gt;
-&lt;/br&gt;
-$(-1)^N * \left(\frac{s}{\omega_o}\right)^{2N} = 1$
-&lt;/br&gt;
-&lt;/br&gt;
-so this implies
-&lt;/br&gt;
-&lt;/br&gt;
-$\left(\frac{s}{\omega_o}\right)^{2N} = -1^N = \left({e^{\frac{i \pi (2k+1 + N)}{2N}}}\right)^{2N}$ for $0 \leq k \leq 2N-1$</p>
+<p>The roots or poles as they are called in signal processing are values of s where the denominator is zero. This happens if:</p>
+<p>$(-1)^N * \left(\frac{s}{\omega_o}\right)^{2N} = 1$</p>
+<p>so this implies</p>
+<p>$\left(\frac{s}{\omega_o}\right)^{2N} = -1^N = \left({e^{\frac{i \pi (2k+1 + N)}{2N}}}\right)^{2N}$ for $0 \leq k \leq 2N-1$</p>
 
 </div>
 </div>
@@ -7698,7 +7708,7 @@ print(msg.format(filtered.shape[-1], filtered.shape[-1]/(5000*3600), elapsed))</
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Openseize produced 18875000 Chebyshev filtered samples (~ 1.05 hrs) in 4.17 secs
+<pre>Openseize produced 18875000 Chebyshev filtered samples (~ 1.05 hrs) in 4.06 secs
 </pre>
 </div>
 </div>
@@ -7771,7 +7781,7 @@ print(msg.format(scipy_filtered.shape[-1], scipy_filtered.shape[-1]/(5000*3600),
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Scipy produced 18875000 Chebyshev filtered samples (~ 1.05 hrs) in 2.00 secs
+<pre>Scipy produced 18875000 Chebyshev filtered samples (~ 1.05 hrs) in 1.99 secs
 </pre>
 </div>
 </div>
@@ -8134,7 +8144,7 @@ help(iir.Notch.__init__)</div>
 
     Examples:
         &gt;&gt;&gt; # design a Notch filter around 60 Hz with a 8 Hz transition
-        &gt;&gt;&gt; ellip = Notch(fstop=60, width=8, fs=5000)
+        &gt;&gt;&gt; notch = Notch(fstop=60, width=8, fs=5000)
         &gt;&gt;&gt; # print the pass and stop bands
         &gt;&gt;&gt; notch.fpass
         array([56., 64.])
@@ -8578,7 +8588,7 @@ print(msg.format(pro.shape[-1], pro.shape[-1]/(5000*3600), elapsed))</div>
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Openseize notch filtered 18875000 samples ~1.05 hrs with no delay in 3.71 secs
+<pre>Openseize notch filtered 18875000 samples ~1.05 hrs with no delay in 3.54 secs
 </pre>
 </div>
 </div>
@@ -8653,7 +8663,7 @@ print(msg.format(pro.shape[-1], pro.shape[-1]/(5000*3600), elapsed))</div>
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Scipy notch filtered 18875000 samples ~1.05 hrs with no delay in 1.17 secs
+<pre>Scipy notch filtered 18875000 samples ~1.05 hrs with no delay in 1.07 secs
 </pre>
 </div>
 </div>
@@ -8829,6 +8839,55 @@ True
 
 </div>
 
+</div>
+
+</div>
+</div>
+<div class="jp-Cell jp-MarkdownCell jp-Notebook-cell">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
+</div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
+<h2 id="resource-recovery">Resource Recovery<a class="anchor-link" href="#resource-recovery">&#182;</a></h2>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs  ">
+<div class="jp-Cell-inputWrapper">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[61]:</div><div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+        
+        
+        <div class="CodeMirror cm-s-jupyter">
+        <div class="zeroclipboard-container">
+            <clipboard-copy for="cell-61">
+            <div>
+                <span class="notice" hidden>Copied!</span>
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 16 16" version="1.1"  data-view-component="true" class="clipboard-copy-icon">
+                    <path fill="currentColor" fill-rule="evenodd" d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"></path>
+                    <path fill="currentColor" fill-rule="evenodd" d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"></path>
+                </svg>
+                </div>
+            </clipboard-copy>
+        </div>
+            <div class="highlight-ipynb hl-python"><pre><span></span><span class="c1"># we have produced from a reader instance to demonstrate calling filters on real data</span>
+<span class="c1"># It is important to close this reader instance to recover the file resources since we</span>
+<span class="c1"># are now done producing from the file</span>
+<span class="n">reader</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+<div id="cell-61" class="clipboard-copy-txt"># we have produced from a reader instance to demonstrate calling filters on real data
+# It is important to close this reader instance to recover the file resources since we
+# are now done producing from the file
+reader.close()</div>
+    
+        </div>
+    </div>
+
+</div>
 </div>
 
 </div>
