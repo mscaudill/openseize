@@ -300,8 +300,9 @@ Openseize is licensed under the terms of the 3-Clause BSD License.
 
 # Acknowledgements
 
-**This work was generously supported through the Ting Tsung and Wei Fong Chao 
-Foundation.**
+**This work is generously supported through the Ting Tsung and Wei Fong Chao 
+Foundation and the National Institute of Neurological Disorders and Stroke 
+(Grant 2R01 NS100738-05A1).**
 
 
 
