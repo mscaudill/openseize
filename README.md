@@ -50,10 +50,11 @@
 <hr>
 
 * **Source Code:**  <a href=https://github.com/mscaudill/openseize
-                     target=_blank>https://github.com/mscaudill/opensieze
+                     target=_blank>https://github.com/mscaudill/openseize
                     </a>
-* **White Paper:** <a href="https://github.com/mscaudill/opensieze">
-LINK</a>
+* **White Paper:** <a href=https://joss.theoj.org/papers/10.21105/joss.05126
+                    target=_blank>10.21105/joss.05126
+                    </a>
 
 <hr>
 
@@ -272,9 +273,8 @@ for all publicly available modules, classes and functions.
 
 # Attribution
 
-```
-Citation to be added
-```
+Please see the *Cite this repository* under the About section or the [citation
+file](https://github.com/mscaudill/openseize/blob/master/CITATION.cff).
 
 And if you really like Openseize, you can star the <a
 href=https://github.com/mscaudill/openseize>repository</a> 
