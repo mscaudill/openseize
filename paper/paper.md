@@ -14,10 +14,10 @@ authors:
     affiliation: "1, 2" # (multiple affiliations must be quoted) 
 affiliations:
   - name: Department of Neuroscience, Baylor College of Medicine, Houston,
-      TX, USA
+      TX, United States of America
     index: 1
   - name: Jan and Dan Duncan Neurological Research Institute at Texas
-      Childrens Hospital, Houston, TX, USA 
+      Childrens Hospital, Houston, TX, United States of America 
     index: 2 
 date: 8 November 2022
 bibliography: paper.bib
