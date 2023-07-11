@@ -190,8 +190,11 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
             else:
                 filtfunc = nm.lfilter
 
-        # zi is ignored if filtfunc is a forward/backward filtfilt
-        result = filtfunc(pro, self.coeffs, axis, zi=zi)
+        # zi is ignored if filtfunc is a forward/backward filter
+        genfunc = partial(filtfunc, pro, self.coeffs, axis, zi=zi)
+        
+        # build producer from a generating function
+        result = producer(genfunc, chunksize, axis, shape=pro.shape)
 
         # if data is an ndarray return an ndarray
         if isinstance(data, np.ndarray):

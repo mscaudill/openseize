@@ -4,7 +4,7 @@ from functools import partial
 import scipy.signal as sps
 
 from openseize import producer
-from openseize.core.producer import Producer, as_producer, pad_producer 
+from openseize.core.producer import Producer, pad_producer 
 from openseize.core.queues import FIFOArray
 from openseize.core.arraytools import (pad_along_axis, slice_along_axis,
         multiply_along_axis, split_along_axis)
@@ -288,7 +288,6 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
             yield _oa_boundary(y, window, 'right', axis, mode)
 
 
-@as_producer
 def sosfilt(pro, sos, axis, zi=None):
     """Batch applies a forward second-order-section fmt filter to a 
     producer of numpy arrays.
@@ -309,7 +308,9 @@ def sosfilt(pro, sos, axis, zi=None):
             sosfilt_zi in scipy's signal module. Default is None
             which sets the initial nsections of filtered values to 0.
 
-    Returns: A producer of filtered values of len chunksize along axis.
+    Returns:
+        A generator of ndarrays of forward filtered values of shape chunksize
+        along the sample axis.
     """
 
     # set initial conditions for filter (see scipy sosfilt; zi)
@@ -324,7 +325,6 @@ def sosfilt(pro, sos, axis, zi=None):
         yield y
 
 
-@as_producer
 def sosfiltfilt(pro, sos, axis, **kwargs):
     """Batch applies a forward-backward second order section fmt filter to
     a producer of numpy arrays.
@@ -338,8 +338,9 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
         axis: int
             The axis along which to apply the filter in chunksize batches
 
-    Returns: a producer of forward-backward filtered values of len 
-             chunksize along axis
+    Returns: 
+        A generator of forward-backward filtered values of len chunksize
+        along axis.
 
     Notes: 
         1. This iterative algorithm is not nearly as efficient as working on
@@ -400,7 +401,6 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
             yield np.flip(rfilt, axis=axis)
 
 
-@as_producer
 def lfilter(pro, coeffs, axis, zi=None):
     """Batch appliies a forward transfer function fmt (b,a) filter to
     a producer of numpy arrays.
@@ -418,7 +418,8 @@ def lfilter(pro, coeffs, axis, zi=None):
            (default), the initial values are zeros. Please see scipy
            signal lfilter for more details.
     
-    Returns: A producer of filtered values of len chunksize along axis.    
+    Returns: 
+        A generator of filtered values of len chunksize along axis.    
     """
 
     b, a = coeffs
@@ -435,7 +436,6 @@ def lfilter(pro, coeffs, axis, zi=None):
         yield y
 
 
-@as_producer
 def filtfilt(pro, coeffs, axis, **kwargs):
     """Batch applies a forward-backward filter in transfer func fmt (b,a)
     to a producer of numpy arrays.
@@ -449,7 +449,8 @@ def filtfilt(pro, coeffs, axis, **kwargs):
         axis: int
             The axis along which to apply the filter in chunksize batches
 
-    Returns: A producer of filtered values of len chunksize along axis.
+    Returns: 
+        A generator of filtered values of len chunksize along axis.
 
     Notes:
         1. This iterative algorithm is not nearly as efficient as working on
