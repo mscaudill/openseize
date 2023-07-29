@@ -1,5 +1,19 @@
 import numpy as np
 
+def normalize_axis(axis, ndim):
+    """Returns a positive axis index for a supplied axis index of an ndim
+    array.
+
+    Args:
+        axis:
+            An positive or negative integer axis index.
+        ndim:
+            The number of dimensions to normalize axis by.
+    """
+    
+    axes = np.arange(ndim)
+    return axes[axis]
+
 
 def pad_along_axis(arr, pad, axis=-1, **kwargs):
     """Wrapper for numpy pad allowing before and after padding along

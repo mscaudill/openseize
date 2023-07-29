@@ -8,13 +8,15 @@ a producer including:
     multiply_along_axis:
         A function that multiplies produced values by a 1-D numpy array along
         a single axis.
-    
+    slice_along_axis:
+        A function that slices a producer along any axis.
+
 Note: To support concurrency all functions in this module are available at the
-module level. Functions not intended to be called externally are marked as 
+module level. Functions not intended to be called externally are marked as
 protected with a single underscore.
 """
 
-from typing import Optional, Sequence, Tuple, Union
+from typing import Optional, Tuple, Union
 from functools import partial
 
 import numpy as np
@@ -25,7 +27,7 @@ from openseize.core.producer import Producer
 
 
 def pad(pro: Producer,
-        pad: Union[int, Tuple[int, int]],
+        amt: Union[int, Tuple[int, int]],
         axis: int,
         value: Optional[float] = 0,
 ) -> Producer:
@@ -34,9 +36,9 @@ def pad(pro: Producer,
     Args:
         pro:
             A producer of ndarrays whose edges along axis are to be padded.
-        pad:
+        amt:
             The number of pads to apply before the 0th element & after the
-            last element along axis. If int, pad number of values will be
+            last element along axis. If int, amt number of values will be
             prepended & appended to axis.
         axis:
             The axis of produced values along which to pad.
@@ -53,39 +55,39 @@ def pad(pro: Producer,
         True
 
     Returns:
-        A new producer padded with value along axis. 
-    
+        A new producer padded with value along axis.
+
     Notes:
         This padding is less sophisticated than numpy as openseize only allows
         constant pre and post padding. Future versions will likely improve this.
     """
 
-    pad = (pad, pad) if isinstance(pad, int) else tuple(pad)
-   
-    # dispatch to generating function based on wheter pad is along pro.axis
+    amts = (amt, amt) if isinstance(amt, int) else tuple(amt)
+
+    # dispatch to generating function based on whether pad is along pro.axis
     if axis == pro.axis:
         genfunc = _production_axis_padder
     else:
         genfunc = _other_axis_padder
-   
-    # build a partial generating function and compute the return pros shape
-    func = partial(genfunc, pro, pad, axis, value)
-    new_shape = list(pro.shape)
-    new_shape[axis] = pro.shape[axis] + sum(pad)
-    
-    return producer(func, pro.chunksize, pro.axis, shape=new_shape)
-    
 
-def _production_axis_padder(pro, pad, axis, value):
-    """A generating func. that pads a producer along its axis with value.
+    # build a partial generating function and compute the return pros shape
+    func = partial(genfunc, pro, amts, axis, value)
+    new_shape = list(pro.shape)
+    new_shape[axis] = pro.shape[axis] + sum(amts)
+
+    return producer(func, pro.chunksize, pro.axis, shape=new_shape)
+
+
+def _production_axis_padder(pro, amt, axis, value):
+    """A generating function that pads a producer along its axis with value.
 
     Padding a producer along its production axis only changes the first and last
     produced arrays. For argument definitions see pad.
     """
 
     left_shape, right_shape = list(pro.shape), list(pro.shape)
-    left_shape[axis] = pad[0]
-    right_shape[axis] = pad[1]
+    left_shape[axis] = amt[0]
+    right_shape[axis] = amt[1]
 
     # create the arrays to pad left and right along axis
     left, right = [value * np.ones(s) for s in (left_shape, right_shape)]
@@ -98,15 +100,15 @@ def _production_axis_padder(pro, pad, axis, value):
     yield right
 
 
-def _other_axis_padder(pro, pad, axis, value):
+def _other_axis_padder(pro, amt, axis, value):
     """A generating func. that pads a producer along any non-production axis.
 
     Padding a producer along a non-production axis changes the shape of all
     produced arrays.
     """
-    
+
     for arr in pro:
-        yield arraytools.pad_along_axis(arr, pad, axis, constant_values=value)
+        yield arraytools.pad_along_axis(arr, amt, axis, constant_values=value)
 
 
 def expand_dims(pro: Producer, axis: Union[int, Tuple] = 0) -> Producer:
@@ -136,18 +138,20 @@ def expand_dims(pro: Producer, axis: Union[int, Tuple] = 0) -> Producer:
         A new producer with expanded dimensions.
 
     Notes:
-        In contrast with numpy's expand_dims, this function must expand the 
-        produced array dims and track where the producing axis ends up.
+        In contrast with numpy's expand_dims, this function must expand the
+        produced array dims and track where the producing axis ends up. Callers
+        should be aware that inserting new axes into a producer may change the
+        production axis.
     """
 
     # normalize the axis to insert and the producer's axis
     axes = (axis,) if isinstance(axis, int) else axis
-    pro_axis = normalize_axis(pro.axis, len(pro.shape))
+    pro_axis = arraytools.normalize_axis(pro.axis, len(pro.shape))
 
     # calculate out ndims, initialize new shape and normalize inserts
     new_ndim = len(pro.shape) + len(axes)
     new_shape = np.ones(new_ndim, dtype=int)
-    inserts = [normalize_axis(ax, new_ndim) for ax in axes]
+    inserts = [arraytools.normalize_axis(ax, new_ndim) for ax in axes]
 
     # find indices of new_shape where we will insert producer's shape
     complements = sorted(set(range(new_ndim)).difference(inserts))
@@ -160,41 +164,39 @@ def expand_dims(pro: Producer, axis: Union[int, Tuple] = 0) -> Producer:
         new_shape[comp] = pro.shape[idx]
 
     func = partial(_expand_gen, pro, axes)
-    return producer(func, pro.chunksize, new_axis, new_shape)
+    return producer(func, pro.chunksize, new_axis, tuple(new_shape))
 
 
-def _expand_gen(pro: Producer, axes: Tuple[int, ...]):
-        """A generating function that expands the dims of each produced array
-        in a producer.
-
-        This helper function is a generating function (not a producer) and is not
-        intended to be called externally.
-
-        Args:
-            pro:
-                A producer of ndarrays.
-            axes:
-                A tuple of axes to insert.
-
-        Yields:
-            Arrays with expanded dims.
-        """
-
-        for arr in pro:
-            yield np.expand_dims(arr, axes)
-
-
-def multiply_along_axis(pro: Producer, arr: npt.NDArray, axis: int,
-) -> Producer:
-    """Multiplies each produced array of a producer by a 1-D array 
-    along a single axis.
+def _expand_gen(pro, axes):
+    """A generating function that expands the dims of each produced array
+    in a producer.
 
     Args:
         pro:
-            A producer of ndarrays
+            A producer of ndarrays.
+        axes:
+            A tuple of axes to insert.
+
+    Yields:
+        Arrays with expanded dims.
+    """
+
+    for arr in pro:
+        yield np.expand_dims(arr, axes)
+
+
+def multiply_along_axis(pro: Producer,
+                        arr: npt.NDArray,
+                        axis: int,
+) -> Producer:
+    """Multiplies each produced array of a producer by a 1-D array along a
+    single axis.
+
+    Args:
+        pro:
+            A producer of ndarrays to be multiplied along axis.
         arr:
-            A 1-D array whose length must match producers shape along the
-            supplied axis.
+            A 1-D array whose length must match producers shape along axis.
         axis:
             The axis along which to multiply.
 
@@ -206,14 +208,22 @@ def multiply_along_axis(pro: Producer, arr: npt.NDArray, axis: int,
         >>> y = multiplied.to_array()
         >>> np.allclose(x * arr.reshape(1, 4, 1), y)
         True
-    
+
     Returns:
         A new producer of arrays the same shape as the input producer.
     """
 
     arr = np.array(arr)
+    
+    # FIXME I need to take care of when multiplication is along producing axis
+    if axis == pro.axis:
+        if len(arr) != pro.shape[pro.axis]:
+            msg = ('Multiplication along the production axis requires '
+                  'length of arr to match chunksize {} != {}.')
+            raise ValueError(msg.format(len(arr), pro.chunksize))
+
     # ensure the arr shape matches the producers shape along axis
-    if len(arr) != pro.shape[axis]:
+    elif len(arr) != pro.shape[axis]:
         msg = 'operands could not be broadcast together with shapes {} {}'
         raise ValueError(msg.format(pro.shape, arr.shape))
 
@@ -228,8 +238,8 @@ def multiply_along_axis(pro: Producer, arr: npt.NDArray, axis: int,
                     shape=pro.shape)
 
 
-def _multiply_gen(pro: Producer, arr: npt.NDArray):
-    """A generating helper function that multiplies produced arrays by an 
+def _multiply_gen(pro, arr):
+    """A generating helper function that multiplies produced arrays by an
     ndarray.
 
     This helper function is a generating function (not a producer) and is not
@@ -247,4 +257,3 @@ def _multiply_gen(pro: Producer, arr: npt.NDArray):
 
     for x in pro:
         yield x * arr
-
