@@ -21,23 +21,23 @@ import numpy as np
 import numpy.typing as npt
 from openseize import producer
 from openseize.core import arraytools
-from openseize.core import Producer
+from openseize.core.producer import Producer
 
 
 def pad(pro: Producer,
-        pad: Union[int, Sequence[int, int]],
+        pad: Union[int, Tuple[int, int]],
         axis: int,
         value: Optional[float] = 0,
 ) -> Producer:
-    """Pads the edges of a producer along axis with a constant value.
+    """Pads the edges of a producer along single axis with a constant value.
 
     Args:
         pro:
             A producer of ndarrays whose edges along axis are to be padded.
         pad:
-            The number of pads to apply before the 0th element and after the
+            The number of pads to apply before the 0th element & after the
             last element along axis. If int, pad number of values will be
-            prepended and appended to axis.
+            prepended & appended to axis.
         axis:
             The axis of produced values along which to pad.
         value: float
@@ -71,9 +71,9 @@ def pad(pro: Producer,
     # build a partial generating function and compute the return pros shape
     func = partial(genfunc, pro, pad, axis, value)
     new_shape = list(pro.shape)
-    new_shape[axis] = pro.shape[axis] + sum(pads)
+    new_shape[axis] = pro.shape[axis] + sum(pad)
     
-    return producer(func, pro.chunsize, pro.axis, shape=new_shape)
+    return producer(func, pro.chunksize, pro.axis, shape=new_shape)
     
 
 def _production_axis_padder(pro, pad, axis, value):
@@ -101,12 +101,12 @@ def _production_axis_padder(pro, pad, axis, value):
 def _other_axis_padder(pro, pad, axis, value):
     """A generating func. that pads a producer along any non-production axis.
 
-    Padding a producer along an axis that does not match the producers axis
-    changes all produced arrays.
+    Padding a producer along a non-production axis changes the shape of all
+    produced arrays.
     """
     
     for arr in pro:
-        yield = arraytools.pad_along_axis(arr, pad, axis, constant_values=value)
+        yield arraytools.pad_along_axis(arr, pad, axis, constant_values=value)
 
 
 def expand_dims(pro: Producer, axis: Union[int, Tuple] = 0) -> Producer:
