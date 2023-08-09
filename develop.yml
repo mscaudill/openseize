@@ -19,6 +19,8 @@ dependencies:
     # pypi packages
     - pip
     - pip:
+        # testing
+        - pytest-lazy-fixture
         # spell checking
         - codespell 
         # versioning

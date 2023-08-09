@@ -51,11 +51,12 @@ dev = ["isort",
     "mkdocs-jupyter",
     "pytest", 
     "pytest-cov",
+    "pytest-lazy-fixture",
     "pip-tools", 
     "build",
     "twine"
 ]
-test = ["pytest", "pytest-cov"]
+test = ["pytest", "pytest-cov", "pytest-lazy-fixture"]
 
 [project.urls]
 Homepage = "https://github.com/mscaudill/openseize"
