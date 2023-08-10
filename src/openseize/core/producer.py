@@ -39,7 +39,7 @@ from abc import abstractmethod
 from collections import abc
 import functools
 import inspect
-import itertools
+from itertools import zip_longest
 from typing import Callable, Iterable, Optional, Sequence, Union
 
 import numpy as np
@@ -278,7 +278,8 @@ class Producer(abc.Iterable, mixins.ViewInstance):
 
         return np.concatenate(list(self), axis=self.axis)
 
-
+# FIXME 8/10/2023 Add start and stop for reader production so add to producer
+# docs!!!!!
 class ReaderProducer(Producer):
     """A Producer of ndarrays from an openseize file Reader instance.
 
@@ -296,32 +297,33 @@ class ReaderProducer(Producer):
 
     def __init__(self, data, chunksize, axis, **kwargs):
         """Initialize this Producer with a closed 'data' Reader instance."""
-
+        
+        # remove start and stop optional kwargs for ReaderProducers
+        a, b = kwargs.pop('start', 0), kwargs.pop('stop', data.shape[axis])
+        
         super().__init__(data, chunksize, axis, **kwargs)
         self.data.close()
+        self.start, self.stop, _ = slice(a, b).indices(data.shape[axis])
 
     @property
     def shape(self):
         """Return the summed shape of all arrays in this Reader."""
 
-        return self.data.shape
+        # FIXME TEST SHAPE
+        s = list(self.data.shape)
+        s[axis] = self.stop - self.start
+        return tuple(s)
 
     def __iter__(self):
         """Builds an iterator yielding channels x chunksize shape arrays."""
 
         # Open the data reader
-        self.data.open(**self.kwargs)
-        # make generators of start, stop samples & exhaust reader
-        starts = itertools.count(start=0, step=self.chunksize)
-        stops = itertools.count(start=self.chunksize, step=self.chunksize)
+        self.data.open()
 
-        for start, stop in zip(starts, stops):
-            arr = self.data.read(start, stop=stop)
-            # if exhausted close reader and exit
-            if arr.size == 0:
-                break
-
-            yield arr
+        # FIXME TEST
+        starts = np.arange(self.start, self.stop, self.chunksize)
+        for a, b in zip_longest(starts, starts[1:], fillvalue=self.stop):
+            yield self.data.read(a, b, **self.kwargs)
 
 
 class ArrayProducer(Producer):
@@ -351,7 +353,7 @@ class ArrayProducer(Producer):
 
         starts = range(0, self.data.shape[self.axis], self.chunksize)
 
-        for t in itertools.zip_longest(starts, starts[1:], fillvalue=None):
+        for t in zip_longest(starts, starts[1:], fillvalue=None):
             yield self.data[self._slice(*t)]
 
 
@@ -427,12 +429,13 @@ class GenProducer(Producer):
                 # append to tmp again
                 continue
 
+        # TODO TEST this change
         # else runs after normal loop exit -- required here
         else: #pylint: disable=useless-else-on-loop
 
             # yield whatever is left in tmp (its below chunksize)
-            remaining = np.concatenate(tmp, axis=self.axis)
-            if remaining.size > 0:
+            if tmp_size > 0:
+                remaining = np.concatenate(tmp, axis=self.axis)
                 yield remaining
 
 
@@ -484,7 +487,16 @@ class MaskedProducer(Producer):
         """Returns an iterator of boolean masked numpy arrays along axis."""
 
         collector = FIFOArray(self.chunksize, self.axis)
+
+        # FIXME
+        # I think the issue is not related to filtering and put. Its related to
+        # reading from a file values you will never use
         for arr, maskarr in zip(self.data, self.mask):
+
+            # TODO test that this gives a speed enhancement
+            if not np.any(maskarr):
+                continue
+
             filtered = np.take(arr, np.flatnonzero(maskarr), axis=self.axis)
             collector.put(filtered)
 
