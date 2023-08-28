@@ -91,12 +91,22 @@ def producer(data: Union[npt.NDArray, Iterable[npt.NDArray], Reader,
             values that are False will be ignored. If None (Default),
             producer will produce all values from object.
         kwargs:
-            Keyword arguments specific to data type that ndarrays will be
-            produced from. For Reader instances, valid kwargs are padvalue
-            (see io.bases.Readers and io.edf.Reader) For generating
-            functions, all the positional and keyword arguments must be
-            passed to the function through these kwargs to avoid name
-            collisions with the producer func arguments.
+            Keyword arguments are specific to data argmument type:
+            - Reader:
+                padvalue: 
+                    see reader.read method
+                start: 
+                    The start sample to begin data production along axis.
+                stop:
+                    The stop sample to halt data production along axis.
+            - Generating Function:
+                All positional and keyword arguments to the Gen. func. must be passed 
+                through these kwargs to avoid name collisions with the producer
+                func arguments.
+            - Arrays:
+                The kwargs are ignored.
+            - Sequences:
+                The kwargs are ignored
 
     Returns: An iterable of ndarrays of shape chunksize along axis.
     """
@@ -278,14 +288,20 @@ class Producer(abc.Iterable, mixins.ViewInstance):
 
         return np.concatenate(list(self), axis=self.axis)
 
-# FIXME 8/10/2023 Add start and stop for reader production so add to producer
-# docs!!!!!
+
 class ReaderProducer(Producer):
     """A Producer of ndarrays from an openseize file Reader instance.
 
     Attrs:
-        see Producer attrs
-        kwargs: dict
+        Producer Attrs
+        start:
+            The start sample along production axis at which data production
+            begins.
+        stop:
+            The stop sample along production axis at which data production
+            stops.
+        kwargs:
+            
             Arguments passed to read method of a file reader instance.
 
     Notes:
@@ -298,20 +314,22 @@ class ReaderProducer(Producer):
     def __init__(self, data, chunksize, axis, **kwargs):
         """Initialize this Producer with a closed 'data' Reader instance."""
         
-        # remove start and stop optional kwargs for ReaderProducers
-        a, b = kwargs.pop('start', 0), kwargs.pop('stop', data.shape[axis])
-        
         super().__init__(data, chunksize, axis, **kwargs)
-        self.data.close()
+
+        # Pop the start and stop from kwargs
+        a = self.kwargs.pop('start', 0)
+        b = self.kwargs.pop('stop', self.data.shape[axis])
         self.start, self.stop, _ = slice(a, b).indices(data.shape[axis])
+        
+        # close for serialization
+        self.data.close()
 
     @property
     def shape(self):
         """Return the summed shape of all arrays in this Reader."""
 
-        # FIXME TEST SHAPE
         s = list(self.data.shape)
-        s[axis] = self.stop - self.start
+        s[self.axis] = self.stop - self.start
         return tuple(s)
 
     def __iter__(self):
@@ -320,7 +338,6 @@ class ReaderProducer(Producer):
         # Open the data reader
         self.data.open()
 
-        # FIXME TEST
         starts = np.arange(self.start, self.stop, self.chunksize)
         for a, b in zip_longest(starts, starts[1:], fillvalue=self.stop):
             yield self.data.read(a, b, **self.kwargs)
@@ -429,13 +446,12 @@ class GenProducer(Producer):
                 # append to tmp again
                 continue
 
-        # TODO TEST this change
         # else runs after normal loop exit -- required here
         else: #pylint: disable=useless-else-on-loop
 
             # yield whatever is left in tmp (its below chunksize)
-            if tmp_size > 0:
-                remaining = np.concatenate(tmp, axis=self.axis)
+            remaining = np.concatenate(tmp, axis=self.axis)
+            if remaining.size > 0:
                 yield remaining
 
 
@@ -487,13 +503,8 @@ class MaskedProducer(Producer):
         """Returns an iterator of boolean masked numpy arrays along axis."""
 
         collector = FIFOArray(self.chunksize, self.axis)
-
-        # FIXME
-        # I think the issue is not related to filtering and put. Its related to
-        # reading from a file values you will never use
         for arr, maskarr in zip(self.data, self.mask):
 
-            # TODO test that this gives a speed enhancement
             if not np.any(maskarr):
                 continue
 

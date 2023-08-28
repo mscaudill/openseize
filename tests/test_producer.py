@@ -6,6 +6,7 @@ Typical usage example:
 """
 
 import pytest
+import time
 import numpy as np
 from itertools import zip_longest
 from pathlib import Path
@@ -298,6 +299,73 @@ def test_frommaskedreader(demo_data):
         slicer = [slice(None)] * arr.ndim #slice obj to slice arr
         slicer[-1] = slice(start, stop)
         assert np.allclose(masked[tuple(slicer)], pro_arr)
+
+def test_subread_shape(demo_data):
+    """Validate that the shape of data produced between random starts & stops
+    matches the expected shape for 1000 random reads."""
+
+    reader = Reader(demo_data)
+    starts = np.random.randint(low=0, high=reader.shape[-1]-1, size=1000)
+    stops = starts + np.random.randint(low=1, high=int(10e6), size=1000)
+    # ensure largest stop is within data
+    stops = np.minimum(stops, reader.shape[-1])
+    for start, stop in zip(starts, stops):
+        pro = producer(reader, chunksize=30e5, axis=-1, start=start, stop=stop)
+        assert pro.shape[-1] == stop - start
+    
+    reader.close()
+
+def test_subread_values(demo_data):
+    """Validate that the values produced between random starts & stops match the
+    expected values for 300 random reads."""
+
+    reader = Reader(demo_data)
+    starts = np.random.randint(low=0, high=reader.shape[-1]-1, size=300)
+    stops = starts + np.random.randint(low=1, high=int(1e6), size=300)
+    # ensure largest stop is within data
+    stops = np.minimum(stops, reader.shape[-1])
+    for start, stop in zip(starts, stops):
+
+        pro = producer(reader, chunksize=30e5, axis=-1, start=start, stop=stop)
+        assert np.allclose(pro.to_array(), reader.read(start, stop))
+    
+    reader.close()
+
+def test_subread_channels(demo_data):
+    """Validate that values produced between random starts & stops for
+    a restricted set of channes match the expected values for 300 random
+    reads."""
+
+    reader = Reader(demo_data)
+    reader.channels = [0, 2]
+    starts = np.random.randint(low=0, high=reader.shape[-1]-1, size=300)
+    stops = starts + np.random.randint(low=1, high=int(1e6), size=300)
+    # ensure largest stop is within data
+    stops = np.minimum(stops, reader.shape[-1])
+    for start, stop in zip(starts, stops):
+
+        pro = producer(reader, chunksize=30e5, axis=-1, start=start, stop=stop)
+        assert np.allclose(pro.to_array(), reader.read(start, stop))
+    
+    reader.close()
+
+def test_subread_mask(demo_data):
+    """Validate that values produced between random starts & stops with a mask
+    match the expected values for 300 random reads."""
+
+    reader = Reader(demo_data)
+    starts = np.random.randint(low=0, high=reader.shape[-1]-1, size=300)
+    stops = starts + np.random.randint(low=1, high=int(1e6), size=300)
+    # ensure largest stop is within data
+    stops = np.minimum(stops, reader.shape[-1])
+    for start, stop in zip(starts, stops):
+
+        mask = np.random.choice([True, False], size=stop-start, p=[.4, .6])
+        x = reader.read(start, stop)[:, mask]
+        pro = producer(reader, 30e5, axis=-1, start=start, stop=stop, mask=mask)
+        assert np.allclose(pro.to_array(), x)
+    
+    reader.close()
 
 def test_asproducer0():
     """Verify that the as_producer decorator correctly decorates
