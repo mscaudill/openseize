@@ -1,4 +1,4 @@
-"""A module for testing ops that manipulate the size, shape and values
+"""A module for testing protools that manipulate the size, shape and values
 produced by a producer.
 
 Typical usage example:
@@ -11,7 +11,7 @@ from itertools import permutations
 from pytest_lazyfixture import lazy_fixture
 
 from openseize import producer
-from openseize.tools import operatives as ops
+from openseize.core import protools
 
 
 @pytest.fixture(scope='module')
@@ -69,7 +69,7 @@ def test_production_pad(arr):
 
     # pad the producer
     amt = (10, 752)
-    padded_pro = ops.pad(pro, amt=amt, axis=pro_axis)
+    padded_pro = protools.pad(pro, amt=amt, axis=pro_axis)
     
     # build a producer from the padded array to compare against
     pads = [(0,0) for _ in range(arr.ndim)]
@@ -102,7 +102,7 @@ def test_nonproduction_pad(arr):
     amt = (190, 13)
 
     # create padded_producers
-    padded_pros = [ops.pad(pro, amt=amt, axis=ax) for ax in padding_axes]
+    padded_pros = [protools.pad(pro, amt=amt, axis=ax) for ax in padding_axes]
 
     # create ground truth padded array producers
     ground_truth_pros = []
@@ -137,7 +137,7 @@ def test_expand_dims(arr):
     pro = producer(arr, chunksize=1000, axis=axis)
     
     for insertion in range(arr.ndim):
-        expanded = ops.expand_dims(pro, axis=insertion)
+        expanded = protools.expand_dims(pro, axis=insertion)
         
         for x, y in zip(pro, expanded):
             
@@ -162,7 +162,7 @@ def test_multiply_along_axis(arr):
     
     multiplier = 4.3 * np.ones(pro.shape[0])
     # call multiply along 0th axis for each transposed arr
-    result = ops.multiply_along_axis(pro, multiplier, axis=0).to_array()
+    result = protools.multiply_along_axis(pro, multiplier, axis=0).to_array()
 
     #broadcast multiplier for multiplication along 0th axis
     shape = np.ones(arr.ndim, dtype=int)
@@ -196,6 +196,6 @@ def test_slice_along_axis(arr):
         start, stop, step = 0, 2, None
 
     # slice and convert to array
-    result = ops.slice_along_axis(pro, start, stop, step, axis=0).to_array()
+    result = protools.slice_along_axis(pro, start, stop, step, axis=0).to_array()
 
     assert np.allclose(arr[start:stop:step], result)
