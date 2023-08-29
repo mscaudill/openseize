@@ -1,5 +1,5 @@
-"""A class for building sequences of callables (aka pipelines) that delay their
-actions until their call method is invoked.
+"""Tools for building Pipelines, callables composed of subcallables that
+sequentially act on a producer when the Pipeline instance is called.
 
 This module includes:
     
@@ -7,6 +7,7 @@ This module includes:
         A callable that executes a sequence of functions on any input.
 """
 
+import inspect
 from copy import copy
 from functools import partial
 from typing import Any, Callable, List
@@ -16,7 +17,7 @@ class Pipeline:
     """A callable that executes a chain of callables each accepting as input the
     output of the previous callable.
 
-    Pipelines are powerful. They compose complex sequences of operations that
+    Pipelines are compositions of complex sequences of DSP operations that
     will execute on producers, ndarrays, or other data structures when needed.
     They support multiprocessing and are self documenting since the functions
     executed and their parameters are stored within a pipeline.
@@ -54,6 +55,19 @@ class Pipeline:
 
         self.callers: List[Callable] = []
 
+    def validate(self, caller: Callable, **kwargs) -> None:
+        """Validates that a partial of caller constructed with kwargs has
+        exactly on free argument."""
+
+        sig = inspect.signature(caller)
+        bound = sig.bind_partial(**kwargs)
+        bound.apply_defaults()
+        unbound_cnt = len(sig.parameters) - len(bound.arguments)
+        if unbound_cnt > 1:
+            msg = ('Pipeline callers must have exactly one unbound argument.'
+                   f'{caller.__name__} has {unbound_cnt} unbound arguments.')
+            raise ValueError(msg)
+
     def append(self, caller: Callable, **kwargs) -> None:
         """Append a callable to this Pipeline.
         
@@ -70,12 +84,12 @@ class Pipeline:
             unbound argument is present.
         """
 
+        self.validate(caller, **kwargs)
         frozen = partial(caller, **kwargs)
         self.callers.append(frozen)
 
     def __contains__(self, name: str) -> bool:
-        """Returns True if func with name is in the list of this Pipeline's
-        callables.
+        """Returns True if func with name is in this Pipeline's callables.
 
         Args:
             name:
