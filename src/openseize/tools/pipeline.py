@@ -2,15 +2,15 @@
 sequentially act on a producer when the Pipeline instance is called.
 
 This module includes:
-    
+
     Pipeline:
         A callable that executes a sequence of functions on any input.
 """
 
-import inspect
 from copy import copy
 from functools import partial
-from typing import Any, Callable, List
+import inspect
+from typing import Callable, List
 
 
 class Pipeline:
@@ -28,7 +28,7 @@ class Pipeline:
 
     Examples:
     >>> import numpy as np
-    >>> from openseize import producer
+    >>> from openseize.core.producer import producer, Producer
     >>> from openseize.filtering.iir import Notch
     >>> from openseize.resampling.resampling import downsample
     >>> # make a producer from a random 2D array
@@ -70,7 +70,7 @@ class Pipeline:
 
     def append(self, caller: Callable, **kwargs) -> None:
         """Append a callable to this Pipeline.
-        
+
         Args:
             caller:
                 A callable to append to this pipeline's callables.
@@ -80,7 +80,7 @@ class Pipeline:
         Notes:
             The kwargs must supply all required arguments of the caller except
             for the data argument. A partial function will be created and
-            will raise a TypeError during the __call__ method if more than 1 
+            will raise a TypeError during the __call__ method if more than 1
             unbound argument is present.
         """
 
@@ -107,7 +107,7 @@ class Pipeline:
 
         Args:
             data:
-                Input data of any type but typically an openseize producer 
+                Input data of any type but typically an openseize producer
                 or numpy ndarray.
 
         Returns:
