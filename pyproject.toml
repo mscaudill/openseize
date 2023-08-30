@@ -61,6 +61,7 @@ test = ["pytest", "pytest-cov", "pytest-lazy-fixture"]
 [project.urls]
 Homepage = "https://github.com/mscaudill/openseize"
 
+
 # bumpver configuration
 [tool.bumpver]
 current_version = "1.2.0"
@@ -77,6 +78,13 @@ push = true
 ]
 "src/openseize/__init__.py" = ['__version__ = "{version}"']
 
+# inform type checkers openseize supports annotations
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+openseize = ["py.typed"]
+
 # mypy configuration
 [tool.mypy]
 python_version = "3.10"
@@ -85,7 +93,7 @@ warn_unused_configs = true
 
 [[tool.mypy.overrides]]
 # 3rd party's without annotations
-module = ["scipy.*", "matplotlib.*", "openseize.*"]
+module = ["scipy.*", "matplotlib.*"]
 ignore_missing_imports = true
 
 # pylint configuration
