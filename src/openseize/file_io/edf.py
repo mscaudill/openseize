@@ -579,7 +579,8 @@ class Reader(bases.Reader):
 
         if not stop:
             stop = max(self.header.samples)
-
+        
+        start, stop = int(start), int(stop)
         arr = self._read_array(start, stop, self.channels, padvalue)
         # use cast to indicate ndarray type for docs
         return cast(np.ndarray, arr)
