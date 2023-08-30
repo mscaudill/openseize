@@ -48,6 +48,9 @@ class Pipeline:
     True
     >>> result.shape
     (4, 61500)
+    >>> # assert the pipeline contains the notch function
+    >>> notch in transformer
+    True
     """
 
     def __init__(self) -> None:
@@ -65,8 +68,8 @@ class Pipeline:
         unbound_cnt = len(sig.parameters) - len(bound.arguments)
         if unbound_cnt > 1:
             msg = ('Pipeline callers must have exactly one unbound argument.'
-                   f'{caller.__name__} has {unbound_cnt} unbound arguments.')
-            raise ValueError(msg)
+                   f' {caller.__name__} has {unbound_cnt} unbound arguments.')
+            raise TypeError(msg)
 
     def append(self, caller: Callable, **kwargs) -> None:
         """Append a callable to this Pipeline.
@@ -88,19 +91,18 @@ class Pipeline:
         frozen = partial(caller, **kwargs)
         self.callers.append(frozen)
 
-    def __contains__(self, name: str) -> bool:
+    def __contains__(self, caller: Callable) -> bool:
         """Returns True if func with name is in this Pipeline's callables.
 
         Args:
-            name:
-                The name of a function to look up in this Pipeline.
+            caller:
+                A callable to find in this pipelines partial callers.
 
         Returns:
-            True if named function is in callers and False otherwise.
+            True if caller is in callers and False otherwise.
         """
 
-        names = [caller.__name__ for caller in self.callers]
-        return name in names
+        return caller in [caller.func for caller in self.callers]
 
     def __call__(self, data):
         """Apply this Pipeline's callables to an initial data argument.
