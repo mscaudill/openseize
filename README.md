@@ -1,6 +1,6 @@
 <h1 align="center">
     <img src="https://github.com/mscaudill/openseize/blob/master/docs/imgs/new_logo.png" 
-    style="width:600px;height:auto;"/>
+    style="width:750px;height:auto;"/>
 </h1>
 
 <h2 align="center">
