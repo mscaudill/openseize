@@ -54,9 +54,9 @@ class Pipeline:
     """
 
     def __init__(self) -> None:
-        """Initialize this Pipeline with an empty list of callables."""
+        """Initialize this Pipeline with an empty list of partial funcs."""
 
-        self.callers: List[Callable] = []
+        self.callers: List[partial] = []
 
     def validate(self, caller: Callable, **kwargs) -> None:
         """Validates that a partial of caller constructed with kwargs has
@@ -92,7 +92,7 @@ class Pipeline:
         self.callers.append(frozen)
 
     def __contains__(self, caller: Callable) -> bool:
-        """Returns True if func with name is in this Pipeline's callables.
+        """Returns True if caller is in this Pipeline's callables.
 
         Args:
             caller:
@@ -102,7 +102,7 @@ class Pipeline:
             True if caller is in callers and False otherwise.
         """
 
-        return caller in [caller.func for caller in self.callers]
+        return caller in [part.func for part in self.callers]
 
     def __call__(self, data):
         """Apply this Pipeline's callables to an initial data argument.

@@ -45,6 +45,7 @@ from typing import Sequence, Tuple, Union
 
 import numpy as np
 import scipy.signal as sps
+
 from openseize.filtering.bases import FIR
 
 

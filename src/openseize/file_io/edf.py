@@ -100,8 +100,7 @@ single subject EDFs. The original 'joined' EDF is left unmodified.
 
 import copy
 from pathlib import Path
-from typing import (cast, Dict, Generator, List, Optional, Sequence, Tuple,
-                    Union)
+from typing import cast, Dict, Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -379,7 +378,7 @@ class Reader(bases.Reader):
         return len(self.channels), max(self.header.samples)
 
     def _decipher(self,
-                  arr: np.ndarray,
+                  arr: npt.NDArray,
                   channels: Sequence[int],
                   axis: int = -1,
     ):
@@ -480,7 +479,7 @@ class Reader(bases.Reader):
         return arr
 
     def _padstack(self,
-                  arrs: Sequence[np.ndarray],
+                  arrs: Sequence[npt.NDArray],
                   value: float,
                   axis: int = 0
     ):
@@ -641,9 +640,9 @@ class Writer(bases.Writer):
                 self._fobj.write(bytestr)
 
     def _records(self,
-                 data: Union[np.ndarray, Reader],
+                 data: Union[npt.NDArray, Reader],
                  channels: Sequence[int]
-    ) -> Generator[List[np.ndarray], None, None]:
+    ) -> Generator[List[npt.NDArray], None, None]:
         """Yields 1-D arrays, one per channel, to write to a data record.
 
         Args:
@@ -697,7 +696,8 @@ class Writer(bases.Writer):
             results.append(arr)
         return results
 
-    def _validate(self, header: Header, data: np.ndarray) -> None:
+    def _validate(self, header: Header, data: Union[npt.NDArray, Reader],
+    ) -> None:
         """Ensures the number of samples is divisible by the number of
         records.
 
@@ -732,7 +732,7 @@ class Writer(bases.Writer):
     # pylint: disable-next=arguments-differ
     def write(self,
               header: Header,
-              data: Union[np.ndarray, Reader],
+              data: Union[npt.NDArray, Reader],
               channels: Sequence[int],
               verbose: bool = True,
               ) -> None:

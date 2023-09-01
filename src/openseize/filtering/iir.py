@@ -37,6 +37,7 @@ from typing import Tuple, Union
 
 import numpy as np
 import scipy.signal as sps
+
 from openseize.filtering.bases import IIR
 
 
@@ -384,10 +385,10 @@ class Notch(IIR):
         """
 
         fpass = np.array([fstop - width / 2, fstop + width / 2])
-        fstop = np.array([fstop, fstop])
+        fstops = np.array([fstop, fstop])
         self.width = width
         # gpass is 3dB, gstop is determined by width
-        super().__init__(fpass, fstop, gpass=3, gstop=None, fs=fs, fmt='ba')
+        super().__init__(fpass, fstops, gpass=3, gstop=None, fs=fs, fmt='ba')
 
     @property
     def order(self):

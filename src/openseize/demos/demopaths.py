@@ -13,8 +13,8 @@ from pathlib import Path
 import reprlib
 
 # wget missing stubs & request usage here is very limited
-import requests # type: ignore
-import wget # type: ignore
+import requests  # type: ignore
+import wget  # type: ignore
 
 from openseize.file_io.dialogs import message
 

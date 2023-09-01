@@ -162,7 +162,6 @@ class Reader(abc.ABC, mixins.ViewInstance):
         self.path = Path(path)
         self.mode = mode
         self.kwargs = kwargs
-        self._fobj = None
         self.open()
 
     def open(self):
@@ -255,7 +254,6 @@ class Writer(abc.ABC, mixins.ViewInstance):
 
         self.path = Path(path)
         self.mode = mode
-        self._fobj = None
 
     def __enter__(self):
         """Return instance as target variable of this context."""
@@ -271,6 +269,8 @@ class Writer(abc.ABC, mixins.ViewInstance):
 
         if self._fobj:
             self._fobj.close()
+            # closed file links not pickleable so reassign file obj.
+            self._fobj = None
 
     @abc.abstractmethod
     def write(self, *args, **kwargs) -> None:
@@ -348,19 +348,19 @@ class Annotations(abc.ABC):
         """Opens a file at path returning a file handle & row iterator."""
 
     @abc.abstractmethod
-    def label(self, row: typing.Iterable) -> str:
+    def label(self, row) -> str:
         """Reads the annotation label at row in this file."""
 
     @abc.abstractmethod
-    def time(self, row: typing.Iterable) -> float:
+    def time(self, row) -> float:
         """Reads annotation time in secs from recording start at row."""
 
     @abc.abstractmethod
-    def duration(self, row: typing.Iterable) -> float:
+    def duration(self, row) -> float:
         """Returns the duration of the annotated event in secs."""
 
     @abc.abstractmethod
-    def channel(self, row: typing.Iterable) -> typing.Union[int, str]:
+    def channel(self, row) -> typing.Union[int, str]:
         """Returns the channel this annotated event was detected on."""
 
     def read(self,

@@ -7,21 +7,21 @@ For usage, please see opensieze.filtering.iir or fir modules
 import typing
 from typing import Optional, Sequence, Tuple
 
+from matplotlib.patches import Rectangle
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as sps
-from matplotlib.patches import Rectangle
 
 
 class Viewer:
-    """A collection of common plotting methods for both IIR, FIR and 
+    """A collection of common plotting methods for both IIR, FIR and
     Parks-McClellan filters.
 
     All filters in openseize have the ability to plot their impulse response
     and frequency response to a matplotlib figure called the Viewer. This
     mixin is inherited by specific IIR, FIR and ParksMcClellan Viewers in
-    this file. Each of these specific viewers is inherited by the 
-    corresponding filter type (i.e. IIR, FIR, ParksMcClellan) in the 
+    this file. Each of these specific viewers is inherited by the
+    corresponding filter type (i.e. IIR, FIR, ParksMcClellan) in the
     openseize filtering module.
     """
 
@@ -84,12 +84,12 @@ class Viewer:
         """
 
         bands = np.stack((self.fpass, self.fstop), axis=0)
-        trans_bands = np.stack((np.min(bands, axis=0), 
+        trans_bands = np.stack((np.min(bands, axis=0),
                                 np.max(bands, axis=0))).T
-       
+
         if self.btype == 'lowpass':
             pass_bands = np.array([[0, self.fpass[0]]])
-        
+
         elif self.btype == 'highpass':
             pass_bands = np.array([[self.fpass[0], self.nyq]])
 
@@ -97,28 +97,28 @@ class Viewer:
             pass_bands = np.atleast_2d(self.fpass)
 
         elif self.btype == 'bandstop':
-            pass_bands = np.array([[0, self.fpass[0]], 
+            pass_bands = np.array([[0, self.fpass[0]],
                                   [self.fpass[1], self.nyq]])
 
         else: # Multiband case
             pass_bands = self.bands[np.where(self.desired)[0]]
-            trans_bands = np.stack((self.bands[:-1,1], 
+            trans_bands = np.stack((self.bands[:-1,1],
                                     self.bands[1:, 0]), axis=1)
-        
+
         # Get bottom and top of pass and trans bands
         b = ax.get_ylim()[0]
         top = 0 if scale=='dB' else 1
         h = top - b
-    
+
         # Plot pass band Rectangles from coords [(left, b), width, h]
         pass_coords = [[(p[0], b), p[1] - p[0], h] for p in pass_bands]
-        pass_rects = [Rectangle(*pass_coord, fc='tab:green', alpha=0.2) 
+        pass_rects = [Rectangle(*pass_coord, fc='tab:green', alpha=0.2)
                       for pass_coord in pass_coords]
         [ax.add_patch(rect) for rect in pass_rects]
 
         # Plot transition Rectangles from coords [(left, b), width, h]
         trans_coords = [[(t[0], b), t[1] - t[0], h] for t in trans_bands]
-        trans_rects = [Rectangle(*trans_coord, fc='red', alpha=0.2) 
+        trans_rects = [Rectangle(*trans_coord, fc='red', alpha=0.2)
                        for trans_coord in trans_coords]
         [ax.add_patch(rect) for rect in trans_rects]
 
@@ -134,14 +134,14 @@ class Viewer:
         [ax.add_patch(rect) for rect in att_rects]
 
         return ax
-    
+
     @typing.no_type_check #mypy missing frequency_response attr.
-    def plot(self, 
-             size: Tuple[int, int] = (8,6), 
-             gridalpha: float = 0.3, 
-             worN: int = 2048, 
+    def plot(self,
+             size: Tuple[int, int] = (8,6),
+             gridalpha: float = 0.3,
+             worN: int = 2048,
              rope: float = -100,
-             axarr: Optional[Sequence[plt.Axes]] = None, 
+             axarr: Optional[Sequence[plt.Axes]] = None,
              show: bool = True
     ) -> Optional[Sequence[plt.Axes]]:
         """Plots the impulse and frequency response of this filter.
@@ -167,14 +167,14 @@ class Viewer:
         if axarr is None:
             fig, axarr = plt.subplots(3, 1, figsize=size)
         axarr[1].get_shared_x_axes().join(axarr[1], axarr[2])
-        
+
         # Plot impulse response and configure axis
         self._plot_impulse(axarr[0], color='tab:blue')
         axarr[0].set_xlabel('Time (s)', fontweight='bold')
         axarr[0].set_ylabel('Amplitude (au)', color='k', weight='bold')
         axarr[0].spines['right'].set_visible(False)
         axarr[0].spines['top'].set_visible(False)
- 
+
         # Plot frequency response in dB and configure axis
         freqs, g_dB, scale = self.frequency_response('dB', worN, rope)
         color = 'tab:blue'
@@ -208,12 +208,12 @@ class Viewer:
         # Configure axes grids
         [ax.grid(alpha=gridalpha) for ax in axarr]
         plt.tight_layout()
-    
+
         if show:
-            plt.show() 
+            plt.show()
         else:
             return axarr
-        
+
 
 class IIRViewer(Viewer):
     """A mixin for IIR filters with methods for plotting the impulse
@@ -224,13 +224,13 @@ class IIRViewer(Viewer):
 
         # 1-s array with unit pulse at 0th sample
         pulse = sps.unit_impulse(self.fs)
-        
+
         if self.fmt == 'sos':
             resp = sps.sosfilt(self.coeffs, pulse)
-        
+
         if self.fmt == 'ba':
             resp = sps.lfilter(*self.coeffs, pulse)
-        
+
         return resp
 
     def frequency_response(self, scale, worN, rope):
@@ -239,7 +239,7 @@ class IIRViewer(Viewer):
         Args:
             scale: str
                 String in ('dB', 'abs', 'complex') that determines if
-                returned response should be in decibels, magnitude, 
+                returned response should be in decibels, magnitude,
                 or left as a complex number containing phase.
             worN: int
                 The number of frequencies in [0, Nyquist) to evaluate
@@ -279,7 +279,7 @@ class FIRViewer(Viewer):
         pulse = sps.unit_impulse(self.fs)
         resp = np.convolve(self.coeffs, pulse, mode='full')
         resp = resp[0:len(pulse)]
-        
+
         return resp
 
     def frequency_response(self, scale, worN, rope):
@@ -288,7 +288,7 @@ class FIRViewer(Viewer):
         Args:
             scale: str
                 String in ('dB', 'abs', 'complex') that determines if
-                returned response should be in decibels, magnitude, 
+                returned response should be in decibels, magnitude,
                 or left as a complex number containing phase.
             worN: int
                 The number of frequencies in [0, Nyquist) to evaluate

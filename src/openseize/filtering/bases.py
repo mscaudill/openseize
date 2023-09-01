@@ -7,11 +7,15 @@ from functools import partial
 from typing import Optional, Sequence, Tuple, Union
 
 import numpy as np
+import numpy.typing as npt
 import scipy.signal as sps
+
 from openseize.core import mixins
 from openseize.core import numerical as nm
-from openseize.core.producer import Producer, producer
-from openseize.filtering.mixins import FIRViewer, IIRViewer
+from openseize.core.producer import Producer
+from openseize.core.producer import producer
+from openseize.filtering.mixins import FIRViewer
+from openseize.filtering.mixins import IIRViewer
 
 
 class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
@@ -53,10 +57,10 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
     """
 
     def __init__(self,
-                 fpass: Union[float, Sequence[float]],
-                 fstop: Union[float, Sequence[float]],
+                 fpass: Union[float, Sequence[float], npt.NDArray],
+                 fstop: Union[float, Sequence[float], npt.NDArray],
                  gpass: float,
-                 gstop: float,
+                 gstop: Union[float, None],
                  fs: float,
                  fmt: str,
     ) -> None:
@@ -141,12 +145,12 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
                              output=self.fmt, fs=self.fs)
 
     def __call__(self,
-                 data: Union[Producer, np.ndarray],
+                 data: Union[Producer, npt.NDArray],
                  chunksize: int,
                  axis: int = -1,
                  dephase: bool = True,
-                 zi: Optional[np.ndarray] = None,
-                 **kwargs) -> Union[Producer, np.ndarray]:
+                 zi: Optional[npt.NDArray] = None,
+                 **kwargs) -> Union[Producer, npt.NDArray]:
         """Apply this filter to an ndarray or producer of ndarrays.
 
         Args:
@@ -180,19 +184,16 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
 
         if self.fmt == 'sos':
             if dephase:
-                filtfunc = nm.sosfiltfilt
+                genfunc = partial(nm.sosfiltfilt, pro, self.coeffs, axis)
             else:
-                filtfunc = nm.sosfilt
+                genfunc = partial(nm.sosfilt, pro, self.coeffs, axis, zi) 
 
         if self.fmt == 'ba':
             if dephase:
-                filtfunc = nm.filtfilt
+                genfunc = partial(nm.filtfilt, pro, self.coeffs, axis)
             else:
-                filtfunc = nm.lfilter
+                genfunc = partial(nm.lfilter, pro, self.coeffs, axis, zi) 
 
-        # zi is ignored if filtfunc is a forward/backward filter
-        genfunc = partial(filtfunc, pro, self.coeffs, axis, zi=zi)
-        
         # build producer from a generating function
         result = producer(genfunc, chunksize, axis, shape=pro.shape)
 
@@ -344,11 +345,11 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
                           scale=True, fs=self.fs, **kwargs)
 
     def __call__(self,
-                 data: Union[Producer, np.ndarray],
+                 data: Union[Producer, npt.NDArray],
                  chunksize: int,
                  axis: int = -1,
                  mode: str = 'same',
-                 **kwargs) -> Union[Producer, np.ndarray]:
+                 **kwargs) -> Union[Producer, npt.NDArray]:
         """Apply this filter to an ndarray or producer of ndarrays.
 
         Args:
