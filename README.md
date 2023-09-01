@@ -1,5 +1,5 @@
 <h1 align="center">
-    <img src="https://github.com/mscaudill/openseize/blob/master/docs/imgs/logo.png" 
+    <img src="https://github.com/mscaudill/openseize/blob/master/docs/imgs/new_logo.png" 
     style="width:450px;height:auto;"/>
 </h1>
 
