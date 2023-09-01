@@ -1,13 +1,17 @@
-import numpy as np
-import itertools
 from functools import partial
+import itertools
+
+import numpy as np
 import scipy.signal as sps
 
 from openseize import producer
-from openseize.core.producer import Producer, pad_producer 
+from openseize.core.arraytools import multiply_along_axis
+from openseize.core.arraytools import pad_along_axis
+from openseize.core.arraytools import slice_along_axis
+from openseize.core.arraytools import split_along_axis
+from openseize.core.producer import pad_producer
+from openseize.core.producer import Producer
 from openseize.core.queues import FIFOArray
-from openseize.core.arraytools import (pad_along_axis, slice_along_axis,
-        multiply_along_axis, split_along_axis)
 
 
 def optimal_nffts(arr):
@@ -19,8 +23,8 @@ def optimal_nffts(arr):
 
     This is an approximation for the value that minimizes oa cost func:
 
-        oa_cost = Nx * NFFT * (log2(NFFT) + 1) / (NFFT - len(arr) + 1) 
-    
+        oa_cost = Nx * NFFT * (log2(NFFT) + 1) / (NFFT - len(arr) + 1)
+
         Nx is length of larger array along convolve axis
         NFFT is the number of FFT points to be estimated
         arr is the length of the convolving window.
@@ -34,7 +38,7 @@ def optimal_nffts(arr):
 
 def convolved_shape(shape1, shape2, mode, axis):
     """Computes the shape of the convolution of two ndarrays along axis.
-    
+
     Args:
         shape1: tuple
             Shape of the first input used to construct the convolved arr.
@@ -51,13 +55,13 @@ def convolved_shape(shape1, shape2, mode, axis):
 
     m, n = shape1[axis], shape2[axis]
     p, q = max(m,n), min(m,n)
-    
+
     # find array with largest ndims
     outshape = sorted([list(shape1), list(shape2)], key=len)[-1]
 
     if mode == 'full':
         outshape[axis] = m + n - 1
-    
+
     elif mode == 'same':
         outshape[axis] = p
 
@@ -94,18 +98,18 @@ def convolve_slicer(arr, shape1, shape2, mode, axis):
 
         # full mode length is m + n - 1
         return arr
-    
+
     if mode == 'same':
-        
+
         # same mode length is max(m,  n) centered along axis of arr
         start = (q - 1) // 2
         stop = start + p
         return slice_along_axis(arr, start, stop, axis=axis)
 
-    elif mode == 'valid':
-       
+    if mode == 'valid':
+
         # valid mode length is m + n - 1 - 2 * (q-1) centered along axis
-        start= q - 1 
+        start= q - 1
         stop = (n + m - 1) - (q - 1)
         return slice_along_axis(arr, start, stop, axis=axis)
 
@@ -126,21 +130,21 @@ def _oa_boundary(arr, window, side, axis, mode):
             The axis of arr along which convolution was performed.
         mode: str
             A numpy convolve mode -- one of 'full', 'same', 'valid'.
-    
+
     Returns: An ndarray with boundary mode applied
     """
 
     ns = arr.shape[axis]
     lw = len(window)
-    
+
     #dict of slices to apply to axis for 0th & last segment for each mode
-    cuts = {'full': {'left': slice(None), 
+    cuts = {'full': {'left': slice(None),
                      'right': slice(None)},
 
-            'same': {'left': slice((lw - 1) // 2, None), 
+            'same': {'left': slice((lw - 1) // 2, None),
                      'right': slice(None, ns - int(np.ceil((lw - 1) / 2)))},
 
-            'valid': {'left': slice(lw - 1, None), 
+            'valid': {'left': slice(lw - 1, None),
                       'right': slice(None, ns - lw + 1)}}
 
     #apply slices
@@ -150,15 +154,15 @@ def _oa_boundary(arr, window, side, axis, mode):
 
 
 def oaconvolve(pro, window, axis, mode, nfft_factor=32):
-    """Performs overlap-add circular convolution of a producer of 
+    """Performs overlap-add circular convolution of a producer of
     ndarrays with a 1-dimensional window.
 
     Args:
         pro: producer of ndarrays
             The data to be convolved.
-        window: 1-D array            
+        window: 1-D array
             A 1-D window to convolve across data.
-        axis: int                 
+        axis: int
             The axis of data along which window should be convolved.
         mode: str
             A convolution mode matching one of 'full', 'same', 'valid'.
@@ -173,7 +177,7 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
     in-memory array. Openseize utilizes a producer making it suitable for
     convolving 1-D arrays across data that may not fit into memory.
 
-    Implementation Notes: 
+    Implementation Notes:
     The overlap-add convolve method processes small segments O(len(window)).
     The producer then may have to perform many small reads if its
     data source is a file. To avoid this, oaconvolve uses the FIFOArray
@@ -217,13 +221,13 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
 
     # Helper funcs
     def _cconvolve(x, H, nfft, wlen, axis):
-        """Circularly convolves a data segment, x, with H, the 
+        """Circularly convolves a data segment, x, with H, the
         fft of the window of len wlen along axis."""
-        
+
         # pad with wlen-1 zeros for overlap & FFT
         x = pad_along_axis(x, [0, wlen - 1], axis=axis)
         xf = np.fft.rfft(x, nfft, axis=axis)
-            
+
         # take product with window in freq. domain
         product = multiply_along_axis(xf, H, axis=axis)
 
@@ -231,7 +235,7 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
         return  np.fft.irfft(product, axis=axis).real
 
     def _add_overlap(y, overlap, wlen, axis):
-        """Adds overlap to first wlen-1 samples of yth segment 
+        """Adds overlap to first wlen-1 samples of yth segment
         along axis."""
 
         slicer = [slice(None)] * y.ndim
@@ -246,11 +250,11 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
         fifo.put(arr)
 
         while fifo.qsize() > step:
-           
+
             # get data segment & cicularly convolve
             arr = fifo.get()
             z = _cconvolve(arr, H, nfft, wlen, axis)
-            
+
             #split segment & next overlap
             y, new_overlap = split_along_axis(z, step, axis=axis)
 
@@ -261,19 +265,19 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
             #apply the boundary mode to first and last segments
             if segment == 0:
                 y = _oa_boundary(y, window, 'left', axis, mode)
-        
+
             #update segment
             segment += 1
-        
+
             yield y
-        
+
         else:
             # put new data into fifo
             continue
     else:
-        
+
         if not fifo.empty():
-           
+
             # get all remaining in queue & circularly convolve
             arr = fifo.queue
             z = _cconvolve(arr, H, nfft, wlen, axis)
@@ -289,7 +293,7 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
 
 
 def sosfilt(pro, sos, axis, zi=None):
-    """Batch applies a forward second-order-section fmt filter to a 
+    """Batch applies a forward second-order-section fmt filter to a
     producer of numpy arrays.
 
     Args:
@@ -301,10 +305,10 @@ def sosfilt(pro, sos, axis, zi=None):
         axis: int
             The axis along which to apply the filter in chunksize batches
         zi: ndarray
-            Initial conditions of the filter. This is an n-sections x 
-            (...,2,...) array where (...,2...) has the same shape as pro 
+            Initial conditions of the filter. This is an n-sections x
+            (...,2,...) array where (...,2...) has the same shape as pro
             but with 2 along axis. This 2 is because biquad section of the
-            sos fmt has a delay of 2 along axis. For further details see 
+            sos fmt has a delay of 2 along axis. For further details see
             sosfilt_zi in scipy's signal module. Default is None
             which sets the initial nsections of filtered values to 0.
 
@@ -317,15 +321,15 @@ def sosfilt(pro, sos, axis, zi=None):
     shape = list(pro.shape)
     shape[axis] = 2
     z = np.zeros((sos.shape[0], *shape)) if zi is None else zi
-    
-    # compute filter values & store current initial conditions 
+
+    # compute filter values & store current initial conditions
     for subarr in pro:
-        
+
         y, z = sps.sosfilt(sos, subarr, axis=axis, zi=z)
         yield y
 
 
-def sosfiltfilt(pro, sos, axis, **kwargs):
+def sosfiltfilt(pro, sos, axis):
     """Batch applies a forward-backward second order section fmt filter to
     a producer of numpy arrays.
 
@@ -338,11 +342,11 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
         axis: int
             The axis along which to apply the filter in chunksize batches
 
-    Returns: 
+    Returns:
         A generator of forward-backward filtered values of len chunksize
         along axis.
 
-    Notes: 
+    Notes:
         1. This iterative algorithm is not nearly as efficient as working on
            the full array. For each forward/backward filtered sub arr in
            producer we must perform a forward/backward filter of two
@@ -350,7 +354,7 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
            at the boundaries of the arrays. It is one reason why FIR filters
            should be preferred in Openseize.
 
-        2. Since the filter is a forward/backward filter the initial 
+        2. Since the filter is a forward/backward filter the initial
            conditions are handled automatically.
 
         3. This algorithm does not allow for boundary padding like scipy
@@ -362,7 +366,7 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
 
     # get initial value from producer
     subarr = next(iter(pro))
-    x0 = slice_along_axis(subarr, 0, 1, axis=axis) 
+    x0 = slice_along_axis(subarr, 0, 1, axis=axis)
 
     # build steady state initial condition
     zi = sps.sosfilt_zi(sos) #nsections x 2
@@ -372,7 +376,7 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
     zi = np.reshape(zi, (sos.shape[0], *s)) #nsections,1,2
 
     # build a generators of forward filtered with one advanced
-    a_gen = iter(sosfilt(pro, sos, axis, zi=zi*x0))  
+    a_gen = iter(sosfilt(pro, sos, axis, zi=zi*x0))
     b_gen = iter(sosfilt(pro, sos, axis, zi=zi*x0))
     next(b_gen)
 
@@ -383,7 +387,7 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
 
             b = next(b_gen)
             # for reverse filter, use final delay values from flipped
-            # advanced 'b' arr as initial values for current flipped arr. 
+            # advanced 'b' arr as initial values for current flipped arr.
             bflipped = np.flip(b, axis=axis)
             b_0 = slice_along_axis(bflipped, 0, 1, axis=axis)
             _, zf = sps.sosfilt(sos, bflipped, axis=axis, zi=zi*b_0)
@@ -393,7 +397,7 @@ def sosfiltfilt(pro, sos, axis, **kwargs):
             yield np.flip(rfilt, axis=axis)
 
         else:
-            
+
             # for last segment the initial condition is last sample ss
             aflipped = np.flip(a, axis=axis)
             a0 = slice_along_axis(aflipped, 0, 1, axis=axis)
@@ -417,9 +421,9 @@ def lfilter(pro, coeffs, axis, zi=None):
            The initial output values of the filtered data. If None
            (default), the initial values are zeros. Please see scipy
            signal lfilter for more details.
-    
-    Returns: 
-        A generator of filtered values of len chunksize along axis.    
+
+    Returns:
+        A generator of filtered values of len chunksize along axis.
     """
 
     b, a = coeffs
@@ -431,12 +435,12 @@ def lfilter(pro, coeffs, axis, zi=None):
 
     # compute filter values & store current initial conditions
     for subarr in pro:
-        
+
         y, z = sps.lfilter(b, a, subarr, axis=axis, zi=z)
         yield y
 
 
-def filtfilt(pro, coeffs, axis, **kwargs):
+def filtfilt(pro, coeffs, axis):
     """Batch applies a forward-backward filter in transfer func fmt (b,a)
     to a producer of numpy arrays.
 
@@ -449,7 +453,7 @@ def filtfilt(pro, coeffs, axis, **kwargs):
         axis: int
             The axis along which to apply the filter in chunksize batches
 
-    Returns: 
+    Returns:
         A generator of filtered values of len chunksize along axis.
 
     Notes:
@@ -460,7 +464,7 @@ def filtfilt(pro, coeffs, axis, **kwargs):
            at the boundaries of the arrays. It is one reason why FIR filters
            should be preferred in Openseize.
 
-        2. Since the filter is a forward/backward filter the initial 
+        2. Since the filter is a forward/backward filter the initial
            conditions are handled automatically.
 
         3. This algorithm does not allow for boundary padding like scipy
@@ -474,7 +478,7 @@ def filtfilt(pro, coeffs, axis, **kwargs):
     x0 = slice_along_axis(next(iter(pro)), 0, 1, axis=axis)
 
     # get steady state initial conditions
-    zi = sps.lfilter_zi(*coeffs) 
+    zi = sps.lfilter_zi(*coeffs)
     # reshape zi so zi * x0 broadcast to correct shape for zi param
     s = [1] * len(pro.shape)
     s[axis] = zi.size
@@ -500,7 +504,7 @@ def filtfilt(pro, coeffs, axis, **kwargs):
             xflipped = np.flip(x, axis=axis)
             rfilt, _ = sps.lfilter(*coeffs, xflipped, axis=axis, zi=zf)
             yield np.flip(rfilt, axis=axis)
-        
+
         else:
 
             # for last segment the initial condition is last sample ss
@@ -516,14 +520,14 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
 
     Args:
         pro: A producer of ndarrays
-            The data producer of arrays of shape chunksize along axis to 
+            The data producer of arrays of shape chunksize along axis to
             be resampled. This method will require ~3 times chunksize in
-            memory. 
+            memory.
         L: int
             The expansion factor. L-1 interpolated values will be inserted
             between consecutive samples along axis.
         M: int
-            The decimation factor describing which Mth samples of produced 
+            The decimation factor describing which Mth samples of produced
             data survive decimation. (E.g. M=10 -> every 10th survives)
         fs: int
             The sampling rate of produced data in Hz.
@@ -532,12 +536,12 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
         axis: int
             The axis of produced data along which downsampling will occur.
         kwargs:
-            Any valid keyword for a Kaiser lowpass filter. The default 
+            Any valid keyword for a Kaiser lowpass filter. The default
             values for combined antialiasing & interpolation filter are:
 
                 fstop: int
-                    The stop band edge frequency. 
-                    Defaults to cutoff + cutoff / 10 where cutoff = 
+                    The stop band edge frequency.
+                    Defaults to cutoff + cutoff / 10 where cutoff =
                     fs //(2 * max(L,M)).
                 fpass: int
                     The pass band edge frequency. Must be less than fstop.
@@ -551,8 +555,8 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
                     40 dB or 99%  amplitude attenuation.
 
     Returns: a generator of resampled data. The chunksize of the yielded
-             arrays along axis will be the nearest multiple of M closest to 
-             the pro.chunksize (e.g. if M=3 and chunksize=1000 the 
+             arrays along axis will be the nearest multiple of M closest to
+             the pro.chunksize (e.g. if M=3 and chunksize=1000 the
              yielded chunksize will be 1002 since 1002 % 3 == 0).
     """
 
@@ -609,12 +613,12 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
 
         # build left and right pads for current
         left = slice_along_axis(last, -overhang, axis=axis)
-        
+
         if n < cnt - 1:
             right = slice_along_axis(nxt, 0, overhang, axis=axis)
         else:
             # at cnt-1 chunks concantenate next to current
-            curr = np.concatenate((curr, nxt), axis=axis) 
+            curr = np.concatenate((curr, nxt), axis=axis)
             right = np.zeros(left.shape)
 
         padded = np.concatenate((left, curr, right), axis=axis)
@@ -633,7 +637,7 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
             The sampling rate of the values in arr.
         nfft: int
             The number of frequencies between 0 and fs used to construct
-            the DFT. If None, nfft will match the length of the arr. If 
+            the DFT. If None, nfft will match the length of the arr. If
             nfft is smaller than arr along axis, the array is cropped. If
             nfft is larger than arr along axis, the array is zero padded.
             The returned frequencies will be nfft//2 + 1 since this method
@@ -647,12 +651,12 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
             The type of detrending to apply to data before computing
             DFT. Options are 'constant' and 'linear'. If constant, the
             mean of the data is removed before the DFT is computed. If
-            linear, the linear trend in the data array along axis is 
+            linear, the linear trend in the data array along axis is
             removed.
         scaling: str
             A string for determining the normalization of the DFT. If
             'spectrum', the DFT * np.conjugate(DFT) will have units V**2.
-            If 'density' the DFT * np.conjugate(DFT) will have units 
+            If 'density' the DFT * np.conjugate(DFT) will have units
             V**2 / Hz.
 
     Returns:
@@ -663,8 +667,8 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
         will have length nfft//2 + 1
 
     References:
-        Shiavi, R. (2007). Introduction to Applied Statistical Signal 
-        Analysis : Guide to Biomedical and Electrical Engineering 
+        Shiavi, R. (2007). Introduction to Applied Statistical Signal
+        Analysis : Guide to Biomedical and Electrical Engineering
         Applications. 3rd ed.
 
         Scipy windows:
@@ -696,11 +700,11 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
     elif scaling == 'density':
         #process loss Shiavi Eqn 7.54
         norm = 1 / (fs * np.sum(coeffs**2))
-    
+
     else:
         msg = 'Unknown scaling: {}'
         raise ValueError(msg.format(scaling))
-   
+
     # before conjugate multiplication unlike scipy
     # see _spectral_helper lines 1808 an 1842.
     arr *= np.sqrt(norm)
@@ -708,7 +712,7 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
     return freqs, arr
 
 
-def periodogram(arr, fs, nfft=None, window='hann', axis=-1, 
+def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
                 detrend='constant', scaling='density'):
     """Estimates the power spectrum of an ndarray using the windowed
     periodogram method.
@@ -721,10 +725,10 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
             The sampling rate of the values in arr.
         nfft: int
             The number of frequencies between 0 and fs used to construct
-            the Discrete Fourier Transform. If None, nfft will match the 
+            the Discrete Fourier Transform. If None, nfft will match the
             length of the arr. If nfft is smaller than arr along axis, the
-            array is cropped. If nfft is larger than arr along axis, the 
-            array is zero padded. The returned frequencies will be 
+            array is cropped. If nfft is larger than arr along axis, the
+            array is zero padded. The returned frequencies will be
             nfft//2 + 1 since this method returns only positive frequencies.
         window: str
             A scipy signal module window function. Please see references
@@ -743,21 +747,21 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
             as the power spectral estimate. If 'density' the estimate will
             have units V**2 / Hz and is referred to as the power spectral
             density estimate.
-            
+
     Returns:
-        A 1-D array of length NFFT/2 of positive frequencies at which the 
+        A 1-D array of length NFFT/2 of positive frequencies at which the
         estimate was computed.
 
         An ndarray of power spectral (density) estimates the same shape as
         array except along axis which we have length nfft//2 + 1.
 
     References:
-        Schuster, Arthur (January 1898). "On the investigation of hidden 
-        periodicities with application to a supposed 26 day period of 
+        Schuster, Arthur (January 1898). "On the investigation of hidden
+        periodicities with application to a supposed 26 day period of
         meteorological phenomena". Terrestrial Magnetism. 3 (1): 13–41
 
-        Shiavi, R. (2007). Introduction to Applied Statistical Signal 
-        Analysis : Guide to Biomedical and Electrical Engineering 
+        Shiavi, R. (2007). Introduction to Applied Statistical Signal
+        Analysis : Guide to Biomedical and Electrical Engineering
         Applications. 3rd ed.
 
         Scipy windows:
@@ -765,21 +769,21 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
     """
 
     nfft = arr.shape[axis] if not nfft else int(nfft)
-    
+
     # compute modified DFT & take modulus to get power spectrum
     freqs, arr = modified_dft(arr, fs, nfft, window, axis, detrend, scaling)
-    arr = np.real(arr)**2 + np.imag(arr)**2 
+    arr = np.real(arr)**2 + np.imag(arr)**2
 
     # since real FFT -> double for uncomputed negative freqs.
     slicer = [slice(None)] * arr.ndim
     if nfft % 2:
         # k=0 dft sample is not pos. or neg so not doubled
         slicer[axis] = slice(1, None)
-    
+
     else:
         # last k=nfft/2 is not in the dft since nfft is odd
         slicer[axis] = slice(1, -1)
-    
+
     arr[tuple(slicer)] *= 2
 
     return freqs, arr
@@ -811,29 +815,29 @@ def _spectra_estimatives(pro, fs, nfft, window, overlap, axis, detrend,
 
         # yield nfft sized estimates while fifo has >= nfft samples
         while fifo.qsize() >= nfft:
-            
+
             # slice nfft samples to compute estimate
             x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
             f, y = func(x, fs, nfft, window, axis, detrend, scaling)
-            
+
             # release stride samples leaving nover in FIFO
             fifo.get()
             yield y
-        
+
         else:
-            
+
             # provide fifo with more samples
             fifo.put(arr)
             continue
-    
+
     else:
-        
+
         # exhaust the fifo
         while fifo.qsize() >= nfft:
-            
+
             x = slice_along_axis(fifo.queue, 0, nfft, axis=axis)
             f, y = func(x, fs, nfft, window, axis, detrend, scaling)
-            fifo.get() 
+            fifo.get()
             yield y
 
 
@@ -887,21 +891,21 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
         segment length to the nfft amount (i.e. no interpolation). Finer
         resolutions of the estimate will require longer data segments.
 
-        Scipy welch drops the last segment of data if the number of points in 
-        the segment is less than nfft. Openseize welch follows the same 
-        convention. 
+        Scipy welch drops the last segment of data if the number of points in
+        the segment is less than nfft. Openseize welch follows the same
+        convention.
 
         Lastly, Openseize assumes the produced data is real-valued. This is
         appropriate for all EEG data. If you are calling this method on
         complex data, the imaginary part will be dropped.
 
     References:
-        (1) P. Welch, "The use of the fast Fourier transform for the 
-        estimation of power spectra: A method based on time averaging over 
+        (1) P. Welch, "The use of the fast Fourier transform for the
+        estimation of power spectra: A method based on time averaging over
         short, modified periodograms", IEEE Trans. Audio Electroacoust. vol.
         15, pp. 70-73, 1967
 
-        (2) M.S. Bartlett, "Periodogram Analysis and Continuous Spectra", 
+        (2) M.S. Bartlett, "Periodogram Analysis and Continuous Spectra",
         Biometrika, vol. 37, pp. 1-16, 1950.
 
         (3) B. Porat, "A Course In Digital Signal Processing" Chapters 4 &
@@ -909,7 +913,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """
 
     # build the welch generating function
-    genfunc = partial(_spectra_estimatives, pro, fs, nfft, window, overlap, 
+    genfunc = partial(_spectra_estimatives, pro, fs, nfft, window, overlap,
                       axis, detrend, scaling, func=periodogram)
 
     # obtain the positive freqs.
@@ -920,7 +924,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     shape = list(pro.shape)
     shape[axis] = nsegs
 
-    # return producer from welch gen func with each yielded 
+    # return producer from welch gen func with each yielded
     result = producer(genfunc, chunksize=len(freqs), axis=axis, shape=shape)
     return freqs, result
 
@@ -931,7 +935,7 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
 
     STFT breaks the signal into overlapping segments and computes
     a windowed Discrete Fourier Transform for each segment. This is a
-    complex sequence X(freq, time). The spectrogram is then 
+    complex sequence X(freq, time). The spectrogram is then
     np.abs(X(freq, time))**2.
 
     Args:
@@ -941,8 +945,8 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
             The sampling rate of the produced data.
         nfft: int
             The number of frequencies in the interval [0, fs) to use to
-            estimate the spectra in each segment. This determines the 
-            frequency resolution of the estimate since 
+            estimate the spectra in each segment. This determines the
+            frequency resolution of the estimate since
             resolution = fs / nfft.
         window: str
             A string name for a scipy window to be applied to each data
@@ -955,7 +959,7 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
             samples in pro. This is called the "constant overlap-add" COLA
             constraint. It is window dependent. If you intend to invert this
             STFT (synthesis) you  will need to verify this constraint is met
-            using scipy.signal.check_COLA. 
+            using scipy.signal.check_COLA.
         axis: int
             The sample axis of the producer. The estimate will be carried
             out along this axis.
@@ -965,15 +969,15 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
             computing the estimate for a segment.
         scaling: str either 'spectrum' or 'density'
             Determines the normalization to apply to the estimate for each
-            segment. If 'spectrum', then np.abs(X)**2 is the magnitude 
+            segment. If 'spectrum', then np.abs(X)**2 is the magnitude
             spectrum for each segment. If density np.abs(X)**2 is the
-            density spectrum and may be integrated over to give the total 
+            density spectrum and may be integrated over to give the total
             power for a segment.
         boundary: bool
             A boolean indicating if the first and last segments should be
             extended with zeros so that the first/last samples ar centered
-            at nfft//2.  This allows for inversion of the first/last input 
-            points for windows whose first & last values are 0. Unlike 
+            at nfft//2.  This allows for inversion of the first/last input
+            points for windows whose first & last values are 0. Unlike
             scipy, openseize only allows for zero extensions since this has
             the clear interpretation of a zero-pad interpolation of the
             frequencies in the DFT.
@@ -1001,10 +1005,10 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
         appropriate for all EEG data. If you are calling this method on
         complex data, the imaginary part will be dropped.
 
-    
+
     References:
-        (1) Shiavi, R. (2007). Introduction to Applied Statistical Signal 
-        Analysis : Guide to Biomedical and Electrical Engineering 
+        (1) Shiavi, R. (2007). Introduction to Applied Statistical Signal
+        Analysis : Guide to Biomedical and Electrical Engineering
         Applications. 3rd ed.
 
         (2) B. Porat, "A Course In Digital Signal Processing" Chapters 4 &
@@ -1018,24 +1022,24 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
     # stft boundary & padding options
     data = pro
     if boundary:
-        
+
         # center first & last segments by padding producer
         data = pad_producer(data, nfft//2, value=0)
 
     if padded:
-        
+
         nsamples = pro.shape[axis]
         # pad w/ stride if samples not divisible by stride
         amt = stride if nsamples % stride else 0
         data = pad_producer(data, [0, amt], value=0)
 
     # build the stft generating function
-    genfunc = partial(_spectra_estimatives, data, fs, nfft, window, overlap, 
+    genfunc = partial(_spectra_estimatives, data, fs, nfft, window, overlap,
                       axis, detrend, scaling, func=modified_dft)
 
     # obtain the positive freqs.
     freqs = np.fft.rfftfreq(nfft, 1/fs)
-    
+
     # num. segments that fit into pro samples of len nfft with % overlap
     nsegs = int((data.shape[axis] - nfft) // (nfft * (1-overlap)) + 1)
     shape = list(data.shape)
@@ -1045,10 +1049,10 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
     if boundary:
         time = 1 / fs * np.arange(0, data.shape[axis] - nfft + 1, nfft-noverlap)
     else:
-        time = 1 / fs * np.arange(nfft//2, data.shape[axis] + 1 - nfft//2, 
+        time = 1 / fs * np.arange(nfft//2, data.shape[axis] + 1 - nfft//2,
                                   nfft-noverlap)
 
-    # return producer from welch gen func with each yielded 
+    # return producer from welch gen func with each yielded
     result = producer(genfunc, chunksize=len(freqs), axis=axis, shape=shape)
     return freqs, time, result
 

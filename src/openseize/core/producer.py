@@ -91,16 +91,16 @@ def producer(data: Union[npt.NDArray, Iterable[npt.NDArray], Reader,
             values that are False will be ignored. If None (Default),
             producer will produce all values from object.
         kwargs:
-            Keyword arguments are specific to data argmument type:
+            Keyword arguments are specific to data argument type:
             - Reader:
-                padvalue: 
+                padvalue:
                     see reader.read method
-                start: 
+                start:
                     The start sample to begin data production along axis.
                 stop:
                     The stop sample to halt data production along axis.
             - Generating Function:
-                All positional and keyword arguments to the Gen. func. must be passed 
+                All positional and keyword arguments to the Gen. func. must be passed
                 through these kwargs to avoid name collisions with the producer
                 func arguments.
             - Arrays:
@@ -283,8 +283,8 @@ class Producer(abc.Iterable, mixins.ViewInstance):
 
         if not assignable:
             a, b = np.round(np.array([required, allowable]) / 1e9, 1)
-            msg = 'Producer will consume {} GB but only {} GB are available'
-            raise MemoryError(msg.format(a, b))
+            msg = f'Producer will consume {a} GB but only {b} GB are available'
+            raise MemoryError(msg)
 
         return np.concatenate(list(self), axis=self.axis)
 
@@ -301,7 +301,7 @@ class ReaderProducer(Producer):
             The stop sample along production axis at which data production
             stops.
         kwargs:
-            
+
             Arguments passed to read method of a file reader instance.
 
     Notes:
@@ -313,14 +313,14 @@ class ReaderProducer(Producer):
 
     def __init__(self, data, chunksize, axis, **kwargs):
         """Initialize this Producer with a closed 'data' Reader instance."""
-        
+
         super().__init__(data, chunksize, axis, **kwargs)
 
         # Pop the start and stop from kwargs
         a = self.kwargs.pop('start', 0)
         b = self.kwargs.pop('stop', self.data.shape[axis])
         self.start, self.stop, _ = slice(a, b).indices(data.shape[axis])
-        
+
         # close for serialization
         self.data.close()
 

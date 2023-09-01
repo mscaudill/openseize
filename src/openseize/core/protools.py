@@ -16,12 +16,13 @@ module level. Functions not intended to be called externally are marked as
 protected with a single underscore.
 """
 
-from typing import Optional, Tuple, Union
 from functools import partial
 from itertools import zip_longest
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import numpy.typing as npt
+
 from openseize import producer
 from openseize.core import arraytools
 from openseize.core.producer import Producer

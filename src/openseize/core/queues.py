@@ -1,8 +1,13 @@
+"""A module of queue data structures that cache and uncache data on demand for
+numerical and resizing operations on iterables such as producers."""
+
 import numpy as np
+
 from openseize.core.arraytools import split_along_axis
 
+
 class FIFOArray:
-    """A first-in-first-out queue-like data structure for collecting 
+    """A first-in-first-out queue-like data structure for collecting
     ndarrays into chunksize subarrays.
 
     Attrs:
@@ -47,7 +52,7 @@ class FIFOArray:
                 dimensions as the queue on all axes except axis.
 
         Note: Repeatedly calling put to iteratively add to queue is slow
-        as it relies on array concatenation. Consider collecting small 
+        as it relies on array concatenation. Consider collecting small
         arrays in a temp structure to reduce put calls.
         """
 
@@ -61,6 +66,5 @@ class FIFOArray:
 
         cs = self.chunksize
         result, self.queue = split_along_axis(self.queue, cs, self.axis)
-        
-        return result
 
+        return result

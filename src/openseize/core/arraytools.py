@@ -1,4 +1,7 @@
+"""Module of tools for manipulating the size and values of ndarrays."""
+
 import numpy as np
+
 
 def normalize_axis(axis, ndim):
     """Returns a positive axis index for a supplied axis index of an ndim
@@ -10,7 +13,7 @@ def normalize_axis(axis, ndim):
         ndim:
             The number of dimensions to normalize axis by.
     """
-    
+
     axes = np.arange(ndim)
     return axes[axis]
 
@@ -22,14 +25,14 @@ def pad_along_axis(arr, pad, axis=-1, **kwargs):
     Args:
         arr (ndarray):              ndarray to pad
         pad (int or array-like):    number of pads to apply before the 0th
-                                    and after the last index of array along 
-                                    axis. If int, pad number of pads will be 
+                                    and after the last index of array along
+                                    axis. If int, pad number of pads will be
                                     added to both
         axis (int):                 axis of arr along which to apply pad.
                                     Default pads along last axis.
         **kwargs:                   any valid kwarg for np.pad
     """
-    
+
     #convert int pad to seq. of pads & place along axis of pads
     pad = [pad, pad] if isinstance(pad, int) else pad
     pads = [(0,0)] * arr.ndim
@@ -62,13 +65,13 @@ def split_along_axis(arr, index, axis=-1):
         arr: ndarray
             An ndarray to split.
         index: int
-            The index to split on. It is excluded from first split array 
+            The index to split on. It is excluded from first split array
             and included in second split arr.
         axis: int
             Axis along which to split the array.
 
     Returns: Two ndarray split at index.
-    
+
     Note: This method uses slicing instead of numpy split as its performance
     is better.
     """
@@ -104,7 +107,7 @@ def expand_along_axis(arr, l, value=0, axis=-1):
     x = np.concatenate((x, inserts), axis=-1)
     x = x.flatten()
 
-    # reshape back to initial shape but with added samples along -1 axis 
+    # reshape back to initial shape but with added samples along -1 axis
     x = x.reshape(*init_shape[:-1], -1)
 
     # move the -1 axis back to its original position
@@ -114,7 +117,7 @@ def expand_along_axis(arr, l, value=0, axis=-1):
 
 def multiply_along_axis(x, y, axis=-1):
     """Multiplies an ndarray by a 1-D array along axis.
-    
+
     Args:
         x: ndarray
             Array to multiply along axis.
@@ -122,7 +125,7 @@ def multiply_along_axis(x, y, axis=-1):
             Values to multiply arr by along axis.
         axis: int
             axis along which to multiply
-            
+
     Returns: ndarray of shape x.
     """
 
@@ -158,8 +161,8 @@ def filter1D(size, indices):
     return result
 
 
-def nearest1D(x, x0, axis=-1):
-    """Returns the index in a 1-D array whose value has the smallest 
+def nearest1D(x, x0):
+    """Returns the index in a 1-D array whose value has the smallest
     distance to x0
 
     Args:
@@ -167,7 +170,7 @@ def nearest1D(x, x0, axis=-1):
             A sequence of values to search for minimim distance to x0.
         x0: float
             The value whose distance from each value in x is measured.
-    
+
     Returns: 
         The index of x whose distance to x0 is smallest.
     """
@@ -224,7 +227,7 @@ def edge_extend(arr, n, axis=-1):
     left = slice_along_axis(arr, start=0, stop=1, axis=axis)
     right = slice_along_axis(arr, start=-1, stop=None, axis=axis)
     left, right = [np.repeat(x, n, axis=axis) for x in (left, right)]
-    
+
     return np.concatenate((left, arr, right), axis=axis)
 
 
@@ -292,7 +295,7 @@ def odd_extend(arr, n, axis=-1):
 
     leftmost = slice_along_axis(arr, start=0, stop=1, axis=axis)
     rightmost = slice_along_axis(arr, start=-1, axis=axis)
-    
+
     # get the boundary points to rotate about leftmost & rightmost
     left = slice_along_axis(arr, start=n, stop=0, step=-1, axis=axis)
     right = slice_along_axis(arr, start=-2, stop=-(n+2), step=-1, axis=axis)
@@ -302,38 +305,3 @@ def odd_extend(arr, n, axis=-1):
     right_ext = (rightmost - right) + rightmost
 
     return np.concatenate((left_ext, arr, right_ext), axis=axis)
-
-    
-
-
-if __name__ == '__main__':
-
-    from scipy.signal._arraytools import even_ext, odd_ext, const_ext
-
-    
-    x = np.array([[1,2,3, 4, 5], [0, 2, -1, 3, 1]])
-    y = odd_extend(x, n=2, axis=-1)
-    
-    """ 
-    rng = np.random.default_rng(33)
-    x = rng.random((4, 12, 7, 100))
-
-    y = edge_extend(x, n=17, axis=1)
-    y_sp = const_ext(x, n=17, axis=1)
-    """
-  
-
-    """
-    y = even_extend(x, n=9, axis=-1)
-    y_sp = even_ext(x, n=9, axis=-1)
-    """
-
-
-    """
-    y = odd_extend(x, n=5, axis=2)
-    y_sp = odd_ext(x, n=5, axis=2)
-    """
-
-    #print(np.allclose(y, y_sp))
-
-
