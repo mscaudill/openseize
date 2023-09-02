@@ -269,24 +269,20 @@ class Producer(abc.Iterable, mixins.ViewInstance):
     def shape(self):
         """Returns the shape of this producers data attr."""
 
-    def to_array(self, dtype=float):
+    def to_array(self, dtype=float, limit=None):
         """Assign this Producer to an ndarray by concatenation along axis.
 
         Args:
             dtype: numpy datatype
                 The datatype of each sample in this Producer. Default is
                 float64.
+            limit: int
+                The maximum memory to consume in assigning this producer. If
+                None, the limit will be all available memory.
         """
 
-        resource_result  = resources.assignable_array(self.shape, dtype)
-        assignable, allowable, required = resource_result
-
-        if not assignable:
-            a, b = np.round(np.array([required, allowable]) / 1e9, 1)
-            msg = f'Producer will consume {a} GB but only {b} GB are available'
-            raise MemoryError(msg)
-
-        return np.concatenate(list(self), axis=self.axis)
+        if resources.assignable(self.shape, dtype, limit=limit):
+            return np.concatenate(list(self), axis=self.axis)
 
 
 class ReaderProducer(Producer):

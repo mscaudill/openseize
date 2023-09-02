@@ -53,7 +53,7 @@ import numpy.typing as npt
 from openseize import producer
 from openseize.core import numerical as nm
 from openseize.core.producer import Producer
-from openseize.core.resources import is_assignable
+from openseize.core.resources import assignable
 
 
 def psd(data: Union[npt.NDArray[np.float64], Producer],
@@ -279,7 +279,7 @@ def stft(data: Union[npt.NDArray[np.float64], Producer],
     # attempt to return ndarray if requested
     if asarray:
 
-        if is_assignable(result):
+        if assignable(result.shape):
             result = np.stack(list(result), axis=-1)
 
     return freqs, time, result
