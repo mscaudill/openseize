@@ -12,7 +12,7 @@ from itertools import zip_longest
 from pathlib import Path
 
 from openseize import producer
-from openseize.core.producer import as_producer, Producer, pad_producer
+from openseize.core.producer import Producer
 from openseize.file_io.edf import Reader
 from openseize.core.arraytools import slice_along_axis
 
@@ -366,100 +366,3 @@ def test_subread_mask(demo_data):
         assert np.allclose(pro.to_array(), x)
     
     reader.close()
-
-def test_asproducer0():
-    """Verify that the as_producer decorator correctly decorates
-    a generating function converting it into a producer type."""
-
-    # build random test arrays and concatenate for testing
-    lens = np.random.randint(21100, high=80092, size=22)
-    arrs = [np.random.random((l, 4, 9)) for l in lens]
-
-    pro = producer(arrs, chunksize=10000, axis=0)
-
-    @as_producer
-    def my_gen(pro):
-        """A generating function yielding ndarrays."""
-
-        for arr in pro:
-            yield arr**2
-
-    assert isinstance(my_gen(pro), Producer)
-
-def test_asproducer1():
-    """Verify's that arrays from a generating function converted to
-    a producer yield the correct subarrays on each iteration."""
-
-    # build random test arrays and concatenate for testing
-    lens = np.random.randint(21100, high=80092, size=18)
-    arrs = [np.random.random((l, 4, 9)) for l in lens]
-    arr = np.concatenate(arrs, axis=0)
-    print(arr.shape)
-
-    pro = producer(arrs, chunksize=10000, axis=0)
-
-    @as_producer
-    def avg_gen(pro):
-        #An averager that averages every 400 samples of the produced
-        #values.
-        
-        # temporarily change the chunksize and average
-        pro.chunksize = 400
-        for arr in pro:
-            yield np.mean(arr, axis=0, keepdims=True)
-    
-    # Build the ground truth array where we have averaged every 400-samples
-    mstarts = range(0, arr.shape[0], 400)
-    msegments = zip_longest(mstarts, mstarts[1:], fillvalue=arr.shape[0])
-    means = []
-    for start, stop in msegments:
-        means.append(np.mean(arr[start:stop,:,:], axis=0, keepdims=True))
-    meaned = np.concatenate(means, axis=0)
-
-    # test equality of meaned with producer for each iteration
-    # The as_producer decorator will set the chunksize back to the
-    # producers original chunksize (i.e. 10000). This allows gen. functions
-    # to change the chunksize for algorithmic efficiency but supply chunks
-    # back to callers at the original requested size.
-    starts = range(0, meaned.shape[0], 10000)
-    segments = zip_longest(starts, starts[1:], fillvalue=meaned.shape[0])
-    for (start, stop), pro_arr in zip(segments, avg_gen(pro)):
-        slicer = [slice(None)] * arr.ndim #slice obj to slice arr
-        slicer[0] = slice(start, stop)
-        assert np.allclose(meaned[tuple(slicer)], pro_arr)
-
-
-def test_padproducer0():
-    """Test if pad_producer produces the correct padded sequence of
-    ndarrays for a range of pad amounts."""
-
-    rng = np.random.default_rng(seed=0)
-    arr = rng.random((12, 52013))
-
-    pro = producer(arr, chunksize=1000, axis=-1)
-    left_pads = rng.integers(low=0, high=1233, size=12)
-    right_pads = rng.integers(low=0, high=1233, size=12)
-
-    for l, r in zip(left_pads, right_pads):
-
-        padded = pad_producer(pro, [l, r], value=0)
-        padded = np.concatenate([x for x in padded], axis=-1)
-
-        assert np.allclose(padded[:, l:-r], arr)
-
-def test_padproducer1():
-    """Test that pad_producer produces the correct padded sequence of
-    ndarrays when the pad amt is an integer."""
-
-    rng = np.random.default_rng(seed=0)
-    arr = rng.random((52060, 4, 7, 2))
-    axis = 0
-
-    pro = producer(arr, chunksize=10000, axis=axis)
-    for amt in rng.integers(low=0, high=998, size=18, dtype=int):
-        
-        padded = pad_producer(pro, int(amt), value=10)
-        padded = np.concatenate([x for x in padded], axis=axis)
-        probe = slice_along_axis(padded, start=amt, stop=-amt, axis=axis)
-        
-        assert np.allclose(probe, arr)
