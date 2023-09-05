@@ -5,11 +5,11 @@ import numpy as np
 import scipy.signal as sps
 
 from openseize import producer
+from openseize.core import protools
 from openseize.core.arraytools import multiply_along_axis
 from openseize.core.arraytools import pad_along_axis
 from openseize.core.arraytools import slice_along_axis
 from openseize.core.arraytools import split_along_axis
-from openseize.core.producer import pad_producer
 from openseize.core.producer import Producer
 from openseize.core.queues import FIFOArray
 
@@ -1024,14 +1024,14 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
     if boundary:
 
         # center first & last segments by padding producer
-        data = pad_producer(data, nfft//2, value=0)
+        data = protools.pad(data, nfft//2, axis=pro.axis)
 
     if padded:
 
         nsamples = pro.shape[axis]
         # pad w/ stride if samples not divisible by stride
         amt = stride if nsamples % stride else 0
-        data = pad_producer(data, [0, amt], value=0)
+        data = protools.pad(data, [0, amt], axis=pro.axis)
 
     # build the stft generating function
     genfunc = partial(_spectra_estimatives, data, fs, nfft, window, overlap,
