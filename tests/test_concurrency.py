@@ -1,27 +1,28 @@
-"""A module for testing concurrency with Openseize producer instances.
-
-These tests should be considered a work in progress as there may be unforseen
-difficulties in multiprocessing with producers within complex DSP pipelines
-This file test if a basic downsample, notch filter and data reducer pipeline
-multiprocess correctly.
+"""A module for testing concurrency with Openseize objects including readers,
+producers, and pipelines of DSP operations.
 
 Typical usage example:
     # -rA flag shows extra summary see pytest -h
     !pytest -rA test_concurrency::<TEST_NAME>
 """
 
-import multiprocessing as mp
 import pickle
 import time
+import multiprocessing as mp
+from functools import partial
 
 import numpy as np
 import pytest
+from scipy.signal import windows
 
 from openseize import producer
+from openseize.core import numerical, resources
 from openseize.demos import paths
 from openseize.file_io import edf
-from openseize.filtering.iir import Notch
-from openseize.resampling.resampling import downsample
+from openseize.filtering import fir, iir
+from openseize.resampling import resampling
+from openseize.spectra.estimators import psd
+from openseize.tools import pipeline
 
 
 @pytest.fixture(scope="module")
@@ -32,71 +33,135 @@ def rng():
     seed = 0
     return np.random.default_rng(seed)
 
-
 @pytest.fixture(scope="module")
 def random2D(rng):
     """Returns a random 2D array."""
 
     return rng.random((5, 17834000))
 
+def genfunc(random2D, x=10):
+    """A generating function for testing pickleability of producers built from
+    generating functions."""
 
-def test_pickling(demo_data):
-    """Assert that a producer from a reader is picklable."""
+    for arr in random2D:
+        yield arr * x
+
+@pytest.fixture(scope='module')
+def testpro(random2D):
+    """A producer built from a random2D for testing with."""
+
+    return producer(random2D, chunksize=3e5, axis=-1)
+
+def test_edfreader(demo_data):
+    """Validates that edf.Reader instances are picklable, a requirement for
+    multiprocessing."""
 
     reader = edf.Reader(demo_data)
+    pro = producer(reader, chunksize=30e6, axis=-1)
+    assert resources.pickleable(pro)
 
-    pro = producer(reader, chunksize=30e5, axis=-1)
+def test_ArrayProducer(testpro):
+    """Validates that a producer built from a sequence or Numpy array is
+    pickleable."""
 
-    sbytes = pickle.dumps(pro)
-    assert isinstance(sbytes, bytes)
+    assert resources.pickleable(testpro)
 
-def pipeline(pro):
-    """An examplar pipeline that downsamples, notch filters and computes the
-    mean of arrays produced by a producer."""
+def test_GenProducer(random2D):
+    """Validates that a producer built from a generating function is
+    pickleable."""
 
-    dpro = downsample(pro, M=10, fs=5000, chunksize=1e5)
-    notch = Notch(fstop=60, fs=500, width=8)
-    notch_pro = notch(dpro, chunksize=1e5, axis=-1, dephase=True)
+    s = random2D.shape
+    pro = producer(genfunc, chunksize=3e5, axis=-1, shape=s, x=8)
+    assert resources.pickleable(pro)
 
-    return np.array([np.mean(arr, axis=-1) for arr in notch_pro])
+def test_MaskedProducer(random2D):
+    """Test that a MaskedProducer built from an ndarray and mask is
+    pickleable."""
 
+    mask = np.random.choice([True, False], random2D.shape[-1])
+    pro = producer(random2D, chunksize=3e5, axis=-1, mask=mask)
+    assert resources.pickleable(pro)
 
-def test_pipelines(random2D, demo_data):
-    """Verifies that a pipeline run concurrently on multiple producers yields
-    the same result as calling the pipeline sequentially on the same producers.
-    """
+def test_oaconvolve(testpro):
+    """Validate that all FIR filters relying oaconvovle are pickleable."""
 
-    # build a producer from the demo data
-    reader = edf.Reader(demo_data)
-    rpro = producer(reader, chunksize=20e5, axis=-1)
+    win = np.random.random(1000)
+    genfunc = partial(numerical.oaconvolve, testpro, window=win, axis=-1, mode='same')
+    pro = producer(genfunc, chunksize=3e5, axis=-1, shape=testpro.shape)
+    assert resources.pickleable(pro)
 
-    # build a producer from a random 2D array
-    apro = producer(random2D, chunksize=20e5, axis=-1)
+def test_sosfilt(testpro):
+    """Validate that all IIRs relying on sosfilt are pickleable."""
 
-    def multiprocessor(pros, ncores=2):
-        """A 2-core multiprocessor that executes pipeline on each core."""
+    filt = iir.Butter(300, 500, fs=5000)
+    genfunc = partial(numerical.sosfilt, testpro, filt.coeffs, axis=-1)
+    pro = producer(genfunc, chunksize=3e5, axis=-1, shape=testpro.shape)
+    assert resources.pickleable(pro)
 
-        print('starting multiprocessor')
-        t_0 = time.perf_counter()
-        with mp.Pool(processes=ncores) as pool:
-            results = []
-            for res in pool.imap(pipeline, pros):
-                results.append(res)
-        t_1 = time.perf_counter()
-        print(f'Multiprocessor completed in {t_1-t_0} s')
+def test_sosfiltfilt(testpro):
+    """Validate that all IIRs relying on sosfiltfilt are pickleable."""
 
-        return results
+    filt = iir.Butter(300, 500, fs=5000)
+    genfunc = partial(numerical.sosfiltfilt, testpro, filt.coeffs, axis=-1)
+    pro = producer(genfunc, chunksize=3e5, axis=-1, shape=testpro.shape)
+    assert resources.pickleable(pro)
 
-    # construct the multiprocessed results
-    multi_process_results = multiprocessor([rpro, apro])
+def test_lfilter(testpro):
+    """Validate that all IIRs relying on lfilter are pickleable."""
 
-    # call the pipeline sequentially on each file
-    print('Starting sequential processing')
-    t_0 = time.perf_counter()
-    sequential_results = [pipeline(pro) for pro in [rpro, apro]]
-    t_1 = time.perf_counter()
-    print(f'Sequential processing completed in {t_1-t_0} s')
+    filt = iir.Butter(300, 500, fs=5000, fmt='ba')
+    genfunc = partial(numerical.lfilter, testpro, filt.coeffs, axis=-1)
+    pro = producer(genfunc, chunksize=3e5, axis=-1, shape=testpro.shape)
+    assert resources.pickleable(pro)
 
-    # compare the arrays in each result
-    for mp_res, seq_result in zip(multi_process_results, sequential_results):
-        assert np.allclose(mp_res, seq_result)
+def test_filtfilt(testpro):
+    """Validate that all IIRs relying on lfilter are pickleable."""
+
+    filt = iir.Butter(300, 500, fs=5000, fmt='ba')
+    genfunc = partial(numerical.filtfilt, testpro, filt.coeffs, axis=-1)
+    pro = producer(genfunc, chunksize=3e5, axis=-1, shape=testpro.shape)
+    assert resources.pickleable(pro)
+
+def test_polyphase(testpro):
+    """Validate that all resamplers relying on polyphase_resampling are
+    pickleable."""
+
+    filt =  fir.Kaiser(300, 500, fs=5000)
+    genfunc = partial(numerical.polyphase_resample, testpro, L=10, M=3, fs=5000,
+                      fir=filt, axis=-1)
+    pro = producer(genfunc, chunksize=3e5, axis=-1, shape=testpro.shape)
+    assert resources.pickleable(pro)
+
+def test_welch(testpro):
+    """Validate that producers of Welch PSD estimates are pickleable."""
+
+    freqs, pro = numerical.welch(testpro, fs=5000, nfft=512,
+                      window=windows.hann(100), overlap=0.5, axis=-1, detrend=True,
+                      scaling='density')
+    assert resources.pickleable(pro)
+
+def test_stft(testpro):
+    """Validate that producers of STFT arrays are pickleable."""
+
+    freqs, time, pro = numerical.stft(testpro, fs=5000, nfft=512,
+                    window=windows.hann(100), overlap=0.5, axis=-1, detrend=True,
+                    scaling='density', boundary=True, padded=True)
+    assert resources.pickleable(pro)
+
+def test_pipeline1():
+    """Builds a downsampling and notch filtering pipeline to test
+    pickleability."""
+
+    pipe = pipeline.Pipeline()
+    pipe.append(resampling.downsample, M=10, fs=5000, chunksize=3e5, axis=-1)
+    notch = iir.Notch(60, width=6, fs=500)
+    pipe.append(notch, chunksize=3e5, axis=-1)
+    assert resources.pickleable(pipe)
+
+def test_pipeline2():
+    """Builds a downsampling followed by welch PSD estimate pipeline."""
+
+    pipe = pipeline.Pipeline()
+    pipe.append(resampling.downsample, M=10, fs=5000, chunksize=3e5, axis=-1)
+    pipe.append(psd, fs=500)
+    assert resources.pickleable(pipe)
