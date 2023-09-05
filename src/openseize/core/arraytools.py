@@ -171,7 +171,7 @@ def nearest1D(x, x0):
         x0: float
             The value whose distance from each value in x is measured.
 
-    Returns: 
+    Returns:
         The index of x whose distance to x0 is smallest.
     """
 
