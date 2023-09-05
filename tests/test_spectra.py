@@ -153,11 +153,12 @@ def test_periodogram_arr_error():
     return_onesided=True
     axis = -1
 
-    # test that ValueError is raised by Numpy fft
+    # test that ValueError is raised by Numpy fft and np internal
+    # RuntimeWarnings
     with pytest.raises(ValueError):
-
-        op_f, op_res = periodogram(arr, fs, nfft, window, axis, detrend, 
-                                   scaling) 
+        with pytest.warns(RuntimeWarning):
+            op_f, op_res = periodogram(arr, fs, nfft, window, axis, detrend, 
+                                       scaling) 
     
 
 def test_welch_pros():
