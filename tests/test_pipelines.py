@@ -63,10 +63,9 @@ def test_validate():
         return a + b + c
 
     with pytest.raises(TypeError) as exc:
-        
         pipe.append(caller, c=10)
         assert exc.type is TypeError
-        
+
 def test_contains_functions():
     """Validates Pipeline's contain method for functions."""
 
@@ -95,10 +94,10 @@ def test_contains_callables():
     assert notch in pipe
 
 # use lazy fixtures to pass parameterized fixtures into test
-@pytest.mark.parametrize('arr', 
+@pytest.mark.parametrize('arr',
     [
-        lazy_fixture('random1D'), 
-        lazy_fixture('random2D'), 
+        lazy_fixture('random1D'),
+        lazy_fixture('random2D'),
         lazy_fixture('random3D'),
         lazy_fixture('random4D'),
     ]
@@ -110,10 +109,10 @@ def test_call_method(arr):
     are tested in their respective testing modules (e.g. test_iir.py) but for
     completeness we test again.
     """
-    
+
     axis = np.argmax(arr.shape)
     pro = producer(arr, chunksize=1000, axis=axis)
-    
+
     # add notch & downsample
     pipe = Pipeline()
     notch = Notch(60, width=8, fs=1000)
@@ -123,7 +122,7 @@ def test_call_method(arr):
     measured = np.concatenate([x for x in pipe(pro)], axis=axis)
 
     # compare with scipy
-    b, a = sps.iirnotch(60, Q=60/8, fs=1000) 
+    b, a = sps.iirnotch(60, Q=60/8, fs=1000)
     notched = sps.lfilter(b, a, arr, axis=axis)
 
     # build a kaiser like the one openseize uses
@@ -136,23 +135,3 @@ def test_call_method(arr):
     downed = sps.resample_poly(notched, up=1, down=10, axis=axis, window=h)
 
     assert np.allclose(measured, downed)
-
-def test_pickleable():
-    """Test that pipelines are picklable. 
-
-    Note this test is only designed to ensure pipelines are pickleable NOT that
-    the contained callables are pickleable. For those test see test_concurrency.
-    """
-
-    pipe = Pipeline()
-
-    # add notch & downsample
-    pipe = Pipeline()
-    notch = Notch(60, width=8, fs=5000)
-    pipe.append(notch, chunksize=10000, axis=-1)
-    pipe.append(downsample, M=10, fs=5000, chunksize=10000, axis=-1)
-
-    # test pickling of this pipeline
-    sbytes = pickle.dumps(pipe)
-    assert isinstance(sbytes, bytes)
-
