@@ -35,8 +35,8 @@ class Viewer:
                 Any valid kwarg for matplotlib plot.
         """
 
-        time = np.linspace(0, 1, self.fs)
         imp_response = self.impulse_response()
+        time = np.arange(0, len(imp_response))/ self.fs
         ax.plot(time, imp_response, **kwargs)
         if hasattr(self, 'order'):
             N, wn = self.order
@@ -278,7 +278,6 @@ class FIRViewer(Viewer):
         # 1-s array with unit pulse at 0th sample
         pulse = sps.unit_impulse(self.fs)
         resp = np.convolve(self.coeffs, pulse, mode='full')
-        resp = resp[0:len(pulse)]
 
         return resp
 
