@@ -66,7 +66,7 @@ nav:
     - Quickstart: quickstart.ipynb
     - Tutorials:
         - 'Producers': 'tutorials/producers.ipynb'
-        - 'File Reading': 
+        - 'File Reading':
           - 'EDF Format': 'tutorials/edf_format.ipynb'
           - 'Other Formats': 'tutorials/other_formats.ipynb'
         - 'Filtering': 'tutorials/filtering.ipynb'
@@ -78,8 +78,8 @@ nav:
           - producer: 'producer/producer.md'
         - 'File IO':
           - 'Dialogs': 'file_io/dialogs.md'
-          - EDF: 
-            - Introduction: 'file_io/edf/edf_intro.md' 
+          - EDF:
+            - Introduction: 'file_io/edf/edf_intro.md'
             - Reader: 'file_io/edf/edf_reader.md'
             - Writer: 'file_io/edf/edf_writer.md'
             - Splitter: 'file_io/edf/edf_splitter.md'
@@ -89,7 +89,7 @@ nav:
             - as_mask: 'file_io/annotations/as_mask.md'
         - Filters:
             - 'FIR Filters':
-              - Introduction: 'filtering/firs/fir_intro.md' 
+              - Introduction: 'filtering/firs/fir_intro.md'
               - Kaiser: 'filtering/firs/kaiser.md'
               - Rectangular: 'filtering/firs/rectangular.md'
               - Bartlett: 'filtering/firs/bartlett.md'
@@ -104,6 +104,8 @@ nav:
               - 'Chebyshev II': 'filtering/iirs/cheby2.md'
               - Elliptical: 'filtering/iirs/ellip.md'
               - Notch: 'filtering/iirs/notch.md'
+            - 'Special':
+              - Hilbert: 'filtering/special/hilbert.md'
         - Resampling:
             - Resampling: 'resampling/resampling.md'
         - Spectra:
@@ -116,13 +118,13 @@ nav:
     - About: about.md
 
 # reflect changes immediately during dev.
-watch: 
+watch:
     - src/openseize/
 
 # Footer icon components
 extra:
     social:
-        - icon: fontawesome/brands/github 
+        - icon: fontawesome/brands/github
           link: https://github.com/mscaudill
 
 
