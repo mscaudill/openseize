@@ -3,15 +3,13 @@
 ### Hilbert
 A windowed FIR implementation of the Hilbert transform. This transform
 is used to construct the analytical signal a(t) from a raw signal s(t). This
-analytic signal contains no negative frequency components and contains both
-amplitude and phase. For details see:
-https://en.wikipedia.org/wiki/Analytic_signal
+analytic signal is a complex signal whose individual samples are represented by
+complex vectors encoding the instantaneous amplitude and phase.
 """
 
 import numpy as np
 import scipy.signal as sps
 
-from openseize.filtering.bases import FIR
 from openseize.filtering.fir import Kaiser
 
 
@@ -22,35 +20,41 @@ class Hilbert(Kaiser):
     pi/2 to every frequency component. This transform in the time domain can be
     approximated by a bandpass Type III FIR filter. Convolution of this filter
     with the original signal gives the imaginary component of the analytical
-    signal; a signal whose negative frequency components have been removed. The
-    analytical signal representation of a narrow band signal allows for
-    extraction of amplitude and phase.
+    signal; a signal whose samples in time are complex vectors encoding both
+    amplitude and phase.
 
     Attributes:
         :see FIR Base for attributes
 
     Examples:
-        >>> # Get demo data and build a reader then a producer
-        >>> from openseize.demos import paths
-        >>> filepath = paths.locate('recording_001.edf')
-        >>> from openseize.file_io.edf import Reader
-        >>> reader = Reader(filepath)
-        >>> pro = producer(reader, chunksize=100e3, axis=-1)
-        >>> # downsample the data from 5 kHz to 250 Hz
-        >>> downpro = downsample(pro, M=20, fs=5000, chunksize=100e3)
-        >>> # narrow band filter the downsampled between 6-8Hz
-        >>> kaiser = Kaiser(fpass=[6, 8], fstop=[5, 9], fs=250, gpass=0.1, gstop=40)
-        >>> x = kaiser(downpro, chunksize=20e6
-        >>> # design a Hilbert transform
-        >>> hilbert = Hilbert(fs=250)
-        >>> 
+        >>> import matplotlib.pyplot as plt
+        >>> # Build 8Hz sine wave at 250 Hz sample rate 8 secs long
+        >>> time = np.arange(2000) / 250
+        >>> signal = np.sin(2*np.pi * 8 * time)
+        >>> # Build Hilbert transform (4Hz width does not impact 8Hz signal)
+        >>> hilbert = Hilbert(width=4, fs=250)
+        >>> hilbert.plot()
+        >>> # call hilbert to obtain the imaginary component
+        >>> imag = hilbert(signal, chunksize=500, axis=-1)
+        >>> # ask scipy to compute the imaginary comp. of analytic signal
+        >>> analytic = sps.hilbert(signal)
+        >>> scipy_imag = np.imag(analytic)
+        >>> # plot openseize's imaginary vs scipy's exact answer
+        >>> fig, ax = plt.subplots()
+        >>> ax.plot(time, signal, label='original data')
+        >>> ax.plot(time, imag, color='tab:orange',
+        ...         label='openseize imag. component')
+        >>> ax.plot(time, scipy_imag, color='k', linestyle='--',
+        ...         label='scipy imag. component')
+        >>> ax.legend()
+        >>> plt.show()
 
     Notes:
-        (1) Scipy's function 'hilbert' computes the analytic signal. Openseize's
-        implementation computes the Hilbert transfrom, the imaginary component
-        of the analytic signal. (2) This implementation works fully iteratively
-        using the overlap-add convolution algorithm common to all Openseize FIR
-        filters.
+        Scipy has a function named 'hilbert' that computes the full analytic
+        signal *exactly* but requires the data to be a single in-memory array.
+        Openseize's implementation works iteratively but is not an exact
+        solution due to the truncation of the impulse response and windowing
+        approximations.
 
     References:
         1. Porat, B. (1997). A Course In Digital Signal Processing. John
@@ -59,7 +63,8 @@ class Hilbert(Kaiser):
         3. https://en.wikipedia.org/wiki/Hilbert_transform
     """
 
-    def __init__(self, fs, fpass=None, width=1, gpass=0.1, gstop=40):
+    def __init__(self, width: float, fs: float, gpass: float = 0.1,
+                 gstop: float = 40):
         """Initialize this Hilbert by creating a Type I Kaiser filter that meets
         the width and attenuation criteria.
 
@@ -68,7 +73,12 @@ class Hilbert(Kaiser):
                 The sampling rate of the digital system.
             width:
                 The width in Hz of the transition bands at 0 Hz and fs/2 Hz.
-                Default is a 1 Hz transition band.
+                If the signal to be transformed is narrow-band and not near 0 Hz
+                or fs/2, this tranisition width may be wide to reduce the number
+                of filter coeffecients. For example if the signal to be
+                transformed contains only 8-10 Hz frequencies and fs=200 then
+                a tranisition width of 4 Hz will have far fewer coeffs than 1 Hz
+                and have no impact on the transformation.
             gpass:
                 The maximum allowable ripple in the pass band in dB. Default is
                 0.1 dB is ~ 1% ripple.
@@ -105,7 +115,6 @@ class Hilbert(Kaiser):
         Reference:
             1. Porat, B. (1997). A Course In Digital Signal Processing. John
            Wiley & Sons. Chapter 9 Eqn. 9.40 "Multirate Signal Processing"
-
         """
 
         # order is even since Kaiser is Type I
@@ -121,42 +130,3 @@ class Hilbert(Kaiser):
         window = sps.get_window(('kaiser', *self.window_params), len(h))
 
         return h * window
-
-if __name__ == '__main__':
-
-    from openseize.file_io import edf
-    import matplotlib.pyplot as plt
-
-    from scipy import signal as sps
-
-    path = '/media/matt/Magnus/deepseize_data/CW0259_P039_@250Hz.edf'
-    reader = edf.Reader(path)
-    x = reader.read(0, 100000)
-
-    y = Kaiser(fpass=8, fstop=10, gpass=0.1, gstop=40, fs=250)(x,
-            chunksize=10000, axis=-1)
-
-    hilbert = Hilbert(fs=250, width=1, gpass=.1, gstop=40)
-    hilbert.plot()
-
-
-    h = hilbert(y, chunksize=10000)
-
-    analytical = y + 1j * h
-    envelope = np.abs(analytical)
-
-
-    #scipy
-    sp_anaytical = sps.hilbert(y)
-    sp_amplitude = np.abs(sp_anaytical)
-    sp_h = np.imag(sp_anaytical)
-
-    fig, ax = plt.subplots()
-    ax.plot(y[0], label='data')
-    ax.plot(h[0], color='tab:orange', label='imaginary')
-    ax.plot(envelope[0], color='tab:green', label='amplitude')
-    #scipy results
-    ax.plot(sp_amplitude[0], color='r', linestyle='--', label='scipy amplitude')
-    ax.plot(sp_h[0], color='black', linestyle='--', label='scipy imaginary')
-    ax.legend()
-    plt.show()
