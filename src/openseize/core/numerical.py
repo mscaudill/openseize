@@ -200,15 +200,19 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
     nfft = optimal_nffts(window) * nfft_factor
 
     # fallback to optimal nffts if nfft_factor makes nfft > data size.
+    #if nfft - len(window) + 1 > pro.shape[axis]:
+    #    nfft = optimal_nffts(window)
+
+    # fallback to min of optimal nffts or data shape so FIFO starts full
+    # 01-09-2024
     if nfft - len(window) + 1 > pro.shape[axis]:
-        nfft = optimal_nffts(window)
+        nfft = min(optimal_nffts(window), pro.shape[axis])
 
     wlen = len(window)
     H = np.fft.rfft(window, nfft)
 
     # set the step size based on optimal nfft and wlen
     step = nfft - wlen + 1
-
     nsegments = int(np.ceil(pro.shape[axis] / step))
 
     # create the wlen-1 samples overlap
