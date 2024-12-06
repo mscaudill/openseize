@@ -56,7 +56,7 @@ dev = ["isort",
     "build",
     "twine"
 ]
-test = ["pytest", "pytest-cov", "pytest-lazy-fixture"]
+test = ["pytest==7.1.2", "pytest-cov", "pytest-lazy-fixture"]
 
 [project.urls]
 Homepage = "https://github.com/mscaudill/openseize"
