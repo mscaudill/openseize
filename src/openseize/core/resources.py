@@ -32,7 +32,7 @@ def assignable(shape: Tuple,
     """
 
     limit = psutil.virtual_memory().available if not limit else limit
-    required = np.product(shape) * np.dtype(dtype).itemsize
+    required = np.prod(shape) * np.dtype(dtype).itemsize
 
     tolerance = int(50e6) # ensure required is at least 50MB below tolerance
     if required < limit - tolerance:
