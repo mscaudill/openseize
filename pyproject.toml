@@ -41,18 +41,18 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["isort",
-    "mypy", 
-    "pylint", 
+    "mypy",
+    "pylint",
     "bumpver",
-    "codespell", 
+    "codespell",
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
     "mkdocs-jupyter",
-    "pytest", 
+    "pytest==7.1.2",
     "pytest-cov",
     "pytest-lazy-fixture",
-    "pip-tools", 
+    "pip-tools",
     "build",
     "twine"
 ]
