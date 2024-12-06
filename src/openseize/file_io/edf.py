@@ -555,7 +555,7 @@ class Reader(bases.Reader):
     def read(self,
              start: int,
              stop: Optional[int] = None,
-             padvalue: float = np.NaN
+             padvalue: float = np.nan
     ) -> npt.NDArray[np.float64]:
         """Reads samples from this EDF from this Reader's channels.
 
