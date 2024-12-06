@@ -227,7 +227,7 @@ def test_irr_randomread(irregular_written_data):
     fp, written = irregular_written_data
     with openEDF(fp) as reader:
         for start, stop in zip(starts, stops):
-            arr = reader.read(start, stop, padvalue=np.NaN)
+            arr = reader.read(start, stop, padvalue=np.nan)
             x = written[:, start:stop]
             assert np.allclose(arr, x, equal_nan=True, atol=1)
 
@@ -244,7 +244,7 @@ def test_irr_random_chread(irregular_written_data):
     with openEDF(fp) as reader:
         reader.channels = channels
         for start, stop in zip(starts, stops):
-            arr = reader.read(start, stop, padvalue=np.NaN)
+            arr = reader.read(start, stop, padvalue=np.nan)
             x = written[channels, start:stop]
             #imprecision due to 2-byte conversion so tolerance set to 1 unit
             assert np.allclose(arr, x, equal_nan=True, atol=1)

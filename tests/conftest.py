@@ -25,20 +25,18 @@ def written_data(demo_data):
     with edf.Reader(demo_data) as reader:
         with edf.Writer(fp) as writer:
             writer.write(reader.header, reader, channels=channels)
-    
     return fp
 
 @pytest.fixture(scope='session')
 def irregular_written_data(demo_data):
     """ """
 
-    
     # The edf will contain 200 data records with varying samples per record
     # for the different channels
     seed = 0
     nrecords = 200
     samples_per_record = [5000, 10000, 20000, 5000]
-    pad_value = np.NaN
+    pad_value = np.nan
 
     # create random data array to write
     rng = np.random.default_rng(seed)
