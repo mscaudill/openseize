@@ -649,4 +649,5 @@ class Remez(FIR):
                          weight=weight,
                          maxiter=maxiter,
                          grid_density=grid_density,
-                         fs=self.fs)
+                         fs=self.fs,
+                         **kwargs)

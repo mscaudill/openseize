@@ -1,38 +1,38 @@
-"""A collection of specialized FIR and IIR filter callables for transforming data.
+"""A collection of specialized FIR and IIR filters.
 
-### Hilbert
-A windowed FIR implementation of the Hilbert transform. This transform
-is used to construct the analytical signal a(t) from a raw signal s(t). This
-analytic signal is a complex signal whose individual samples are represented by
-complex vectors encoding the instantaneous amplitude and phase.
+## Hilbert
+A Type IV FIR implementation of a Hilbert transform; a transform which removes
+the negative frequency range of a signal. When this is added to the original
+signal it constitutes the complex analytic signal from which the amplitude
+envelope and phase may be extracted.
 """
 
 import numpy as np
+import numpy.typing as npt
 import scipy.signal as sps
 
 from openseize.filtering.fir import Kaiser
 
 
 class Hilbert(Kaiser):
-    """A callable Type III FIR filter approximating a Hilbert transform.
+    """A Type IV FIR Hilbert Transformer.
 
-    A Hilbert transform in the frequency domain imparts a phase shift of +/-
-    pi/2 to every frequency component. This transform in the time domain can be
-    approximated by a bandpass Type III FIR filter. Convolution of this filter
-    with the original signal gives the imaginary component of the analytical
-    signal; a signal whose samples in time are complex vectors encoding both
-    amplitude and phase.
+    This filter is constructed by truncating the impulse response and windowing
+    with a Kaiser window to lessen the Gibbs edge phenomenon. Its implemented as
+    a type IV (odd order & even tap number) high-pass filter passing from fpass
+    up to Nyquist.
 
     Attributes:
-        :see FIR Base for attributes
+        :see Kaiser
 
     Examples:
         >>> import matplotlib.pyplot as plt
-        >>> # Build 8Hz sine wave at 250 Hz sample rate 8 secs long
-        >>> time = np.arange(2000) / 250
-        >>> signal = np.sin(2*np.pi * 8 * time)
+        >>> fs = 500
+        >>> # Build 8Hz sine wave at 500 Hz sample rate 8 secs long
+        >>> time = np.arange(2000) / fs
+        >>> signal = np.sin(2 * np.pi * 8 * time)
         >>> # Build Hilbert transform (4Hz width does not impact 8Hz signal)
-        >>> hilbert = Hilbert(width=4, fs=250)
+        >>> hilbert = Hilbert(fpass=12, fs=fs, gpass=0.1, gstop=40)
         >>> hilbert.plot()
         >>> # call hilbert to obtain the imaginary component
         >>> imag = hilbert(signal, chunksize=500, axis=-1)
@@ -48,85 +48,75 @@ class Hilbert(Kaiser):
         ...         label='scipy imag. component')
         >>> ax.legend()
         >>> plt.show()
+        >>> # notice the single sample shift as type 4 group delay is not int
 
     Notes:
-        Scipy has a function named 'hilbert' that computes the full analytic
-        signal *exactly* but requires the data to be a single in-memory array.
-        Openseize's implementation works iteratively but is not an exact
-        solution due to the truncation of the impulse response and windowing
-        approximations.
+        FFT based methods require in-memory arrays. Also note that this type IV
+        filter's group delay is a sample off from the FFT methods because type
+        IV FIR filters have non-integer group delay.
 
-    References:
+     References:
         1. Porat, B. (1997). A Course In Digital Signal Processing. John
            Wiley & Sons. Chapter 9 Eqn. 9.40 "Multirate Signal Processing"
         2. https://en.wikipedia.org/wiki/Analytic_signal
         3. https://en.wikipedia.org/wiki/Hilbert_transform
     """
 
-    def __init__(self, width: float, fs: float, gpass: float = 0.1,
-                 gstop: float = 40):
-        """Initialize this Hilbert by creating a Type I Kaiser filter that meets
-        the width and attenuation criteria.
+    def __init__(
+            self,
+            fpass: float,
+            fs: int,
+            gpass: float = 0.1,
+            gstop: float = 40,
+    ) -> None:
+        """Initialize this Hilbert Transform Kaiser windowed FIR.
 
         Args:
+            fpass:
+                The start of the pass band of this high-pass FIR in the same
+                units as fs and in the range (0, fs/2].
             fs:
                 The sampling rate of the digital system.
-            width:
-                The width in Hz of the transition bands at 0 Hz and fs/2 Hz.
-                If the signal to be transformed is narrow-band and not near 0 Hz
-                or fs/2, this tranisition width may be wide to reduce the number
-                of filter coeffecients. For example if the signal to be
-                transformed contains only 8-10 Hz frequencies and fs=200 then
-                a tranisition width of 4 Hz will have far fewer coeffs than 1 Hz
-                and have no impact on the transformation.
             gpass:
-                The maximum allowable ripple in the pass band in dB. Default is
-                0.1 dB is ~ 1% ripple.
+                The maximum allowable ripple in the pass band in dB.
+                Default of 0.01 dB is ~ 1% amplitude ripple.
             gstop:
-                The minimum attenuation required in the stop band in dB. Default
-                of 40 dB is ~ 99% attenuation.
+                The minimum attenuation required in the stop band in dB.
+                Default of 40 dB is a 99% amplitude attenuation.
         """
 
-        fpass = [width, fs / 2 - width]
-        fstop = [0, fs / 2]
-        super().__init__(fpass, fstop, fs, gpass=gpass, gstop=gstop)
+        super().__init__(fpass, fstop=0, fs=fs, gpass=gpass, gstop=gstop)
 
-    def _build(self):
-        """Override Kaiser's build method to create a Type III FIR estimate of
-        the Hilbert transform.
+    @property
+    def numtaps(self) -> int:
+        """Return tap number needed to meet stricter of transition width
+        & passband ripple criteria.
 
-        The FIR estimate of the Hilbert transform is:
+        Returns:
+            The odd integer tap number.
+        """
 
-                1 - cos(m * pi) / m * pi
-            h = ------------------------   if m != 0
-                         m * pi
+        ripple = max(self.pass_attenuation, self.gstop)
+        ntaps, _ = sps.kaiserord(ripple, self.width / self.nyq)
+        # type 4 has odd order and even filter length
+        return ntaps + 1 if ntaps % 2 == 1 else ntaps
 
-            h = 0                           if m = 0
-
-            where m = n - order / 2
-
-        This function computes and windows this response with a Kaiser window
-        meeting the initializers pass and stop criteria.
+    def _build(self, **kwargs) -> npt.NDArray[np.float64]:
+        """Returns a 1-D array of windowed filter coeffecients.
 
         Returns:
             An 1-D array of windowed FIR coeffecients of the Hilbert transform
-            with length numtaps computed by Kaiser's numptaps property.
+            of numtaps length.
 
         Reference:
             1. Porat, B. (1997). A Course In Digital Signal Processing. John
            Wiley & Sons. Chapter 9 Eqn. 9.40 "Multirate Signal Processing"
         """
 
-        # order is even since Kaiser is Type I
         order = self.numtaps - 1
-        m = np.linspace(-order/2, order/2, self.numtaps)
-        # response at m = 0 will be zero but avoid ZeroDivision in h
-        m[order//2] = 1
-        h = (1 - np.cos(m * np.pi)) / (m * np.pi)
-        # Type III is antisymmetric with a freq. response of 0 at 0 Hz
-        h[order//2] = 0
-
+        taps = np.linspace(-order/2, order/2, self.numtaps)
+        coeffs = (1 - np.cos(taps * np.pi)) / (taps * np.pi)
         # window the truncated impulse response
-        window = sps.get_window(('kaiser', *self.window_params), len(h))
+        window = sps.get_window(('kaiser', *self.window_params), len(coeffs))
 
-        return h * window
+        return coeffs * window
