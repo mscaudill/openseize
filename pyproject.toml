@@ -40,27 +40,37 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["isort",
+dev = [
+    "pytest",
+    "pytest-cov",
+    "isort",
+    "codespell",
+    "black"
     "mypy",
     "pylint",
     "bumpver",
-    "codespell",
     "mkdocs",
     "mkdocs-material",
     "mkdocstrings[python]",
     "mkdocs-jupyter",
-    "pytest==7.1.2",
-    "pytest-cov",
-    "pytest-lazy-fixture",
     "pip-tools",
     "build",
     "twine"
 ]
-test = ["pytest==7.1.2", "pytest-cov", "pytest-lazy-fixture"]
+linting = ["codespell", "isort", "pylint", "black"]
+typing = ["mypy"]
+test = ["pytest", "pytest-cov"]
 
 [project.urls]
 Homepage = "https://github.com/mscaudill/openseize"
 
+
+
+# inform setuptools where to find submodules, typing and data
+[tool.setuptools.packages.find]
+where = ["src"]
+[tool.setuptools.package-data]
+openseize = ["py.typed"]
 
 # bumpver configuration
 [tool.bumpver]
@@ -70,20 +80,12 @@ commit_message = 'bump version {old_version} -> {new_version}'
 commit = true
 tag = true
 push = true
-
 [tool.bumpver.file_patterns]
 "pyproject.toml" = [
-    'current_version = "{version}"', 
+    'current_version = "{version}"',
     'version = "{version}"'
 ]
 "src/openseize/__init__.py" = ['__version__ = "{version}"']
-
-# inform type checkers openseize supports annotations
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-openseize = ["py.typed"]
 
 # mypy configuration
 [tool.mypy]
@@ -107,7 +109,7 @@ variable-naming-style = "any"
 attr-naming-style = "any"
 
 [tool.isort]
-profile = 'google'
+profile = 'black'
 line_length = 80
 
 [tool.codespell]

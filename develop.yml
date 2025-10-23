@@ -1,5 +1,5 @@
 # requirements for openseize's development environment
-name: openseize-dev
+name: openseize
 dependencies:
     - requests
     - wget
@@ -19,8 +19,8 @@ dependencies:
     # pypi packages
     - pip
     - pip:
-        # testing
-        - pytest-lazy-fixture
+        # format
+        - black
         # spell checking
         - codespell 
         # versioning
