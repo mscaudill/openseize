@@ -15,7 +15,7 @@ def normalize_axis(axis, ndim):
     """
 
     axes = np.arange(ndim)
-    return axes[axis]
+    return int(axes[axis])
 
 
 def pad_along_axis(arr, pad, axis=-1, **kwargs):
