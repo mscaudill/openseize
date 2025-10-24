@@ -45,6 +45,7 @@ from typing import Callable, Iterable, Optional, Sequence, Union
 import numpy as np
 import numpy.typing as npt
 
+from openseize.core.arraytools import normalize_axis
 from openseize.core import mixins
 from openseize.core import resources
 from openseize.core.queues import FIFOArray
@@ -113,21 +114,24 @@ def producer(data: Union[npt.NDArray, Iterable[npt.NDArray], Reader,
 
     if isinstance(data, Producer):
         data.chunksize = int(chunksize)
-        data.axis = axis
+        data.axis = normalize_axis(axis, len(data.shape))
         result = data
 
     elif isinstance(data, Reader):
-        result = ReaderProducer(data, chunksize, axis, **kwargs)
+        result = ReaderProducer(data, chunksize, axis=1, **kwargs)
 
     elif inspect.isgeneratorfunction(data):
-        result = GenProducer(data, chunksize, axis, shape, **kwargs)
+        ax = normalize_axis(axis, len(shape))
+        result = GenProducer(data, chunksize, ax, shape, **kwargs)
 
     elif isinstance(data, np.ndarray):
-        result = ArrayProducer(data, chunksize, axis, **kwargs)
+        ax = normalize_axis(axis, len(data.shape))
+        result = ArrayProducer(data, chunksize, ax, **kwargs)
 
     elif isinstance(data, abc.Sequence):
         x = np.concatenate(data, axis)
-        result = ArrayProducer(x, chunksize, axis, **kwargs)
+        ax = normalize_axis(axis, len(x.shape))
+        result = ArrayProducer(x, chunksize, ax, **kwargs)
 
     else:
         msg = 'unproducible type: {}'
@@ -137,7 +141,7 @@ def producer(data: Union[npt.NDArray, Iterable[npt.NDArray], Reader,
     if mask is None:
         return result
 
-    return MaskedProducer(result, mask, chunksize, axis, **kwargs)
+    return MaskedProducer(result, mask, chunksize, result.axis, **kwargs)
 
 
 class Producer(abc.Iterable, mixins.ViewInstance):
@@ -184,6 +188,13 @@ class Producer(abc.Iterable, mixins.ViewInstance):
     @abstractmethod
     def shape(self):
         """Returns the shape of this producers data attr."""
+
+
+    @property
+    def ndim(self):
+        """Returns the dimensionality of this producer."""
+
+        return len(self.shape)
 
     def to_array(self, dtype=float, limit=None):
         """Assign this Producer to an ndarray by concatenation along axis.

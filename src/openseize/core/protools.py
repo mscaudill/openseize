@@ -1,21 +1,8 @@
 """A collection of tools to manipulate the size, shape or values produced by
-a producer including:
-
-    pad:
-        A function to pre and post pad a producer along a single axis.
-    expand_dims:
-        A function that expands a producers shape by axis insertion.
-    multiply_along_axis:
-        A function that multiplies produced values by a 1-D numpy array along
-        a single axis.
-    slice_along_axis:
-        A function that slices a producer along any axis.
-
-Note: To support concurrency all functions in this module are available at the
-module level. Functions not intended to be called externally are marked as
-protected with a single underscore.
+a producer.
 """
 
+from collections.abc import Iterator
 from functools import partial
 from itertools import zip_longest
 from typing import Optional, Tuple, Union
@@ -28,10 +15,11 @@ from openseize.core import arraytools
 from openseize.core.producer import Producer
 
 
-def pad(pro: Producer,
-        amt: Union[int, Tuple[int, int]],
-        axis: int,
-        value: Optional[float] = 0,
+def pad(
+    pro: Producer,
+    amt: Union[int, Tuple[int, int]],
+    axis: int,
+    value: Optional[float] = 0,
 ) -> Producer:
     """Pads the edges of a producer along single axis with a constant value.
 
@@ -67,7 +55,7 @@ def pad(pro: Producer,
     amts = (amt, amt) if isinstance(amt, int) else tuple(amt)
 
     # dispatch to generating function based on whether pad is along pro.axis
-    if axis == pro.axis:
+    if arraytools.normalize_axis(axis, pro.ndim) == pro.axis:
         genfunc = _production_axis_padder
     else:
         genfunc = _other_axis_padder
@@ -96,8 +84,7 @@ def _production_axis_padder(pro, amt, axis, value):
 
     yield left
 
-    for arr in pro:
-        yield arr
+    yield from pro
 
     yield right
 
@@ -128,7 +115,7 @@ def expand_dims(pro: Producer, axis: Union[int, Tuple] = 0) -> Producer:
         >>> print(pro.shape)
         (102344,)
         >>> print(pro.axis)
-        -1
+        0
         >>> expanded = expand_dims(pro, axis=(0, -1))
         >>> print(expanded.shape)
         (1, 102344, 1)
@@ -148,7 +135,6 @@ def expand_dims(pro: Producer, axis: Union[int, Tuple] = 0) -> Producer:
 
     # normalize the axis to insert and the producer's axis
     axes = (axis,) if isinstance(axis, int) else axis
-    pro_axis = arraytools.normalize_axis(pro.axis, len(pro.shape))
 
     # calculate out ndims, initialize new shape and normalize inserts
     new_ndim = len(pro.shape) + len(axes)
@@ -159,12 +145,13 @@ def expand_dims(pro: Producer, axis: Union[int, Tuple] = 0) -> Producer:
     complements = sorted(set(range(new_ndim)).difference(inserts))
 
     # set the new axis and insert producer's shape into new shape
-    new_axis = complements[pro_axis]
+    new_axis = complements[pro.axis]
 
     for idx, comp in enumerate(complements):
 
         new_shape[comp] = pro.shape[idx]
 
+    new_shape = [int(s) for s in new_shape]
     func = partial(_expand_gen, pro, axes)
     return producer(func, pro.chunksize, new_axis, tuple(new_shape))
 
@@ -187,9 +174,10 @@ def _expand_gen(pro, axes):
         yield np.expand_dims(arr, axes)
 
 
-def multiply_along_axis(pro: Producer,
-                        arr: npt.NDArray,
-                        axis: int,
+def multiply_along_axis(
+    pro: Producer,
+    arr: npt.NDArray,
+    axis: int,
 ) -> Producer:
     """Multiplies produced arrays by a 1-D array along a single axis.
 
@@ -218,26 +206,25 @@ def multiply_along_axis(pro: Producer,
 
     arr = np.array(arr)
     if arr.ndim > 1:
-        raise ValueError('Dimensions of multiplier arr must be exactly 1.')
+        raise ValueError("Dimensions of multiplier arr must be exactly 1.")
 
     # ensure the arr shape matches the producers shape along axis
     if len(arr) != pro.shape[axis]:
-        msg = 'operands could not be broadcast together with shapes {} {}'
+        msg = "operands could not be broadcast together with shapes {} {}"
         raise ValueError(msg.format(pro.shape, arr.shape))
 
     # reshape the input array to be broadcastable with produced arrays
     ndims = len(pro.shape)
     shape = np.ones(ndims, dtype=int)
     shape[axis] = len(arr)
-    x = arr.reshape(shape) #type: Union[npt.NDArray, Producer]
+    x = arr.reshape(shape)  # type: Union[npt.NDArray, Producer]
 
     # if multiplying along pro axis convert arr 'x' to producer
-    if axis == pro.axis:
+    if arraytools.normalize_axis(axis, pro.ndim) == pro.axis:
         x = producer(x, chunksize=pro.chunksize, axis=pro.axis)
 
     func = partial(_multiply_gen, pro, x)
-    return producer(func, chunksize=pro.chunksize, axis=pro.axis,
-                    shape=pro.shape)
+    return producer(func, chunksize=pro.chunksize, axis=pro.axis, shape=pro.shape)
 
 
 def _multiply_gen(pro, multiplier):
@@ -272,11 +259,12 @@ def _multiply_gen(pro, multiplier):
         yield arr * mult
 
 
-def slice_along_axis(pro: Producer,
-                     start: Optional[int] = None,
-                     stop: Optional[int] = None,
-                     step: Optional[int] = None,
-                     axis: int = -1,
+def slice_along_axis(
+    pro: Producer,
+    start: Optional[int] = None,
+    stop: Optional[int] = None,
+    step: Optional[int] = None,
+    axis: int = -1,
 ) -> Producer:
     """Returns a producer producing values between start and stop in step
     increments along axis.
@@ -307,9 +295,9 @@ def slice_along_axis(pro: Producer,
     """
 
     # get start, stop, step indices for the slicing axis
-    start, stop, step  = slice(start, stop, step).indices(pro.shape[axis])
+    start, stop, step = slice(start, stop, step).indices(pro.shape[axis])
 
-    if axis == pro.axis:
+    if arraytools.normalize_axis(axis, pro.ndim) == pro.axis:
         # slicing along production axis is just masking
         mask = np.zeros(pro.shape[axis], dtype=bool)
         mask[start:stop:step] = True
@@ -317,7 +305,7 @@ def slice_along_axis(pro: Producer,
 
     # slicing along non-production axis changes shape of produced arrays
     new_shape = list(pro.shape)
-    new_shape[axis] =  (stop - start) // step
+    new_shape[axis] = (stop - start) // step
     func = partial(_slice_along_gen, pro, start, stop, step, axis)
     return producer(func, pro.chunksize, pro.axis, shape=new_shape)
 
@@ -341,3 +329,170 @@ def _slice_along_gen(pro, start, stop, step, axis):
 
     for arr in pro:
         yield arraytools.slice_along_axis(arr, start, stop, step, axis=axis)
+
+
+def mean(
+    pro: Producer,
+    axis: int = -1,
+    ignore_nan=True,
+    keepdims: bool = False,
+) -> float | npt.NDArray:
+    """Returns the mean of a producers values along axis.
+
+    Args:
+        pro:
+            A producer instance.
+        axis:
+            The axis along which the mean will be computed.If this axis matches
+            the production axis, the mean will be computed across all produced
+            arrays.
+        ignore_nan:
+            Boolean indicating if produced nans should be ignored. Default is
+            True.
+        keepdims:
+            Boolean indicating if number of output dimensions should match
+            producers dimensionality. Default is False.
+
+    Returns:
+        A float or array of float values.
+    """
+
+    averager = np.nanmean if ignore_nan else np.mean
+
+    ax = arraytools.normalize_axis(axis, pro.ndim)
+    if pro.axis == ax:
+        sums, cnts = 0, 0
+        for arr in pro:
+            cnts += arr.shape[axis]
+            sums += arr.shape[axis] * averager(arr, axis=axis, keepdims=keepdims)
+
+        return sums / cnts
+
+    # non-production axis computes on each arr indptly.
+    return np.concat(
+        [averager(x, axis=axis, keepdims=keepdims) for x in pro],
+        axis=-1,
+    )
+
+
+def std(
+    pro: Producer,
+    axis: int = -1,
+    ignore_nan=True,
+    keepdims: bool = False,
+) -> float | npt.NDArray:
+    """Returns the standard deviation of a producer's values along axis.
+
+    Args:
+        pro:
+            A producer instance.
+        axis:
+            The axis along which the standard deviation will be computed. If
+            this axis matches the production axis, the std will be computed
+            across all produced arrays.
+        ignore_nan:
+            Boolean indicating if produced nans should be ignored. Default is
+            True.
+        keepdims:
+            Boolean indicating if number of output dimensions should match
+            producers dimensionality. Default is False.
+
+    Returns:
+        A float or array of float values.
+    """
+
+    ax = arraytools.normalize_axis(axis, pro.ndim)
+    averager = np.nanmean if ignore_nan else np.mean
+    dev = np.nanstd if ignore_nan else np.std
+
+    if ax == pro.axis:
+        # compute squared expectation
+        expected_squared = mean(pro, ax, ignore_nan, keepdims=keepdims) ** 2
+        sum_squares, cnts = 0, 0
+        for arr in pro:
+            cnts += arr.shape[axis]
+            sum_squares += arr.shape[axis] * averager(
+                arr**2, axis=axis, keepdims=keepdims
+            )
+
+        # std = sqrt(E[x**2] - E[x]**2)
+        return np.sqrt(sum_squares / cnts - expected_squared)
+
+    # non-production axis computes on each arr indptly.
+    return np.concat([dev(x, axis=axis, keepdims=keepdims) for x in pro], axis=-1)
+
+
+def standardize(
+    pro: Producer,
+    axis: int = -1,
+    ignore_nan: bool = True,
+) -> producer:
+    """Standardizes the values in producer along axis.
+
+    Examples:
+    >>> z = np.random.random((3, 40))
+    >>> y = (z - np.mean(z, axis=-1, keepdims=True)) / np.std(z, axis=-1,
+    ...     keepdims=True)
+    >>> apro = producer(z, chunksize=10, axis=-1)
+    >>> standardized = standardize(apro, axis=-1)
+    >>> x = standardized.to_array()
+    >>> np.allclose(x, y)
+    True
+
+    Args:
+        pro:
+            A producer instance.
+        axis:
+            The axis along which the standardization will occur. If
+            this axis matches the production axis, the mean and standard
+            deviation from all produced arrays will be used.
+        ignore_nan:
+            Boolean indicating if produced nans should be ignored. Default is
+            True.
+        keepdims:
+            Boolean indicating if number of output dimensions should match
+            producers dimensionality. Default is False.
+
+    Returns:
+        A producer of standardized value.
+    """
+
+    means = mean(pro, axis, ignore_nan, keepdims=True)
+    stds = std(pro, axis, ignore_nan, keepdims=True)
+    func = partial(_standardize_gen, pro, means, stds, axis)
+
+    return producer(func, pro.chunksize, pro.axis, shape=pro.shape)
+
+
+def _standardize_gen(
+    pro: Producer,
+    means: npt.NDArray,
+    stds: npt.NDArray,
+    axis: int,
+) -> Iterator[npt.NDArray]:
+    """A generating helper function for producer standardization.
+
+    Args:
+        pro:
+            A producer instance to standardize.
+        means:
+            The mean of the produced values along axis.
+        stds:
+            The standard deviations of the produced values along axis.
+        axis:
+            The axis along which standardization occurs. This should match the
+            axis along which means and stds were computed.
+
+    Yields:
+        A standardized array on per array in pro.
+    """
+
+    if arraytools.normalize_axis(axis, pro.ndim) == pro.axis:
+        for arr in pro:
+            s = (arr - means) / stds
+            yield s
+    else:
+        mean_pro = producer(means, chunksize=pro.chunksize, axis=pro.axis)
+        std_pro = producer(stds, chunksize=pro.chunksize, axis=pro.axis)
+        for arr, mu, dev in zip(pro, mean_pro, std_pro):
+            yield (arr - mu) / dev
