@@ -45,7 +45,7 @@ dev = [
     "pytest-cov",
     "isort",
     "codespell",
-    "black"
+    "black",
     "mypy",
     "pylint",
     "bumpver",

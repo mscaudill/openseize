@@ -22,7 +22,7 @@ dependencies:
         # format
         - black
         # spell checking
-        - codespell 
+        - codespell
         # versioning
         - bumpver
         # doc builders
