@@ -369,10 +369,12 @@ def mean(
         return sums / cnts
 
     # non-production axis computes on each arr indptly.
-    return np.concat(
-        [averager(x, axis=axis, keepdims=keepdims) for x in pro],
-        axis=-1,
-    )
+    avgs = [averager(x, axis=ax, keepdims=True) for x in pro]
+    result = np.concat(avgs, axis=pro.axis)
+    if not keepdims:
+        result = np.squeeze(result, ax)
+
+    return result
 
 
 def std(
@@ -419,7 +421,12 @@ def std(
         return np.sqrt(sum_squares / cnts - expected_squared)
 
     # non-production axis computes on each arr indptly.
-    return np.concat([dev(x, axis=axis, keepdims=keepdims) for x in pro], axis=-1)
+    stds = [dev(x, axis=ax, keepdims=True) for x in pro]
+    result = np.concat(stds, axis=pro.axis)
+    if not keepdims:
+        result = np.squeeze(result, ax)
+
+    return result
 
 
 def standardize(
