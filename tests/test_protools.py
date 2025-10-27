@@ -5,15 +5,96 @@ Typical usage example:
     !pytest test_operatives.py::<TEST NAME>
 """
 
+import random
+
 import pytest
 import numpy as np
 from itertools import permutations
-from pytest_lazyfixture import lazy_fixture
 
 from openseize import producer
 from openseize.core import protools
 
+# FIXME COMPLETE THE REMOVAL OF LAZY FIXTURES FOR ALL PROTOOLS
 
+NUM_TESTS = range(20)
+
+# Array shape options
+MAX_NDIMS = 5
+MAX_DIM_LEN = 4
+NSAMPLES = 14233
+
+
+@pytest.fixture(params=NUM_TESTS)
+def rng(request):
+    """Returns a random but reproducible number generator."""
+
+    return np.random.default_rng(request.param)
+
+
+@pytest.fixture
+def shape(rng):
+    """Returns a shape tuple of MAX_NDIMS and NSAMPLES along a random axis."""
+
+    ndim = rng.integers(1, MAX_NDIMS)
+    result = rng.integers(1, MAX_DIM_LEN, size=ndim)
+    result[rng.choice(ndim)] = NSAMPLES
+
+    return tuple(result)
+
+
+@pytest.fixture
+def random_normal(rng, shape):
+    """Returns a random normal array with NSAMPLES along one axis."""
+
+    return rng.normal(loc=3, scale=2, size=shape)
+
+
+@pytest.fixture
+def random_normal_pro(random_normal):
+    """Returns a producer of random normal arrays from a random normal array."""
+
+    sample_axis = np.argmax(random_normal.shape)
+
+    return producer(random_normal, chunksize=1000, axis=sample_axis)
+
+
+def test_pro_mean(random_normal_pro, random_normal):
+    """Validate that taking the mean of a producer along any axis matches
+    numpy's mean function."""
+
+    for axis in range(random_normal_pro.ndim):
+        a = protools.mean(random_normal_pro, axis=axis, keepdims=False)
+        b = np.mean(random_normal, axis=axis, keepdims=False)
+        assert np.allclose(a, b)
+
+
+def test_pro_std(random_normal_pro, random_normal):
+    """Validate that the standard deviation of a producer matches the standard
+    deviation returned by numpy."""
+
+    for axis in range(random_normal_pro.ndim):
+        a = protools.std(random_normal_pro, axis=axis, keepdims=False)
+        b = np.std(random_normal, axis=axis, keepdims=False)
+        assert np.allclose(a, b)
+
+
+def test_pro_standardization(random_normal_pro, random_normal):
+    """Validate that standardization a producer matches numpy
+    standardization."""
+
+    for axis in range(random_normal_pro.ndim):
+        a = protools.standardize(random_normal_pro, axis=axis)
+        a = a.to_array()
+
+        # numerator & denominator of standardization
+        p = random_normal - np.mean(random_normal, axis=axis, keepdims=True)
+        q = np.std(random_normal, axis=axis, keepdims=True)
+        b = p / q
+        assert np.allclose(a, b, equal_nan=True)
+
+
+
+'''
 @pytest.fixture(scope='module')
 def rng():
     """Returns a numpy default_rng instance for generating random but 
@@ -199,3 +280,4 @@ def test_slice_along_axis(arr):
     result = protools.slice_along_axis(pro, start, stop, step, axis=0).to_array()
 
     assert np.allclose(arr[start:stop:step], result)
+'''
