@@ -28,7 +28,7 @@ class Hilbert(Kaiser):
     Examples:
         >>> import matplotlib.pyplot as plt
         >>> fs = 500
-        >>> # Build 8Hz sine wave at 500 Hz sample rate 8 secs long
+        >>> # Build 8Hz sine wave at 500 Hz sample rate 4 secs long
         >>> time = np.arange(2000) / fs
         >>> signal = np.sin(2 * np.pi * 8 * time)
         >>> # Build Hilbert transform (4Hz width does not impact 8Hz signal)
@@ -99,7 +99,8 @@ class Hilbert(Kaiser):
         ripple = max(self.pass_attenuation, self.gstop)
         ntaps, _ = sps.kaiserord(ripple, self.width / self.nyq)
         # type 4 has odd order and even filter length
-        return ntaps + 1 if ntaps % 2 == 1 else ntaps
+        #return ntaps + 1 if ntaps % 2 == 1 else ntaps
+        return ntaps + 1 if ntaps % 2 == 0 else ntaps
 
     def _build(self, **kwargs) -> npt.NDArray[np.float64]:
         """Returns a 1-D array of windowed filter coeffecients.
@@ -116,7 +117,55 @@ class Hilbert(Kaiser):
         order = self.numtaps - 1
         taps = np.linspace(-order/2, order/2, self.numtaps)
         coeffs = (1 - np.cos(taps * np.pi)) / (taps * np.pi)
+        coeffs[order//2] = 0
         # window the truncated impulse response
         window = sps.get_window(('kaiser', *self.window_params), len(coeffs))
 
         return coeffs * window
+
+if __name__ == '__main__':
+
+    import time
+    from pathlib import Path
+    from openseize import producer
+    from openseize.file_io.edf import Reader
+   
+    """
+    base = '/media/matt/Magnus/Qi/EEG_annotation_03272024/'
+    name = 'No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf'
+    path = Path(base) / Path(name)
+
+
+    reader = Reader(path)
+    pro = producer(reader, chunksize=10e6, axis=-1)
+    hilbert = Hilbert(fpass=50, fs=5000)
+    hpro = hilbert(pro, chunksize=10e6, axis=-1)
+    t0 = time.perf_counter()
+    x = hpro.to_array()
+    print(f'Completed convolve with {hilbert.numtaps} tap filter in '
+          f'{time.perf_counter() - t0}')
+    """
+
+    import matplotlib.pyplot as plt
+    fs = 500
+    # Build 8Hz sine wave at 500 Hz sample rate 8 secs long
+    time = np.arange(2000) / fs
+    signal = np.sin(2 * np.pi * 8 * time)
+    # Build Hilbert transform (4Hz width does not impact 8Hz signal)
+    hilbert = Hilbert(fpass=12, fs=fs, gpass=0.1, gstop=40)
+    hilbert.plot()
+    # call hilbert to obtain the imaginary component
+    imag = hilbert(signal, chunksize=500, axis=-1)
+    # ask scipy to compute the imaginary comp. of analytic signal
+    analytic = sps.hilbert(signal)
+    scipy_imag = np.imag(analytic)
+    # plot openseize's imaginary vs scipy's exact answer
+    fig, ax = plt.subplots()
+    ax.plot(time, signal, label='original data')
+    ax.plot(time, imag, color='tab:orange',
+            label='openseize imag. component')
+    ax.plot(time, scipy_imag, color='k', linestyle='--',
+            label='scipy imag. component')
+    ax.legend()
+    plt.show()
+
