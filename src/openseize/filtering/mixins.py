@@ -166,7 +166,6 @@ class Viewer:
 
         if axarr is None:
             fig, axarr = plt.subplots(3, 1, figsize=size)
-        axarr[1].get_shared_x_axes().join(axarr[1], axarr[2])
 
         # Plot impulse response and configure axis
         self._plot_impulse(axarr[0], color='tab:blue')
@@ -180,7 +179,6 @@ class Viewer:
         color = 'tab:blue'
         self._plot_response(axarr[1], freqs, g_dB, color=color)
         axarr[1].set_ylabel('Gain (dB)', color=color, weight='bold')
-        axarr[1].xaxis.set_ticklabels([])
         axarr[1].spines['top'].set_visible(False)
         # add pass and transition rectangles
         self._plot_rectangles(axarr[1], scale)
@@ -204,6 +202,8 @@ class Viewer:
         axarr[2].set_ylabel('Gain (au)', color='k', weight='bold')
         # add pass and transition rectangles
         self._plot_rectangles(axarr[2], scale)
+        # share axes 1 and 2
+        axarr[2].sharex(axarr[1])
 
         # Configure axes grids
         [ax.grid(alpha=gridalpha) for ax in axarr]
