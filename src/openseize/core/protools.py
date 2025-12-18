@@ -15,6 +15,116 @@ from openseize.core import arraytools
 from openseize.core.producer import Producer
 
 
+def add(
+    pro: Producer,
+    other: int | float | complex | np.number | npt.NDArray | Producer,
+) -> Producer:
+    """Adds a numeric, ndarray or producer to a producer.
+
+    If adding an ndarray to a producer the array shape must be broadcastable to
+    the shape of each produced array of the producer. If adding a producer to
+    a producer, the shape of each must match.
+
+    Args:
+        pro:
+            A producer of ndarrays.
+        other:
+            A numeric, ndarray, or producer of ndarrays.
+
+    Returns:
+        A producer of the sum of pro and other.
+    """
+
+    func = partial(_add, pro=pro, other=other)
+    return producer(
+            func,
+            chunksize=pro.chunksize,
+            axis=pro.axis,
+            shape=pro.shape,
+    )
+
+
+def _add(
+    pro: Producer,
+    other: int | float | complex | np.number | npt.NDArray | Producer,
+) -> Iterator:
+    """Helper for adding a numeric, ndarray or producer to a producer."""
+
+    if isinstance(other, Producer):
+        if pro.shape != other.shape:
+            msg = (
+                    'producers can not be added together with shapes'
+                    f'{pro.shape} {other.shape}'
+            )
+            raise ValueError(msg)
+
+        # produced arrays to have same shape along production axis
+        if pro.chunksize != other.chunksize:
+            other.chunksize = pro.chunksize
+
+        for x, y in zip(pro, other):
+            yield x + y
+
+    else:
+        for arr in pro:
+            yield arr + other
+
+
+def multiply(
+    pro: Producer,
+    other: int | float | complex | np.number | npt.NDArray | Producer,
+) -> Producer:
+    """Multiplies a numeric, ndarray or producer to a producer.
+
+    If multiplying an ndarray to a producer the array shape must be
+    broadcastable to the shape of each produced array of the producer. If
+    multiplying a producer to a producer, the shape of each must match.
+
+    Args:
+        pro:
+            A producer of ndarrays.
+        other:
+            A numeric, ndarray, or producer of ndarrays.
+
+    Returns:
+        A producer of the product of pro and other.
+    """
+
+    func = partial(_multiply, pro=pro, other=other)
+    return producer(
+            func,
+            chunksize=pro.chunksize,
+            axis=pro.axis,
+            shape=pro.shape,
+    )
+
+
+def _multiply(
+    pro: Producer,
+    other: int | float | complex | np.number | npt.NDArray | Producer,
+) -> Iterator:
+    """Helper for multiplying a numeric, ndarray or producer to a producer."""
+
+    if isinstance(other, Producer):
+        if pro.shape != other.shape:
+            msg = (
+                    'producers can not be added together with shapes'
+                    f'{pro.shape} {other.shape}'
+            )
+            raise ValueError(msg)
+
+        # produced arrays to have same shape along production axis
+        if pro.chunksize != other.chunksize:
+            other.chunksize = pro.chunksize
+
+        for x, y in zip(pro, other):
+            yield x * y
+
+    else:
+        for arr in pro:
+            yield arr * other
+
+
 def pad(
     pro: Producer,
     amt: Union[int, Tuple[int, int]],
@@ -173,7 +283,7 @@ def _expand_gen(pro, axes):
     for arr in pro:
         yield np.expand_dims(arr, axes)
 
-
+# FIXME this may no longer be needed since muliply can handle arrays too
 def multiply_along_axis(
     pro: Producer,
     arr: npt.NDArray,
@@ -503,3 +613,20 @@ def _standardize_gen(
         std_pro = producer(stds, chunksize=pro.chunksize, axis=pro.axis)
         for arr, mu, dev in zip(pro, mean_pro, std_pro):
             yield (arr - mu) / dev
+
+
+if __name__ == '__main__':
+
+    x = 2 * np.ones((3, 1000))
+    y = 3 * np.ones((3, 1000))
+    pro_x = producer(x, chunksize=100, axis=-1)
+    pro_y = producer(y, chunksize=100, axis=-1)
+    pro_z = add(pro_x, pro_y)
+
+    result = pro_z.to_array()
+    
+    pro_a = add(pro_x, np.array([[-10, 0, 10]]).T)
+    result2 = pro_a.to_array()
+
+    g = multiply(pro_x, pro_y)
+    g_mult = g.to_array()
