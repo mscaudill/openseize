@@ -141,7 +141,6 @@ if __name__ == '__main__':
     from openseize import producer
     from openseize.file_io.edf import Reader
 
-    """
     base = '/media/matt/Magnus/Qi/EEG_annotation_03272024/'
     name = 'No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf'
     path = Path(base) / Path(name)
@@ -184,3 +183,4 @@ if __name__ == '__main__':
             label='scipy imag. component')
     ax.legend()
     plt.show()
+    """
