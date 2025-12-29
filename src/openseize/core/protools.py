@@ -615,6 +615,15 @@ def _standardize_gen(
             yield (arr - mu) / dev
 
 
+def ix_gen(indices: npt.NDArray, chunksize: int) -> Iterator[npt.NDArray]:
+    """Converts """
+
+    relative = np.mod(indices, chunksize)
+    changes = np.flatnonzero(np.diff(relative, prepend=relative[0]) <= 0)
+    for a, b in zip_longest(changes, changes[1:], fillvalue=None):
+        yield indices[a:b]
+
+
 if __name__ == '__main__':
 
     x = 2 * np.ones((3, 1000))
