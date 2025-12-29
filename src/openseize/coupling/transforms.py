@@ -39,7 +39,7 @@ class Transform(abc.ABC, ViewInstance):
     ) -> None:
         """Initialize this transform with raw data."""
 
-        self.data = producer(data, chunksize, axis)
+        self.data = producer(data, chunksize=chunksize, axis=axis)
         self.estimated: Producer | None = None
         self.chunksize = chunksize
         self.axis = axis
@@ -110,7 +110,7 @@ class Transform(abc.ABC, ViewInstance):
             shape=self.estimated.shape,
         )
 
-    def indices(self, phases: Producer, angle: float, epsi=0.1):
+    def indices(self, phases: Producer, angle: float, epsi=0.05):
         """Returns the indices where phases are within epsi of angle.
 
         Args:
