@@ -1,10 +1,15 @@
 """Estimators of Cross-Frequency Coupling (CFC)."""
 
+from collections.abc import Sequence
+import multiprocessing as mp
+from itertools import zip_longest
+from functools import partial
 import numpy as np
 import numpy.typing as npt
 
 from openseize.core.producer import Producer
 from openseize.filtering.bases import FIR
+from openseize.core import resources
 
 from openseize import producer
 from openseize.core import protools
@@ -34,7 +39,7 @@ class PhasePowerLocking:
         self.csize = chunksize
         self.axis = axis
 
-    def indices(
+    def estimate(
         self,
         signal: Producer | npt.NDArray,
         fpass: list[float, float],
@@ -54,23 +59,28 @@ class PhasePowerLocking:
 
         self.indices = analytic.indices(analytic.phases, angle=0, epsi=epsi)
 
-    def _chunked_indices(self, indices, chunksize):
+    def _reindex(self, indices, chunksize):
         """ """
 
+        x = np.squeeze(indices)
+        rel = np.mod(x, chunksize)
+        flips = np.flatnonzero(np.diff(rel, prepend=rel[0]) <= 0)
+        slices = (slice(a, b) for a, b in zip_longest(flips, flips[1:]))
 
+        return [x[sl] for sl in slices]
 
     def _power(
         self,
         signal: Producer,
-        indices: npt.NDArray,
         center: float,
         bandwidth: float,
         analytic_width: float,
-        epoch: float,
+        delay: float,
         **kwargs,
         ):
         """ """
 
+        
         fpass = center + np.array([-bandwidth/2, bandwidth/2])
         fstop = fpass + np.array([-bandwidth/2, bandwidth/2])
         filt = fir.Kaiser(fpass, fstop, self.fs, **kwargs)
@@ -79,9 +89,78 @@ class PhasePowerLocking:
 
         analytic = Analytic(z, chunksize=self.csize, axis=self.axis)
         analytic.estimate(width=analytic_width, fs=self.fs)
-        result = []
-        for chunk, amplitudes in analytic.amplitudes.to_array():
-            index_range = range((chunk * csize, (chunk+1) * csize)
+        reindexed = self._reindex(self.indices, self.csize)
+
+        result = 0
+        cnt = 0
+        span = np.array([-1, 1]) * delay * self.fs
+        for amps, idxs in zip(analytic.amplitudes, reindexed):
+            x = np.squeeze(amps)
+            for idx in idxs:
+
+                y = x[slice(*(span + idx))] ** 2
+                if len(y) < 2 * delay * self.fs:
+                    continue
+
+                result = (cnt * result + y) / (cnt + 1)
+                cnt += 1
+
+        return center, result
+
+    def fit(
+        self,
+        signal,
+        centers: Sequence[int | float],
+        bandwidth: float = 4,
+        analytic_width: float = 4,
+        delay: float = 1,
+        ncores: int | None = None,
+        verbose: bool = True,
+        **kwargs,
+    ) -> npt.NDArray:
+        """ """
+
+        cores = resources.allocate(len(centers), ncores)
+        result = {}
+
+        func = partial(
+                self._power,
+                signal,
+                bandwidth=bandwidth,
+                analytic_width = analytic_width,
+                delay=delay,
+                **kwargs,
+        )
+
+        if cores > 1:
+
+            start = time.perf_counter()
+
+            msg = f'Initializing {type(self).__name__} with {cores} cores'
+            if verbose:
+                print(msg, end='\n', flush=True)
+
+
+            with mp.Pool(processes=cores) as pool:
+                for idx, v  in enumerate(pool.imap_unordered(func, centers), 1):
+                    msg = f'Frequency: {idx} / {len(centers)} completed'
+                    if verbose:
+                        print(msg, end='\r', flush=True)
+                    result[v[0]] = v[1]
+
+
+            dur = time.perf_counter() - t0
+            msg = f'{type(self).__name__} estimate completed in {dur} secs'
+            if verbose:
+                print(msg)
+
+        else:
+            for index, center in enumerate(centers):
+                v = func(center)
+                result[v[0]] = v[1]
+
+        return result
+
 
 
 
@@ -99,18 +178,23 @@ if __name__ == '__main__':
     path = Path(base) / Path(name)
 
     x = Reader(path)
-    x.channels = [0]
-    pro = producer(x, chunksize=10e6, axis=-1)
-    dpro = downsample(pro, M=10, fs=5000, chunksize=int(10e6))
+    x.channels = [3]
+    xpro = producer(x, chunksize=10e6, axis=-1)
+    dxpro = downsample(xpro, M=10, fs=5000, chunksize=int(10e6))
 
+
+    y = Reader(path)
+    y.channels = [2]
+    ypro = producer(y, chunksize=10e6, axis=-1)
+    dypro = downsample(ypro, M=10, fs=5000, chunksize=int(10e6))
 
     PPL = PhasePowerLocking(fs=500)
 
     t0 = time.perf_counter()
-    indices = PPL.indices(dpro, fpass=(8, 12), fstop=[4, 16])
+    PPL.estimate(dxpro, fpass=(4, 12), fstop=[2, 14])
     print(f'Phase events in {time.perf_counter() - t0} s')
 
     t0 = time.perf_counter()
-    powers = PPL._power(dpro, indices, 80, 4, analytic_width=4, epoch=1)
+    powers = PPL.fit(dypro, centers=[30, 40, 50, 60, 80], bandwidth=4, analytic_width=4, delay=1)
     print(f'Powers in {time.perf_counter() - t0} s')
 
