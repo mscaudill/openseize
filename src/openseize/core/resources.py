@@ -45,33 +45,31 @@ def assignable(shape: Tuple,
         print(info)
     return False
 
-def assign_cores(ntasks: int, requested: Optional[int]) -> int:
-    """Assigns requested number of physical cores to run ntasks.
+def allocate(jobs: int, requesting: Optional[int] = None) -> int:
+    """Allocates requested number of physical cores to run jobs.
 
-    The actual number of cores assigned will be the minimum of ntasks, requested
-    & available physical cores. This may differ from the number of cores defined
-    by the OS because of hyperthreading. Hyperthreading CPUs can concurrently
-    run multiple logical processes per physical core. Openseize runs CPU bound
-    processes on just the physical cores for speed.
+    This function assumes jobs are CPU bound and disregards hyperthreaded CPU's.
+    The number of allocated cores will be the minimum of jobs, ncores and the
+    system available cores.
 
     Args:
-        ntasks:
-            The number of tasks to be executed.
-        requested:
-            The number of physical cores to execute ntasks on. This value will
-            differ from the assigned core count if requested > ntasks or if
-            requested > available cores.
+        jobs:
+            The number of CPU bound tasks to be executed in parallel.
+        requesting:
+            The number of physical cores being requested to operate on jobs in
+            parallel. If None, requesting will equal the number of jobs.
 
     Returns:
-        The minimum of ntasks, requested and available cores.
+        The minimum of jobs, requesting and available physical cores.
     """
 
-    # get number of hyperthreads per core
+    requesting = jobs if requesting is None else requesting
+    # get hyperthread count to get available physical cores
     hyperthreads = psutil.cpu_count() // psutil.cpu_count(False)
-    # get all available cores including logical (hyperthreads)
-    available = len(psutil.Process().cpu_affinity()) #type: ignore
+    available = len(psutil.Process().cpu_affinity())  # type: ignore
     available //= hyperthreads
-    return min(ntasks, requested, available)
+
+    return min(jobs, requesting, available)
 
 def pickleable(obj: Any) -> bool:
     """Returns True if obj is pickleable and False otherwise.
