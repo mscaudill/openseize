@@ -39,7 +39,7 @@ class PhasePowerLocking:
         self.csize = chunksize
         self.axis = axis
 
-    def estimate(
+    def indices(
         self,
         signal: Producer | npt.NDArray,
         fpass: list[float, float],
@@ -52,44 +52,96 @@ class PhasePowerLocking:
         """Estimates the phase indices at which powers will be measured."""
 
         pro = producer(signal, chunksize=self.csize, axis=self.axis)
+        if all(np.array(pro.shape) > 1):
+            'Signal to estimate phase indices must be 1D'
+            raise ValueError(msg)
+
         filt = fir.Kaiser(fpass, fstop, self.fs, **kwargs)
         x = filt(pro, chunksize=self.csize, axis=self.axis)
         analytic = Analytic(x, chunksize=self.csize, axis=self.axis)
         analytic.estimate(width=analytic_width, fs=self.fs)
+        indices = np.squeeze(analytic.indices(analytic.phases, angle, epsi))
 
-        self.indices = analytic.indices(analytic.phases, angle=0, epsi=epsi)
+        return np.squeeze(indices)
 
     def _reindex(self, indices, chunksize):
         """ """
 
-        x = np.squeeze(indices)
-        rel = np.mod(x, chunksize)
+        rel = np.mod(indices, chunksize)
         flips = np.flatnonzero(np.diff(rel, prepend=rel[0]) <= 0)
         slices = (slice(a, b) for a, b in zip_longest(flips, flips[1:]))
 
-        return [x[sl] for sl in slices]
+        return [indices[sl] for sl in slices]
 
-    def _power(
+    def _shifts(self, signal, indices, size, seed):
+        """ """
+
+        pts = signal.shape[self.axis]
+        rng = np.random.default_rng(seed)
+        shifts = rng.integers(low=-pts, high=pts, size=size)
+        yield indices
+
+        for shift in shifts:
+            yield np.mod(indices + shift, signal.shape[self.axis])
+
+    #TODO move centers, bandwidth, analytic width, gpass, gstop to init
+    # or maybe require a filter to be given to init
+    def _estimate(
         self,
         signal: Producer,
+        indices: npt.NDArray,
         center: float,
         bandwidth: float,
         analytic_width: float,
-        delay: float,
+        winsize: float,
+        n: int | None,
+        seed: int | None,
         **kwargs,
         ):
         """ """
 
-        
         fpass = center + np.array([-bandwidth/2, bandwidth/2])
         fstop = fpass + np.array([-bandwidth/2, bandwidth/2])
-        filt = fir.Kaiser(fpass, fstop, self.fs, **kwargs)
+        #TODO chk gpass and gstop
+        filt = fir.Kaiser(fpass, fstop, self.fs, gpass=0.1, gstop=40)
         x = filt(signal, chunksize=self.csize, axis=self.axis)
         z = protools.standardize(x, axis=self.axis)
 
         analytic = Analytic(z, chunksize=self.csize, axis=self.axis)
         analytic.estimate(width=analytic_width, fs=self.fs)
-        reindexed = self._reindex(self.indices, self.csize)
+
+        surrogates = []
+        for it, ixs in enumerate(self._shifts(signal, indices, size=n,
+            seed=seed), 1):
+
+            # transform indices relative to each chunk
+            reindexed = self._reindex(ixs, self.csize)
+
+            result, cnt = 0, 0
+            window = (np.array([-1, 1]) * winsize / 2 * self.fs).astype(int)
+            for chunk, phase_indices in zip(analytic.amplitudes, reindexed):
+                x = np.squeeze(chunk)
+
+                for idx in phase_indices:
+
+                    y = x[slice(*(window + idx))] ** 2
+                    if len(y) < winsize * self.fs:
+                        continue
+
+                    result = (cnt * result + y) / (cnt + 1)
+                    cnt += 1
+
+            surrogates.append(result)
+            print(f'{it} / {n} completed')
+
+        return center, surrogates[0], np.mean(surrogates[1:], axis=0), np.std(surrogates[1:], axis=0)
+
+
+
+
+
+        """
+        reindexed = self._reindex(indices, self.csize)
 
         result = 0
         cnt = 0
@@ -106,10 +158,12 @@ class PhasePowerLocking:
                 cnt += 1
 
         return center, result
+        """
 
-    def fit(
+    def estimate(
         self,
         signal,
+        indices: npt.NDArray,
         centers: Sequence[int | float],
         bandwidth: float = 4,
         analytic_width: float = 4,
@@ -120,12 +174,22 @@ class PhasePowerLocking:
     ) -> npt.NDArray:
         """ """
 
+        pro = producer(signal, chunksize=self.csize, axis=self.axis)
+        if all(np.array(pro.shape) > 1):
+            'Signal to estimate phase indices must be 1D'
+            raise ValueError(msg)
+
+        if indices.ndim != 1:
+            msg = 'Indices must be 1D'
+            raise ValueError(msg)
+
         cores = resources.allocate(len(centers), ncores)
         result = {}
 
         func = partial(
-                self._power,
-                signal,
+                self._estimate,
+                pro,
+                indices,
                 bandwidth=bandwidth,
                 analytic_width = analytic_width,
                 delay=delay,
@@ -191,10 +255,17 @@ if __name__ == '__main__':
     PPL = PhasePowerLocking(fs=500)
 
     t0 = time.perf_counter()
-    PPL.estimate(dxpro, fpass=(4, 12), fstop=[2, 14])
+    indices = PPL.indices(dxpro, fpass=(4, 12), fstop=[2, 14])
     print(f'Phase events in {time.perf_counter() - t0} s')
 
     t0 = time.perf_counter()
-    powers = PPL.fit(dypro, centers=[30, 40, 50, 60, 80], bandwidth=4, analytic_width=4, delay=1)
+    c, power, surr_power, surr_std = PPL._estimate(dypro, indices, center=165, bandwidth=4,
+            analytic_width=4, winsize=2, n=30, seed=0)
     print(f'Powers in {time.perf_counter() - t0} s')
+
+    import matplotlib.pyplot as plt
+    plt.plot(surr_power)
+    plt.plot(surr_power + surr_std)
+    plt.plot(power)
+    plt.show()
 
