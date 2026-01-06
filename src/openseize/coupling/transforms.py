@@ -110,34 +110,6 @@ class Transform(abc.ABC, ViewInstance):
             shape=self.estimated.shape,
         )
 
-    def indices(self, phases: Producer, angle: float, epsi=0.05):
-        """Returns the indices where phases are within epsi of angle.
-
-        Args:
-            phases:
-                A producer of 2D arrays of phases.
-            angle:
-                An angle in [0, 2*pi] radians to return indices for.
-            epsi:
-                The anlge tolerance values within angle +/- epsi are considered
-                to be angle.
-
-        Returns:
-            A list of numpy arrays one per 1-D slice of phases containing
-            indices for that slice.
-        """
-
-        results = defaultdict(list)
-        for chunk, arr in enumerate(phases):
-            arr = arr.T if phases.axis == 0 else arr
-            arr = np.atleast_2d(arr)
-            for ch, phi in enumerate(arr):
-                bools = np.logical_and(phi > angle - epsi, phi < angle + epsi)
-                locs = list(np.flatnonzero(bools) + phases.chunksize * chunk)
-                results[ch].extend(locs)
-
-        return [np.array(ls) for ls in results.values()]
-
 
 class Analytic(Transform):
     """The Hilbert analytic Transform.
