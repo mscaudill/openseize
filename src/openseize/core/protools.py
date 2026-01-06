@@ -108,7 +108,7 @@ def _multiply(
     if isinstance(other, Producer):
         if pro.shape != other.shape:
             msg = (
-                    'producers can not be added together with shapes'
+                    'producers can not be multiplied with shapes'
                     f'{pro.shape} {other.shape}'
             )
             raise ValueError(msg)
