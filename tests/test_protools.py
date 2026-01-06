@@ -16,12 +16,7 @@ from openseize.core import protools
 
 # FIXME COMPLETE THE REMOVAL OF LAZY FIXTURES FOR ALL PROTOOLS
 
-NUM_TESTS = range(20)
-
-# Array shape options
-MAX_NDIMS = 5
-MAX_DIM_LEN = 4
-NSAMPLES = 14233
+NUM_TESTS = range(50)
 
 
 @pytest.fixture(params=NUM_TESTS)
@@ -33,34 +28,68 @@ def rng(request):
 
 @pytest.fixture
 def shape(rng):
-    """Returns a shape tuple of MAX_NDIMS and NSAMPLES along a random axis."""
+    """Returns a 5-D shape tuple whose axis lengths are 4 except along a single
+    axis whose length is 14233 (i.e. sample axis)."""
 
-    ndim = rng.integers(1, MAX_NDIMS)
-    result = rng.integers(1, MAX_DIM_LEN, size=ndim)
-    result[rng.choice(ndim)] = NSAMPLES
+    ndim = rng.integers(1, 5)
+    result = rng.integers(1, 4, size=ndim)
+    result[rng.choice(ndim)] = 14233
 
     return tuple(result)
 
 
 @pytest.fixture
 def random_normal(rng, shape):
-    """Returns a random normal array with NSAMPLES along one axis."""
+    """Returns a random normal array with shape matching shape fixture."""
 
     return rng.normal(loc=3, scale=2, size=shape)
 
 
 @pytest.fixture
 def random_normal_pro(random_normal):
-    """Returns a producer of random normal arrays from a random normal array."""
+    """A producer of random arrays from the random_normal fixture source."""
 
     sample_axis = np.argmax(random_normal.shape)
 
     return producer(random_normal, chunksize=1000, axis=sample_axis)
 
 
-def test_pro_mean(random_normal_pro, random_normal):
-    """Validate that taking the mean of a producer along any axis matches
-    numpy's mean function."""
+def test_add(random_normal_pro, random_normal):
+    """Test addition of two producers."""
+
+    z = protools.add(random_normal_pro, random_normal_pro)
+    assert np.allclose(z.to_array(), 2 * random_normal)
+
+
+def test_multiply_constant(random_normal_pro, random_normal):
+    """Test multiplication of producer along all axes."""
+
+    constant = 3 * complex(0.5, 3)
+    z = protools.multiply(random_normal_pro, constant)
+    assert np.allclose(z.to_array(), random_normal * constant)
+
+
+def test_multiply_arr(random_normal_pro, random_normal):
+    """Test multiplication of producer by an array along all axes."""
+
+    # test multiplication along all non-production axes
+    shape = list(random_normal_pro.shape)
+    shape[random_normal_pro.axis] = 1
+    arr = np.random.uniform(0, 10, tuple(shape))
+
+    z = protools.multiply(random_normal_pro, arr)
+    assert np.allclose(z.to_array(), random_normal * arr)
+
+
+def test_multiply_pro(random_normal_pro, random_normal):
+    """Test multiplication of producer by another producer."""
+
+    z = protools.multiply(random_normal_pro, random_normal_pro)
+    assert np.allclose(z.to_array(), random_normal**2)
+
+
+def test_mean(random_normal_pro, random_normal):
+    """Validate mean of producer against numpy's mean for all axes."""
 
     for axis in range(random_normal_pro.ndim):
         a = protools.mean(random_normal_pro, axis=axis, keepdims=False)
@@ -68,9 +97,8 @@ def test_pro_mean(random_normal_pro, random_normal):
         assert np.allclose(a, b)
 
 
-def test_pro_std(random_normal_pro, random_normal):
-    """Validate that the standard deviation of a producer matches the standard
-    deviation returned by numpy."""
+def test_std(random_normal_pro, random_normal):
+    """Validate standard dev. of producer against numpy's std for all axes."""
 
     for axis in range(random_normal_pro.ndim):
         a = protools.std(random_normal_pro, axis=axis, keepdims=False)
@@ -78,9 +106,10 @@ def test_pro_std(random_normal_pro, random_normal):
         assert np.allclose(a, b)
 
 
-def test_pro_standardization(random_normal_pro, random_normal):
-    """Validate that standardization a producer matches numpy
-    standardization."""
+# zero-division warnings to be expected and ignored
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
+def test_standardization(random_normal_pro, random_normal):
+    """Validate standardization of producer against numpy for all axes."""
 
     for axis in range(random_normal_pro.ndim):
         a = protools.standardize(random_normal_pro, axis=axis)
