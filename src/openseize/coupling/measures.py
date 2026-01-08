@@ -29,73 +29,147 @@ class PhasePowerLocking:
 
     def __init__(
         self,
-        fs: float,
+        hilbert: Hilbert,
         chunksize: int = int(10e6),
         axis: int = -1,
+        seed: int | None = 0,
     ) -> None:
         """Initialize this Estimator."""
 
-        self._fs = fs
-        self._csize = chunksize
+        self._hilbert = hilbert
+        self._chunksize = chunksize
         self._axis = axis
+        self.rng = np.random.default_rng(seed)
+        self.indices = None
 
     @property
-    def fs(self):
-        """Returns the immutable sampling rate of this estimator."""
+    def hilbert(self) -> Hilbert:
+        """Returns the Hilbert filter of this estimator."""
 
-        return self._fs
+        return self._hilbert
+
+    @hilbert.setter
+    def hilbert(self, value: Hilbert) -> None:
+        """Sets the Hilbert filter of this estimator & resets phase indices."""
+
+        self._hilbert = value
+        self.indices = None
+
+    @property
+    def fs(self) -> float:
+        """Returns the sampling rate of this estimator."""
+
+        return self.hilbert.fs
+
+    @fs.setter
+    def fs(self, value: float) -> None:
+        """Sets the sampling rate of this estimator & resets phase indices."""
+
+        self._fs = value
+        self.indices = None
 
     @property
     def chunksize(self):
-        """Returns the immutable chunksize of this estimator."""
+        """Returns the chunksize of this estimator."""
 
-        return self._csize
+        return self._chunksize
+
+    @chunksize.setter
+    def chunksize(self, value: int) -> None:
+        """Sets the chunksize of this estimator and resets phase indices."""
+
+        self._chunksize = value
+        self.indices = None
 
     @property
     def axis(self):
-        """Returns the immutable axis attribute of this estimator."""
+        """Returns the sample axis of this estimator."""
 
         return self._axis
 
+    @axis.setter
+    def axis(self, value: int):
+        """Sets the sample axis of this estimator and resests phase indices."""
 
-    # TODO DOCS
-    def phase_indices(
+        self._axis = value
+        self.indices = None
+
+    def index(
         self,
         signal: Producer | npt.NDArray,
         fpass: list[float, float],
         fstop: list[float, float],
-        analytic_width: float = 4,
-        angle: float = 0,
+        firfilt: FIR = fir.Kaiser,
+        phase: float = 0,
         epsi: float = 0.05,
         **kwargs
-    ) -> list[npt.NDArray]:
-        """Estimates the phase indices at which powers will be measured."""
+    ) -> None:
+        """Indexes the filtered signal's phases that are within epsi of angle.
+
+        Args:
+            signal:
+                A 1-D producer or array of signal values.
+            center:
+                The center frequency in Hz around which phases will be index.
+            bandwidth:
+                The frequency bandwidth in Hz about the center frequency.
+            firfilt:
+                A FIR filter callable for filtering signal. Defaults to a Kaiser
+                filter.
+            phase:
+                The phase value in degrees that is to be indexed. Defaults to 0,
+                i.e. the phase trough.
+            epsi:
+                The tolerance in degrees about phase.
+            **kwargs:
+                Keyword arguments are passed to firfilt.
+
+        Returns:
+            None but stores the phase indices to this estimator. These phase
+            indices are a list of 1-D numpy arrays, one per chunk in signal.
+        """
 
         pro = producer(signal, chunksize=self.chunksize, axis=self.axis)
         if pro.ndim > 2 or min(pro.shape) > 1:
             'Signal to estimate phase indices must be 1D'
             raise ValueError(msg)
 
-        filt = fir.Kaiser(fpass, fstop, self.fs, **kwargs)
+        # filter & analytic transform
+        filt = firfilt(fpass, fstop, self.fs, **kwargs)
         x = filt(pro, chunksize=self.chunksize, axis=self.axis)
         analytic = Analytic(x, chunksize=self.chunksize, axis=self.axis)
-        analytic.estimate(width=analytic_width, fs=self.fs)
+        analytic.estimate(self.hilbert.width, self.fs, self.hilbert.gpass,
+                self.hilbert.gstop)
 
+        # get indices whose angle is within epsi of phase
         indices = []
         for arr in analytic.phases:
-            phi = np.squeeze(arr)
-            near = np.logical_and(phi > angle - epsi, phi < angle + epsi)
+            angle = np.squeeze(arr)
+            near = np.logical_and(angle > phase - epsi, angle < phase + epsi)
             indices.append(np.flatnonzero(near))
 
-        return indices
+        self.indices = indices
 
-    def shuffle(self, indices, rng):
-        """Shuffles the phase indices within each chunk of this estimator."""
+    def shuffle(self, n_samples: int) -> list[npt.NDArray]:
+        """Returns a list of 1-D arrays of shuffled indices.
 
-        csize = self.chunksize
-        shift = rng.integers(0, csize)
-        return [np.mod(arr + shift, csize) for arr in indices]
+        For constructing Monte-Carlo replicates indices are shifted. The maximum
+        shift is the smaller of nsamples or this estimator's chunksize.
 
+        Args:
+            n_samples:
+                The number of amplitude samples.
+
+        Returns:
+            A list of 1-D ndarrays of shifted indices one per chunk of the
+            amplitude signal.
+        """
+
+        max_shift = min(self.chunksize, n_samples)
+        shift = self.rng.integers(0, csize)
+        return [np.mod(arr + shift, max_shift) for arr in self.indices]
+
+    # TODO continue refactor from here....
     def _avg(self, amplitudes, indices, winsize):
         """ """
 
@@ -117,19 +191,14 @@ class PhasePowerLocking:
 
         return avg
 
-
-    #TODO move centers, bandwidth, analytic width, gpass, gstop to init
-    # or maybe require a filter to be given to init
+    # should also take a firfilter
     def _estimate(
         self,
         signal: Producer,
-        indices: list[npt.NDArray], #next use gen of list of arrays for shuffs
         center: float,
         bandwidth: float,
-        analytic_width: float,
         winsize: float,
         shuffle_count: int | None,
-        seed: int | None,
         in_memory: bool,
         **kwargs,
         ):
@@ -137,25 +206,24 @@ class PhasePowerLocking:
 
         fpass = center + np.array([-bandwidth/2, bandwidth/2])
         fstop = fpass + np.array([-bandwidth/2, bandwidth/2])
-        filt = fir.Kaiser(fpass, fstop, self.fs, gpass=0.01, gstop=60)
+        filt = fir.Kaiser(fpass, fstop, self.fs, **kwargs)
         x = filt(signal, chunksize=self.chunksize, axis=self.axis)
         z = protools.standardize(x, axis=self.axis)
 
         analytic = Analytic(z, chunksize=self.chunksize, axis=self.axis)
-        analytic.estimate(width=analytic_width, fs=self.fs)
+        analytic.estimate(self.hilbert.width, fs=self.fs)
 
         amplitudes = (
                 [arr for arr in analytic.amplitudes] if in_memory else
                 analytic.amplitudes
         )
-        power = self._avg(amplitudes, indices, winsize)
+        power = self._avg(amplitudes, self.indices, winsize)
         shuffled_powers = []
         if shuffle_count:
-            rng = np.random.default_rng(seed)
             for iteration in range(shuffle_count):
-                shuffled = self.shuffle(indices, rng)
+                shuffled = self.shuffle(z.shape[self.axis])
                 shuffled_powers.append(self._avg(amplitudes, shuffled, winsize))
-                #print(f'{iteration + 1} / {shuffle_count} complete')
+                print(f'{iteration + 1} / {shuffle_count} complete')
 
         return center, power, shuffled_powers
 
@@ -165,7 +233,6 @@ class PhasePowerLocking:
         indices: list[npt.NDArray],
         centers: Sequence[int | float],
         bandwidth: float = 4,
-        analytic_width: float = 4,
         window: float = 2,
         shuffle_count: int | None = 100,
         seed: int | None = 0,
@@ -189,10 +256,8 @@ class PhasePowerLocking:
                 pro,
                 indices,
                 bandwidth=bandwidth,
-                analytic_width = analytic_width,
                 winsize = window * self.fs,
                 shuffle_count=shuffle_count,
-                seed = seed,
                 in_memory = in_memory,
                 **kwargs,
         )
@@ -247,8 +312,9 @@ if __name__ == '__main__':
     base = '/media/matt/Magnus/Qi/EEG_annotation_03272024/'
     name = 'No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf'
     path = Path(base) / Path(name)
-    csize = int(10e5)
+    csize = int(10e6)
     axis = -1
+    down_fs = 500
 
     x = Reader(path)
     x.channels = [3]
@@ -261,17 +327,16 @@ if __name__ == '__main__':
     ypro = producer(y, chunksize=csize, axis=axis)
     dypro = downsample(ypro, M=10, fs=5000, chunksize=csize)
 
-    PPL = PhasePowerLocking(fs=500, chunksize=csize)
+    PPL = PhasePowerLocking(Hilbert(width=4, fs=down_fs), chunksize=csize, axis=axis)
 
     t0 = time.perf_counter()
-    indices = PPL.phase_indices(dxpro, fpass=(4, 12), fstop=[2, 14], epsi=0.05)
+    PPL.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
     print(f'Phase events in {time.perf_counter() - t0} s')
 
 
-    """
     t0 = time.perf_counter()
-    c, power, shuffled_powers = PPL._estimate(dypro, indices, None, center=150, bandwidth=4,
-            analytic_width=4, winsize=1000, shuffle_count=100, seed=0)
+    c, power, shuffled_powers = PPL._estimate(dypro, center=150, bandwidth=4,
+            winsize=1000, shuffle_count=100, in_memory=True)
     print(f'Powers in {time.perf_counter() - t0} s')
 
     import matplotlib.pyplot as plt
@@ -281,7 +346,6 @@ if __name__ == '__main__':
     plt.plot(avg_shuffle - np.mean(avg_shuffle))
     plt.plot(std_shuffle)
     plt.show()
-    """
 
-    result = PPL.estimate(dypro, indices, centers=[30, 40, 100, 200])
+    #result = PPL.estimate(dypro, indices, centers=[30, 40, 100, 200])
 
