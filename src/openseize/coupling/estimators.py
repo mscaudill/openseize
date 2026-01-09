@@ -1,11 +1,13 @@
 """Estimators of Cross-Frequency Coupling (CFC)."""
 
 from collections.abc import Sequence, Iterator
+from types import SimpleNamespace
 import multiprocessing as mp
 from itertools import zip_longest
 from functools import partial
 import numpy as np
 import numpy.typing as npt
+from scipy import stats
 
 from openseize.core.producer import Producer
 from openseize.filtering.bases import FIR
@@ -19,14 +21,16 @@ from openseize.filtering.special import Hilbert
 from openseize.coupling.transforms import Analytic
 
 
-class PhasePowerLocking:
-    """An estimator of the Phase to Power time-locking.
+class PhaseLock:
+    """An estimator of the Phase to Power coupling in time
 
     This is the time phase-locking measure of Canolty et al. 2006.
 
     Attributes:
     """
 
+            # as chunksize changes this may lead to slightly different results
+            # as some windows are dropped
     def __init__(
         self,
         hilbert: Hilbert,
@@ -144,8 +148,8 @@ class PhasePowerLocking:
         # get indices whose angle is within epsi of phase
         indices = []
         for arr in analytic.phases:
-            angle = np.squeeze(arr)
-            near = np.logical_and(angle > phase - epsi, angle < phase + epsi)
+            angles = np.squeeze(arr)
+            near = np.logical_and(angles > phase - epsi, angles < phase + epsi)
             indices.append(np.flatnonzero(near))
 
         self.indices = indices
@@ -169,21 +173,31 @@ class PhasePowerLocking:
         shift = self.rng.integers(0, csize)
         return [np.mod(arr + shift, max_shift) for arr in self.indices]
 
-    # TODO continue refactor from here....
-    def _avg(self, amplitudes, indices, winsize):
-        """ """
+    def _avg(self, amplitudes, indices, window):
+        """Returns the average power in a window centered around indices.
 
-        window = np.array([-winsize/2, winsize/2]).astype(int)
+        This protected method is not part of this classes public API.
+
+        Args:
+            amplitudes:
+                A producer or list of 1-D arrays of amplitude values.
+            indices:
+                A list of list of phase indices one per chunk of chunksize.
+            window:
+                A 2-el array specifying a slice of points around each index to
+                extract for averaging.
+
+        Returns:
+            A 1-D array of averaged powers of length len(range(window)).
+        """
+
         avg, cnt = 0, 0
-
         for amps, phis in zip(amplitudes, indices):
             x = np.squeeze(amps)
-
-            # as chunksize changes this may lead to slightly different results
-            # as some windows are dropped
             for phi in phis:
                 new_power = x[slice(*(window + phi))] ** 2
-                if len(new_power) < winsize:
+                # if power is shorter than window -> discard it
+                if len(new_power) < len(range(*window)):
                     continue
 
                 avg = (cnt * avg + new_power) / (cnt + 1)
@@ -191,7 +205,6 @@ class PhasePowerLocking:
 
         return avg
 
-    # should also take a firfilter
     def _estimate(
         self,
         signal: Producer,
@@ -202,7 +215,27 @@ class PhasePowerLocking:
         in_memory: bool,
         **kwargs,
         ):
-        """ """
+        """Returns average power & unadjusted p-values if shuffle count.
+
+        This protected method is not part of this class' public API & should not
+        be called externally.
+
+        Args:
+            signal:
+                A producer of 1-D arrays of raw signal values.
+            center:
+                The center frequency at which to estimate the average power.
+            bandwidth:
+                The width in Hz about the center frequency.
+            winsize:
+                The size of the window in samples for averaging power.
+            shuffle_count:
+                The number of shuffles to construct surrogate averaged power.
+            in_memory:
+                A boolean indicating if the amplitudes should be held in-memory
+                across all surrogate averages. This greatly speeds up the
+                computation but for large data may not be feasible.
+        """
 
         fpass = center + np.array([-bandwidth/2, bandwidth/2])
         fstop = fpass + np.array([-bandwidth/2, bandwidth/2])
@@ -213,29 +246,47 @@ class PhasePowerLocking:
         analytic = Analytic(z, chunksize=self.chunksize, axis=self.axis)
         analytic.estimate(self.hilbert.width, fs=self.fs)
 
-        amplitudes = (
-                [arr for arr in analytic.amplitudes] if in_memory else
-                analytic.amplitudes
-        )
-        power = self._avg(amplitudes, self.indices, winsize)
-        shuffled_powers = []
+        if in_memory:
+            amplitudes = [arr for arr in analytic.amplitudes]
+        else:
+            amplitudes = analytic.amplitudes
+
+        # compute avg power across indices
+        window = np.array([-winsize//2, winsize//2])
+        power = self._avg(amplitudes, self.indices, window)
+        # compute shuffle average and standard deviation
+        pvalues = None
         if shuffle_count:
+            surrogate_powers = []
             for iteration in range(shuffle_count):
                 shuffled = self.shuffle(z.shape[self.axis])
-                shuffled_powers.append(self._avg(amplitudes, shuffled, winsize))
-                print(f'{iteration + 1} / {shuffle_count} complete')
+                surrogate_powers.append(self._avg(amplitudes, shuffled, window))
 
-        return center, power, shuffled_powers
+            mean_surrogate = np.mean(surrogate_powers, axis=0)
+            std_surrogate = np.std(surrogate_powers, axis=0)
+            pvalues = 1 - stats.norm.cdf(power, mean_surrogate, std_surrogate)
 
+        return center, power, pvalues
+
+    def printer(self, msg: str, verbose: bool, end='\n', flush=True) -> None:
+        """Prints a msg to std out if verbose."""
+
+        # pylint: disable-next=expression-not-assigned
+        print(msg, end=end, flush=flush) if verbose else None
+
+    # TODO DOC and CLEAN estimate
+    # add a plot method that takes powers and pvalues
+    # add mixins for viewinstance
+    # lint, type check etc
+    # DOC at class level
     def estimate(
         self,
-        signal,
-        indices: list[npt.NDArray],
+        signal: Producer | npt.NDArray,
         centers: Sequence[int | float],
         bandwidth: float = 4,
         window: float = 2,
-        shuffle_count: int | None = 100,
-        seed: int | None = 0,
+        shuffle_count: int | None = 300,
+        adj_pvalues: bool = True,
         in_memory: bool = True,
         ncores: int | None = None,
         verbose: bool = True,
@@ -245,16 +296,14 @@ class PhasePowerLocking:
 
         pro = producer(signal, chunksize=self.chunksize, axis=self.axis)
         if all(np.array(pro.shape) > 1):
-            'Signal to estimate phase indices must be 1D'
+            msg = 'Signal must be 1-D array or Prodcuer of 1-D arrays.'
             raise ValueError(msg)
 
         cores = resources.allocate(len(centers), ncores)
         result = {}
-
         func = partial(
                 self._estimate,
                 pro,
-                indices,
                 bandwidth=bandwidth,
                 winsize = window * self.fs,
                 shuffle_count=shuffle_count,
@@ -265,40 +314,33 @@ class PhasePowerLocking:
         if cores > 1:
 
             start = time.perf_counter()
-
             msg = f'Initializing {type(self).__name__} with {cores} cores'
-            if verbose:
-                print(msg, end='\n', flush=True)
-
+            self.printer(msg, verbose)
 
             with mp.Pool(processes=cores) as pool:
-                for idx, (c, power, spowers)  in enumerate(pool.imap_unordered(func, centers), 1):
-                    msg = f'Frequency: {idx} / {len(centers)} completed'
-                    if verbose:
-                        print(msg, end='\r', flush=True)
-                    result[c] = [
-                            power,
-                            np.mean(spowers, axis=0),
-                            np.std(spowers, axis=0),
-                            ]
+                for idx, (c, power, pvalues)  in enumerate(pool.imap_unordered(func, centers), 1):
+                    msg = f'Frequency {idx} / {len(centers)} completed'
+                    self.printer(msg, verbose, end='\r')
+                    if adj_pvalues and pvalues is not None:
+                        pvalues = stats.false_discovery_control(pvalues)
+                    result[c] = [power, pvalues]
 
 
-            dur = time.perf_counter() - t0
-            msg = f'{type(self).__name__} estimate completed in {dur} secs'
-            if verbose:
-                print(msg)
+            delta = time.perf_counter() - t0
+            msg = f'{type(self).__name__} estimate completed in {delta} secs'
+            self.printer(msg, verbose)
 
         else:
             for index, center in enumerate(centers):
-                c, power, spowers = func(center)
-                result[c] = [
-                            power,
-                            np.mean(spowers, axis=0),
-                            np.std(spowers, axis=0),
-                            ]
+                c, power, pvalues = func(center)
+                if adj_pvalues and pvalues is not None:
+                    pvalues = stats.false_discovery_control(pvalues)
+                result[c] = [power, pvalues]
 
+        powers = np.stack([result[c][0] for c in centers])
+        pvalues = np.stack([result[c][1] for c in centers])
 
-        return result
+        return powers, pvalues
 
 
 
@@ -327,25 +369,38 @@ if __name__ == '__main__':
     ypro = producer(y, chunksize=csize, axis=axis)
     dypro = downsample(ypro, M=10, fs=5000, chunksize=csize)
 
-    PPL = PhasePowerLocking(Hilbert(width=4, fs=down_fs), chunksize=csize, axis=axis)
+    estimator = PhaseLock(Hilbert(width=4, fs=down_fs), chunksize=csize, axis=axis)
 
     t0 = time.perf_counter()
-    PPL.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
+    estimator.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
     print(f'Phase events in {time.perf_counter() - t0} s')
 
 
+    """
     t0 = time.perf_counter()
-    c, power, shuffled_powers = PPL._estimate(dypro, center=150, bandwidth=4,
-            winsize=1000, shuffle_count=100, in_memory=True)
+    c, power, pvalues = estimator._estimate(dypro, center=30, bandwidth=4,
+            winsize=1000, shuffle_count=1000, in_memory=True)
     print(f'Powers in {time.perf_counter() - t0} s')
+    """
 
+
+    """
     import matplotlib.pyplot as plt
-    plt.plot(np.squeeze(power) - np.mean(power))
-    avg_shuffle = np.mean(shuffled_powers, axis=0)
-    std_shuffle = np.std(shuffled_powers, axis=0)
-    plt.plot(avg_shuffle - np.mean(avg_shuffle))
-    plt.plot(std_shuffle)
+    corrected_p = stats.false_discovery_control(pvalues)
+    plt.plot(power - np.mean(power))
+    plt.plot(corrected_p)
     plt.show()
+    """
 
-    #result = PPL.estimate(dypro, indices, centers=[30, 40, 100, 200])
+
+    """
+    import matplotlib.pyplot as plt
+    plt.plot(power - np.mean(power))
+    plt.plot(surrogate.avg - np.mean(surrogate.avg))
+    plt.plot(surrogate.std)
+    plt.show()
+    """
+
+    result = estimator.estimate(dypro, centers=[30, 40, 100, 200],
+            shuffle_count=10)
 
