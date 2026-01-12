@@ -29,8 +29,8 @@ class PhaseLock:
     Attributes:
     """
 
-            # as chunksize changes this may lead to slightly different results
-            # as some windows are dropped
+    # as chunksize changes this may lead to slightly different results
+    # as some windows are dropped
     def __init__(
         self,
         hilbert: Hilbert,
@@ -106,7 +106,7 @@ class PhaseLock:
         firfilt: FIR = fir.Kaiser,
         phase: float = 0,
         epsi: float = 0.05,
-        **kwargs
+        **kwargs,
     ) -> None:
         """Indexes the filtered signal's phases that are within epsi of angle.
 
@@ -135,15 +135,16 @@ class PhaseLock:
 
         pro = producer(signal, chunksize=self.chunksize, axis=self.axis)
         if pro.ndim > 2 or min(pro.shape) > 1:
-            'Signal to estimate phase indices must be 1D'
+            "Signal to estimate phase indices must be 1D"
             raise ValueError(msg)
 
         # filter & analytic transform
         filt = firfilt(fpass, fstop, self.fs, **kwargs)
         x = filt(pro, chunksize=self.chunksize, axis=self.axis)
         analytic = Analytic(x, chunksize=self.chunksize, axis=self.axis)
-        analytic.estimate(self.hilbert.width, self.fs, self.hilbert.gpass,
-                self.hilbert.gstop)
+        analytic.estimate(
+            self.hilbert.width, self.fs, self.hilbert.gpass, self.hilbert.gstop
+        )
 
         # get indices whose angle is within epsi of phase
         indices = []
@@ -211,10 +212,10 @@ class PhaseLock:
         center: float,
         bandwidth: float,
         winsize: float,
-        shuffle_count: int | None,
+        surrogates: int | None,
         in_memory: bool,
         **kwargs,
-        ):
+    ):
         """Returns average power & unadjusted p-values if shuffle count.
 
         This protected method is not part of this class' public API & should not
@@ -229,16 +230,18 @@ class PhaseLock:
                 The width in Hz about the center frequency.
             winsize:
                 The size of the window in samples for averaging power.
-            shuffle_count:
+            surrogates:
                 The number of shuffles to construct surrogate averaged power.
             in_memory:
                 A boolean indicating if the amplitudes should be held in-memory
                 across all surrogate averages. This greatly speeds up the
                 computation but for large data may not be feasible.
+            kwargs:
+                All keyword arguments are passed to the Kaiser FIR filter.
         """
 
-        fpass = center + np.array([-bandwidth/2, bandwidth/2])
-        fstop = fpass + np.array([-bandwidth/2, bandwidth/2])
+        fpass = center + np.array([-bandwidth / 2, bandwidth / 2])
+        fstop = fpass + np.array([-bandwidth / 2, bandwidth / 2])
         filt = fir.Kaiser(fpass, fstop, self.fs, **kwargs)
         x = filt(signal, chunksize=self.chunksize, axis=self.axis)
         z = protools.standardize(x, axis=self.axis)
@@ -252,13 +255,13 @@ class PhaseLock:
             amplitudes = analytic.amplitudes
 
         # compute avg power across indices
-        window = np.array([-winsize//2, winsize//2])
+        window = np.array([-winsize // 2, winsize // 2])
         power = self._avg(amplitudes, self.indices, window)
         # compute shuffle average and standard deviation
         pvalues = None
-        if shuffle_count:
+        if surrogates:
             surrogate_powers = []
-            for iteration in range(shuffle_count):
+            for iteration in range(surrogates):
                 shuffled = self.shuffle(z.shape[self.axis])
                 surrogate_powers.append(self._avg(amplitudes, shuffled, window))
 
@@ -268,73 +271,116 @@ class PhaseLock:
 
         return center, power, pvalues
 
-    def printer(self, msg: str, verbose: bool, end='\n', flush=True) -> None:
+    def printer(self, msg: str, verbose: bool, end="\n", flush=True) -> None:
         """Prints a msg to std out if verbose."""
 
         # pylint: disable-next=expression-not-assigned
         print(msg, end=end, flush=flush) if verbose else None
 
-    # TODO DOC and CLEAN estimate
+    # FIXME
     # add a plot method that takes powers and pvalues
     # add mixins for viewinstance
     # lint, type check etc
     # DOC at class level
+    # TODO check pvalue overwrite and average overwrite here
     def estimate(
         self,
         signal: Producer | npt.NDArray,
-        centers: Sequence[int | float],
+        centers: Sequence[float] | np.ndarray[np.float64],
         bandwidth: float = 4,
         window: float = 2,
-        shuffle_count: int | None = 300,
+        surrogates: int | None = 300,
         adj_pvalues: bool = True,
         in_memory: bool = True,
         ncores: int | None = None,
         verbose: bool = True,
         **kwargs,
     ) -> npt.NDArray:
-        """ """
+        """Estimates the average signal power at each center frequency across
+        all phase indices of this estimator.
+
+        Args:
+            signal:
+                A 1-D signal array or Producer of 1-D signal arrays.
+            centers:
+                A 1-D sequence or array of center frequencies (in Hz) at which
+                the powers will be estimated.
+            bandwidth:
+                The frequency bandwidth about each center over which the
+                powers will be estimated.
+            window:
+                The width of the window in seconds centered around each phase
+                index. Power will be estimated at all time-points of this
+                window.
+            surrogates:
+                The number of shifted surrogates of the indices to construct
+                surrogate powers for statistical significance.
+            adj_pvalues:
+                Boolean indicating if the p-values from the power at each center
+                frequency should be adjusted for false discovery rate. This
+                is carried out using reference 2.
+            in_memory:
+               Boolean indicating if the power of the signal should be held in
+               memory for surrogates to reuse. The default of True is much
+               faster but requires the entire 1-D signal be addressed to memory.
+            ncores:
+                The number of processing cores to ulilize for concurrently
+                estimating the power across center frquencies. If None, all
+                available cores will be utilized.
+            verbose:
+                Boolean indicating if the progress of the estimation should be
+                printed to stdout.
+            kwargs:
+                Keyword arguments are passed to each Kaiser filter used compute
+                the amplitudes around each center frequency.
+
+        Returns:
+            A 2D array of powers and p-values of shape centers x samples where
+            samples is the number of samples in window.
+        """
 
         pro = producer(signal, chunksize=self.chunksize, axis=self.axis)
         if all(np.array(pro.shape) > 1):
-            msg = 'Signal must be 1-D array or Prodcuer of 1-D arrays.'
+            msg = "Signal must be 1-D array or Prodcuer of 1-D arrays."
             raise ValueError(msg)
 
         cores = resources.allocate(len(centers), ncores)
         result = {}
         func = partial(
-                self._estimate,
-                pro,
-                bandwidth=bandwidth,
-                winsize = window * self.fs,
-                shuffle_count=shuffle_count,
-                in_memory = in_memory,
-                **kwargs,
+            self._estimate,
+            pro,
+            bandwidth=bandwidth,
+            winsize=window * self.fs,
+            surrogates=surrogates,
+            in_memory=in_memory,
+            **kwargs,
         )
 
         if cores > 1:
 
             start = time.perf_counter()
-            msg = f'Initializing {type(self).__name__} with {cores} cores'
+            msg = f"Initializing {type(self).__name__} with {cores} cores"
             self.printer(msg, verbose)
 
             with mp.Pool(processes=cores) as pool:
-                for idx, (c, power, pvalues)  in enumerate(pool.imap_unordered(func, centers), 1):
-                    msg = f'Frequency {idx} / {len(centers)} completed'
-                    self.printer(msg, verbose, end='\r')
-                    if adj_pvalues and pvalues is not None:
-                        pvalues = stats.false_discovery_control(pvalues)
+                for idx, (c, power, pvals) in enumerate(
+                    pool.imap_unordered(func, centers), 1
+                ):
+                    msg = f"Frequency {idx} / {len(centers)} completed"
+                    self.printer(msg, verbose, end="\r")
+                    if adj_pvalues and pvals is not None:
+                        pvalues = stats.false_discovery_control(pvals)
                     result[c] = [power, pvalues]
 
-
             delta = time.perf_counter() - t0
-            msg = f'{type(self).__name__} estimate completed in {delta} secs'
+            msg = f"{type(self).__name__} estimate completed in {delta} secs"
             self.printer(msg, verbose)
 
         else:
             for index, center in enumerate(centers):
                 c, power, pvalues = func(center)
-                if adj_pvalues and pvalues is not None:
-                    pvalues = stats.false_discovery_control(pvalues)
+                if adj_pvalues and pvals is not None:
+                    pvalues = stats.false_discovery_control(pvals)
                 result[c] = [power, pvalues]
 
         powers = np.stack([result[c][0] for c in centers])
@@ -342,17 +388,23 @@ class PhaseLock:
 
         return powers, pvalues
 
+    def plot(self, centers, powers, pvalues, window, **kwargs):
+        """ """
+
+        winsize = window * self.fs
+        time = np.linspace(-(winsize) // 2, (winsize) // 2, winsize)
 
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     from openseize.file_io.edf import Reader
     from openseize.resampling.resampling import downsample
     import time
     from pathlib import Path
 
-    base = '/media/matt/Magnus/Qi/EEG_annotation_03272024/'
-    name = 'No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf'
+    base = "/media/matt/Magnus/Qi/EEG_annotation_03272024/"
+    name = "No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf"
     path = Path(base) / Path(name)
     csize = int(10e6)
     axis = -1
@@ -363,7 +415,6 @@ if __name__ == '__main__':
     xpro = producer(x, chunksize=csize, axis=axis)
     dxpro = downsample(xpro, M=10, fs=5000, chunksize=csize)
 
-
     y = Reader(path)
     y.channels = [2]
     ypro = producer(y, chunksize=csize, axis=axis)
@@ -373,8 +424,7 @@ if __name__ == '__main__':
 
     t0 = time.perf_counter()
     estimator.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
-    print(f'Phase events in {time.perf_counter() - t0} s')
-
+    print(f"Phase events in {time.perf_counter() - t0} s")
 
     """
     t0 = time.perf_counter()
@@ -382,7 +432,6 @@ if __name__ == '__main__':
             winsize=1000, shuffle_count=1000, in_memory=True)
     print(f'Powers in {time.perf_counter() - t0} s')
     """
-
 
     """
     import matplotlib.pyplot as plt
@@ -392,7 +441,6 @@ if __name__ == '__main__':
     plt.show()
     """
 
-
     """
     import matplotlib.pyplot as plt
     plt.plot(power - np.mean(power))
@@ -401,6 +449,7 @@ if __name__ == '__main__':
     plt.show()
     """
 
-    result = estimator.estimate(dypro, centers=[30, 40, 100, 200],
-            shuffle_count=10)
-
+    # I get different powers for 200 hz depending on len of centers, somehow
+    # shuffling is impacting this result
+    powers, pvalues = estimator.estimate(dypro, centers=[200],
+            surrogates=300)
