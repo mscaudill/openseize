@@ -8,10 +8,13 @@ from functools import partial
 import numpy as np
 import numpy.typing as npt
 from scipy import stats
+from scipy.stats import false_discovery_control as fdr
+import matplotlib.pyplot as plt
 
 from openseize.core.producer import Producer
 from openseize.filtering.bases import FIR
 from openseize.core import resources
+from openseize.core.mixins import ViewInstance
 
 from openseize import producer
 from openseize.core import protools
@@ -21,28 +24,54 @@ from openseize.filtering.special import Hilbert
 from openseize.coupling.transforms import Analytic
 
 
-class PhaseLock:
-    """An estimator of the Phase to Power coupling in time
+class PhaseLock(ViewInstance):
+    """An estimator of Phase-to-Power locking between two 1-D signals.
 
-    This is the time phase-locking measure of Canolty et al. 2006.
+    To estimate the phase and power, this estimator uses bandlimited Hilbert
+    transforms implemented as a FIR filter (Reference 1). This allows this
+    estimator to scale to large data without additional memory consumption.
+    However, the current implementation drops phases that with a time window
+    near the edge of each produced chunk of filtered values. For large
+    chunksizes the error is small. This estimator is an iterative
+    reimplemenation of the Canolty method (Refence 2).
 
     Attributes:
+        hilbert:
+            A Hilbert FIR filter for computing the analytic phase and amplitude.
+            This filter can be initialized with: width, fs, gpass and gstop
+            parameters. See filtering.special.hilbert for details.
+        chunksize:
+            The number of samples to hold in memory for phase and power
+            computations. Larger chunksizes are advised to reduce the number of
+            phases that will be dropped near each chunk edge.
+        rng:
+            A numpy random number generator for Monte-Carlo surrogate estimates
+            of the power for statistical significance determination. This rng
+            instance may be changed via the seed paramater during
+            initialization.
+        indices:
+            The indices of the phase of interest as computed by the index method
+            of this estimator. It is initialized to None.
+
+    References:
+        1. Porat, B. (1997). A Course In Digital Signal Processing. John
+           Wiley & Sons. Chapter 9 Eqn. 9.40 "Multirate Signal Processing"
+        2. Canolty RT, Edwards E, Dalal SS, Soltani M, Nagarajan SS, Kirsch HE,
+           Berger MS, Barbaro NM, Knight RT. High gamma power is phase-locked to
+           theta oscillations in human neocortex. Science. 2006 Sep
+           15;313(5793):1626-8
     """
 
-    # as chunksize changes this may lead to slightly different results
-    # as some windows are dropped
     def __init__(
         self,
         hilbert: Hilbert,
         chunksize: int = int(10e6),
-        axis: int = -1,
         seed: int | None = 0,
     ) -> None:
         """Initialize this Estimator."""
 
         self._hilbert = hilbert
         self._chunksize = chunksize
-        self._axis = axis
         self.rng = np.random.default_rng(seed)
         self.indices = None
 
@@ -85,19 +114,6 @@ class PhaseLock:
         self._chunksize = value
         self.indices = None
 
-    @property
-    def axis(self):
-        """Returns the sample axis of this estimator."""
-
-        return self._axis
-
-    @axis.setter
-    def axis(self, value: int):
-        """Sets the sample axis of this estimator and resests phase indices."""
-
-        self._axis = value
-        self.indices = None
-
     def index(
         self,
         signal: Producer | npt.NDArray,
@@ -106,6 +122,7 @@ class PhaseLock:
         firfilt: FIR = fir.Kaiser,
         phase: float = 0,
         epsi: float = 0.05,
+        axis: int = -1,
         **kwargs,
     ) -> None:
         """Indexes the filtered signal's phases that are within epsi of angle.
@@ -125,6 +142,8 @@ class PhaseLock:
                 i.e. the phase trough.
             epsi:
                 The tolerance in degrees about phase.
+            axis:
+                The sample axis of signal along which phases will be indexed.
             **kwargs:
                 Keyword arguments are passed to firfilt.
 
@@ -133,15 +152,15 @@ class PhaseLock:
             indices are a list of 1-D numpy arrays, one per chunk in signal.
         """
 
-        pro = producer(signal, chunksize=self.chunksize, axis=self.axis)
+        pro = producer(signal, chunksize=self.chunksize, axis=axis)
         if pro.ndim > 2 or min(pro.shape) > 1:
             "Signal to estimate phase indices must be 1D"
             raise ValueError(msg)
 
         # filter & analytic transform
         filt = firfilt(fpass, fstop, self.fs, **kwargs)
-        x = filt(pro, chunksize=self.chunksize, axis=self.axis)
-        analytic = Analytic(x, chunksize=self.chunksize, axis=self.axis)
+        x = filt(pro, chunksize=self.chunksize, axis=axis)
+        analytic = Analytic(x, chunksize=self.chunksize, axis=axis)
         analytic.estimate(
             self.hilbert.width, self.fs, self.hilbert.gpass, self.hilbert.gstop
         )
@@ -214,6 +233,7 @@ class PhaseLock:
         winsize: float,
         surrogates: int | None,
         in_memory: bool,
+        axis: int = -1,
         **kwargs,
     ):
         """Returns average power & unadjusted p-values if shuffle count.
@@ -236,6 +256,8 @@ class PhaseLock:
                 A boolean indicating if the amplitudes should be held in-memory
                 across all surrogate averages. This greatly speeds up the
                 computation but for large data may not be feasible.
+            axis:
+                The axis along which the power of the  signal will be estimated.
             kwargs:
                 All keyword arguments are passed to the Kaiser FIR filter.
         """
@@ -243,10 +265,10 @@ class PhaseLock:
         fpass = center + np.array([-bandwidth / 2, bandwidth / 2])
         fstop = fpass + np.array([-bandwidth / 2, bandwidth / 2])
         filt = fir.Kaiser(fpass, fstop, self.fs, **kwargs)
-        x = filt(signal, chunksize=self.chunksize, axis=self.axis)
-        z = protools.standardize(x, axis=self.axis)
+        x = filt(signal, chunksize=self.chunksize, axis=axis)
+        z = protools.standardize(x, axis=axis)
 
-        analytic = Analytic(z, chunksize=self.chunksize, axis=self.axis)
+        analytic = Analytic(z, chunksize=self.chunksize, axis=axis)
         analytic.estimate(self.hilbert.width, fs=self.fs)
 
         if in_memory:
@@ -262,7 +284,7 @@ class PhaseLock:
         if surrogates:
             surrogate_powers = []
             for iteration in range(surrogates):
-                shuffled = self.shuffle(z.shape[self.axis])
+                shuffled = self.shuffle(z.shape[axis])
                 surrogate_powers.append(self._avg(amplitudes, shuffled, window))
 
             mean_surrogate = np.mean(surrogate_powers, axis=0)
@@ -279,21 +301,21 @@ class PhaseLock:
 
     # FIXME
     # add a plot method that takes powers and pvalues
-    # add mixins for viewinstance
     # lint, type check etc
-    # DOC at class level
-    # TODO check pvalue overwrite and average overwrite here
+    # a save method is also needed since this is expensive to compute or maybe
+    # this should be done externally???
+    # maybe a index plotting too to check that the epsi is set right?
     def estimate(
         self,
         signal: Producer | npt.NDArray,
         centers: Sequence[float] | np.ndarray[np.float64],
         bandwidth: float = 4,
         window: float = 2,
-        surrogates: int | None = 300,
-        adj_pvalues: bool = True,
+        surrogates: int | None = 1000,
         in_memory: bool = True,
         ncores: int | None = None,
         verbose: bool = True,
+        axis: int = -1,
         **kwargs,
     ) -> npt.NDArray:
         """Estimates the average signal power at each center frequency across
@@ -315,10 +337,6 @@ class PhaseLock:
             surrogates:
                 The number of shifted surrogates of the indices to construct
                 surrogate powers for statistical significance.
-            adj_pvalues:
-                Boolean indicating if the p-values from the power at each center
-                frequency should be adjusted for false discovery rate. This
-                is carried out using reference 2.
             in_memory:
                Boolean indicating if the power of the signal should be held in
                memory for surrogates to reuse. The default of True is much
@@ -330,6 +348,8 @@ class PhaseLock:
             verbose:
                 Boolean indicating if the progress of the estimation should be
                 printed to stdout.
+            axis:
+                The axis along which the power of the signal will be estimated.
             kwargs:
                 Keyword arguments are passed to each Kaiser filter used compute
                 the amplitudes around each center frequency.
@@ -339,13 +359,13 @@ class PhaseLock:
             samples is the number of samples in window.
         """
 
-        pro = producer(signal, chunksize=self.chunksize, axis=self.axis)
+        pro = producer(signal, chunksize=self.chunksize, axis=axis)
         if all(np.array(pro.shape) > 1):
             msg = "Signal must be 1-D array or Prodcuer of 1-D arrays."
             raise ValueError(msg)
 
+        # allocate upto available cores and partial accepting on center freq.
         cores = resources.allocate(len(centers), ncores)
-        result = {}
         func = partial(
             self._estimate,
             pro,
@@ -356,43 +376,72 @@ class PhaseLock:
             **kwargs,
         )
 
+        result = {}
+        # multiprocess
         if cores > 1:
-
             start = time.perf_counter()
             msg = f"Initializing {type(self).__name__} with {cores} cores"
             self.printer(msg, verbose)
 
             with mp.Pool(processes=cores) as pool:
-                for idx, (c, power, pvals) in enumerate(
-                    pool.imap_unordered(func, centers), 1
-                ):
-                    msg = f"Frequency {idx} / {len(centers)} completed"
+                for i, res in enumerate(pool.imap_unordered(func, centers), 1):
+                    msg = f"Frequency {i} / {len(centers)} completed"
                     self.printer(msg, verbose, end="\r")
-                    if adj_pvalues and pvals is not None:
-                        pvalues = stats.false_discovery_control(pvals)
-                    result[c] = [power, pvalues]
+
+                    center, power, pvals = res
+                    pvalues = fdr(pvals) if surrogates else None
+                    result[center] = [power, pvalues]
 
             delta = time.perf_counter() - t0
             msg = f"{type(self).__name__} estimate completed in {delta} secs"
             self.printer(msg, verbose)
 
+        # single process
         else:
             for index, center in enumerate(centers):
-                c, power, pvalues = func(center)
-                if adj_pvalues and pvals is not None:
-                    pvalues = stats.false_discovery_control(pvals)
+                c, power, pvals = func(center)
+                pvalues = fdr(pvals) if surrogates else None
                 result[c] = [power, pvalues]
 
+        # sort & stack results
         powers = np.stack([result[c][0] for c in centers])
         pvalues = np.stack([result[c][1] for c in centers])
 
         return powers, pvalues
 
-    def plot(self, centers, powers, pvalues, window, **kwargs):
+    def plot(
+        self,
+        centers,
+        powers,
+        pvalues,
+        window,
+        axis: int = -1,
+        mpl_ax=None,
+        center=True,
+        **kwargs,
+    ) -> None:
         """ """
 
         winsize = window * self.fs
         time = np.linspace(-(winsize) // 2, (winsize) // 2, winsize)
+        _, ax = plt.subplots() if not mpl_ax else mpl_ax
+        z = powers - np.mean(powers, axis=axis, keepdims=True) if center else powers
+        mesh = ax.pcolormesh(time, centers, z, alpha=alpha, **kwargs)
+        colorbar = plt.colorbar(mesh)
+
+        for level in [0.05, 0.01, 0.001]:
+            z = pvalues < level
+            ax.contour(time, centers, z, colors='r')
+
+        plt.show()
+
+
+
+
+def inverse_dist_weight(powers, freqs: npt.NDArray[np.float64], replace: Sequence[float], width: int):
+    """ """
+
+    pass
 
 
 
@@ -420,7 +469,7 @@ if __name__ == "__main__":
     ypro = producer(y, chunksize=csize, axis=axis)
     dypro = downsample(ypro, M=10, fs=5000, chunksize=csize)
 
-    estimator = PhaseLock(Hilbert(width=4, fs=down_fs), chunksize=csize, axis=axis)
+    estimator = PhaseLock(Hilbert(width=4, fs=down_fs), chunksize=csize)
 
     t0 = time.perf_counter()
     estimator.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
@@ -449,7 +498,9 @@ if __name__ == "__main__":
     plt.show()
     """
 
-    # I get different powers for 200 hz depending on len of centers, somehow
-    # shuffling is impacting this result
-    powers, pvalues = estimator.estimate(dypro, centers=[200],
-            surrogates=300)
+    #powers, pvalues = estimator.estimate(dypro, centers=np.arange(20, 230, 2),
+    #        surrogates=1000)
+
+    #check power at 172 Hz index 76 because a single estimate indicates
+    #significance but when multiprocessed this appears no longer true
+    # check p-value calculation!!!
