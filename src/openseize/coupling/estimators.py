@@ -289,7 +289,9 @@ class PhaseLock(ViewInstance):
 
             mean_surrogate = np.mean(surrogate_powers, axis=0)
             std_surrogate = np.std(surrogate_powers, axis=0)
-            pvalues = 1 - stats.norm.cdf(power, mean_surrogate, std_surrogate)
+            z = (power - mean_surrogate) / (std_surrogate / np.sqrt(surrogates))
+            # note this is p-value at alpha level not alpha / 2 
+            pvalues = 1 - stats.norm.cdf(z)
 
         return center, power, pvalues
 
@@ -300,18 +302,16 @@ class PhaseLock(ViewInstance):
         print(msg, end=end, flush=flush) if verbose else None
 
     # FIXME
-    # add a plot method that takes powers and pvalues
     # lint, type check etc
-    # a save method is also needed since this is expensive to compute or maybe
-    # this should be done externally???
     # maybe a index plotting too to check that the epsi is set right?
+    # better if we store centers, bandwidth, window, surrogates and axis
     def estimate(
         self,
         signal: Producer | npt.NDArray,
         centers: Sequence[float] | np.ndarray[np.float64],
         bandwidth: float = 4,
         window: float = 2,
-        surrogates: int | None = 1000,
+        surrogates: int | None = 300,
         in_memory: bool = True,
         ncores: int | None = None,
         verbose: bool = True,
@@ -409,6 +409,8 @@ class PhaseLock(ViewInstance):
 
         return powers, pvalues
 
+    # TODO a little annoying that centers and window have to be respecified here
+    # also I think you should specify alpha/2
     def plot(
         self,
         centers,
@@ -426,12 +428,12 @@ class PhaseLock(ViewInstance):
         time = np.linspace(-(winsize) // 2, (winsize) // 2, winsize)
         _, ax = plt.subplots() if not mpl_ax else mpl_ax
         z = powers - np.mean(powers, axis=axis, keepdims=True) if center else powers
-        mesh = ax.pcolormesh(time, centers, z, alpha=alpha, **kwargs)
+        mesh = ax.pcolormesh(time, centers, z, **kwargs)
         colorbar = plt.colorbar(mesh)
 
-        for level in [0.05, 0.01, 0.001]:
+        for level in [0.02/2, 0.002/2, 0.0002/2]:
             z = pvalues < level
-            ax.contour(time, centers, z, colors='r')
+            ax.contour(time, centers, z, colors='gray')
 
         plt.show()
 
@@ -458,6 +460,8 @@ if __name__ == "__main__":
     csize = int(10e6)
     axis = -1
     down_fs = 500
+    SEED = 2
+    CENTERS = np.arange(20, 230, 2)
 
     x = Reader(path)
     x.channels = [3]
@@ -469,7 +473,8 @@ if __name__ == "__main__":
     ypro = producer(y, chunksize=csize, axis=axis)
     dypro = downsample(ypro, M=10, fs=5000, chunksize=csize)
 
-    estimator = PhaseLock(Hilbert(width=4, fs=down_fs), chunksize=csize)
+    estimator = PhaseLock(Hilbert(width=4, fs=down_fs), chunksize=csize,
+            seed=SEED)
 
     t0 = time.perf_counter()
     estimator.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
@@ -491,16 +496,25 @@ if __name__ == "__main__":
     """
 
     """
-    import matplotlib.pyplot as plt
-    plt.plot(power - np.mean(power))
-    plt.plot(surrogate.avg - np.mean(surrogate.avg))
-    plt.plot(surrogate.std)
-    plt.show()
+    powers, pvalues = estimator.estimate(dypro, centers=CENTERS)
+    estimator.plot(CENTERS, powers, pvalues, window=2)
     """
 
-    #powers, pvalues = estimator.estimate(dypro, centers=np.arange(20, 230, 2),
-    #        surrogates=1000)
-
-    #check power at 172 Hz index 76 because a single estimate indicates
-    #significance but when multiprocessed this appears no longer true
-    # check p-value calculation!!!
+    """
+    center, power, pvalues, mean_surrogate, std_surrogate = estimator._estimate(
+            dypro,
+            center=30,
+            bandwidth=4,
+            winsize=1000,
+            surrogates=300,
+            in_memory=True
+    )
+    fig, ax = plt.subplots()
+    ax.plot(power - np.mean(power), label='power')
+    ax.plot(pvalues, label='unadj pvals')
+    ax.plot(fdr(pvalues), label='adj pvals')
+    ax.plot(mean_surrogate - np.mean(mean_surrogate), label='mean surr')
+    ax.plot(std_surrogate, label='std surr')
+    ax.legend()
+    plt.show()
+    """
