@@ -385,7 +385,8 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         """
 
         pro = producer(data, chunksize, axis, **kwargs)
-        window = np.atleast_2d(self.coeffs)
+        #window = np.atleast_2d(self.coeffs)
+        window = self.coeffs
 
         # construct overlap-add generating function & get resultant shape
         genfunc = partial(nm.oaconvolve, pro, self.coeffs, axis, mode)
