@@ -30,7 +30,7 @@ class PhaseLock(ViewInstance):
     To estimate the phase and power, this estimator uses bandlimited Hilbert
     transforms implemented as a FIR filter (Reference 1). This allows this
     estimator to scale to large data without additional memory consumption.
-    However, the current implementation drops phases that with a time window
+    However, the current implementation drops phases from each time window
     near the edge of each produced chunk of filtered values. For large
     chunksizes the error is small. This estimator is an iterative
     reimplemenation of the Canolty method (Refence 2).
@@ -55,7 +55,7 @@ class PhaseLock(ViewInstance):
 
     References:
         1. Porat, B. (1997). A Course In Digital Signal Processing. John
-           Wiley & Sons. Chapter 9 Eqn. 9.40 "Multirate Signal Processing"
+           Wiley & Sons. Also see openseize.filtering.special"
         2. Canolty RT, Edwards E, Dalal SS, Soltani M, Nagarajan SS, Kirsch HE,
            Berger MS, Barbaro NM, Knight RT. High gamma power is phase-locked to
            theta oscillations in human neocortex. Science. 2006 Sep
@@ -153,22 +153,27 @@ class PhaseLock(ViewInstance):
         """
 
         pro = producer(signal, chunksize=self.chunksize, axis=axis)
-        if pro.ndim > 2 or min(pro.shape) > 1:
+        if pro.ndim > 1:
             "Signal to estimate phase indices must be 1D"
             raise ValueError(msg)
 
         # filter & analytic transform
         filt = firfilt(fpass, fstop, self.fs, **kwargs)
         x = filt(pro, chunksize=self.chunksize, axis=axis)
-        analytic = Analytic(x, chunksize=self.chunksize, axis=axis)
-        analytic.estimate(
-            self.hilbert.width, self.fs, self.hilbert.gpass, self.hilbert.gstop
+        analytic = Analytic(
+                    x,
+                    self.fs,
+                    self.chunksize,
+                    axis,
+                    width=self.hilbert.width,
+                    gpass=self.hilbert.gpass,
+                    gstop=self.hilbert.gstop,
         )
 
         # get indices whose angle is within epsi of phase
         indices = []
         for arr in analytic.phases:
-            angles = np.squeeze(arr)
+            angles = arr
             near = np.logical_and(angles > phase - epsi, angles < phase + epsi)
             indices.append(np.flatnonzero(near))
 
@@ -193,7 +198,7 @@ class PhaseLock(ViewInstance):
         shift = self.rng.integers(0, csize)
         return [np.mod(arr + shift, max_shift) for arr in self.indices]
 
-    def _avg(self, amplitudes, indices, window):
+    def _avg(self, amplitudes, indices, winpoints):
         """Returns the average power in a window centered around indices.
 
         This protected method is not part of this classes public API.
@@ -203,21 +208,21 @@ class PhaseLock(ViewInstance):
                 A producer or list of 1-D arrays of amplitude values.
             indices:
                 A list of list of phase indices one per chunk of chunksize.
-            window:
+            winpoints:
                 A 2-el array specifying a slice of points around each index to
                 extract for averaging.
 
         Returns:
-            A 1-D array of averaged powers of length len(range(window)).
+            A 1-D array of averaged powers of length len(range(winpoints)).
         """
 
+        w = len(range(*winpoints))
         avg, cnt = 0, 0
         for amps, phis in zip(amplitudes, indices):
-            x = np.squeeze(amps)
             for phi in phis:
-                new_power = x[slice(*(window + phi))] ** 2
+                new_power = amps[slice(*(winpoints + phi))] ** 2
                 # if power is shorter than window -> discard it
-                if len(new_power) < len(range(*window)):
+                if len(new_power) < w:
                     continue
 
                 avg = (cnt * avg + new_power) / (cnt + 1)
@@ -233,7 +238,7 @@ class PhaseLock(ViewInstance):
         winsize: float,
         surrogates: int | None,
         in_memory: bool,
-        axis: int = -1,
+        axis: int,
         **kwargs,
     ):
         """Returns average power & unadjusted p-values if shuffle count.
@@ -267,9 +272,15 @@ class PhaseLock(ViewInstance):
         filt = fir.Kaiser(fpass, fstop, self.fs, **kwargs)
         x = filt(signal, chunksize=self.chunksize, axis=axis)
         z = protools.standardize(x, axis=axis)
-
-        analytic = Analytic(z, chunksize=self.chunksize, axis=axis)
-        analytic.estimate(self.hilbert.width, fs=self.fs)
+        analytic = Analytic(
+                    z,
+                    self.fs,
+                    self.chunksize,
+                    axis,
+                    width=self.hilbert.width,
+                    gpass=self.hilbert.gpass,
+                    gstop=self.hilbert.gstop,
+        )
 
         if in_memory:
             amplitudes = [arr for arr in analytic.amplitudes]
@@ -277,20 +288,20 @@ class PhaseLock(ViewInstance):
             amplitudes = analytic.amplitudes
 
         # compute avg power across indices
-        window = np.array([-winsize // 2, winsize // 2])
-        power = self._avg(amplitudes, self.indices, window)
+        winpoints = np.array([-winsize // 2, winsize // 2])
+        power = self._avg(amplitudes, self.indices, winpoints)
         # compute shuffle average and standard deviation
         pvalues = None
         if surrogates:
             surrogate_powers = []
             for iteration in range(surrogates):
-                shuffled = self.shuffle(z.shape[axis])
-                surrogate_powers.append(self._avg(amplitudes, shuffled, window))
+                shuff = self.shuffle(z.shape[axis])
+                surrogate_powers.append(self._avg(amplitudes, shuff, winpoints))
 
             mean_surrogate = np.mean(surrogate_powers, axis=0)
             std_surrogate = np.std(surrogate_powers, axis=0)
             z = (power - mean_surrogate) / (std_surrogate / np.sqrt(surrogates))
-            # note this is p-value at alpha level not alpha / 2 
+            # note this is p-value at alpha level not alpha / 2
             pvalues = 1 - stats.norm.cdf(z)
 
         return center, power, pvalues
@@ -360,7 +371,7 @@ class PhaseLock(ViewInstance):
         """
 
         pro = producer(signal, chunksize=self.chunksize, axis=axis)
-        if all(np.array(pro.shape) > 1):
+        if pro.ndim > 1:
             msg = "Signal must be 1-D array or Prodcuer of 1-D arrays."
             raise ValueError(msg)
 
@@ -467,11 +478,14 @@ if __name__ == "__main__":
     x.channels = [3]
     xpro = producer(x, chunksize=csize, axis=axis)
     dxpro = downsample(xpro, M=10, fs=5000, chunksize=csize)
+    dxpro = protools.squeeze(dxpro)
+
 
     y = Reader(path)
     y.channels = [2]
     ypro = producer(y, chunksize=csize, axis=axis)
     dypro = downsample(ypro, M=10, fs=5000, chunksize=csize)
+    dypro = protools.squeeze(dypro)
 
     estimator = PhaseLock(Hilbert(width=4, fs=down_fs), chunksize=csize,
             seed=SEED)
@@ -480,12 +494,11 @@ if __name__ == "__main__":
     estimator.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
     print(f"Phase events in {time.perf_counter() - t0} s")
 
-    """
     t0 = time.perf_counter()
     c, power, pvalues = estimator._estimate(dypro, center=30, bandwidth=4,
-            winsize=1000, shuffle_count=1000, in_memory=True)
+            winsize=1000, surrogates=None, in_memory=True, axis=axis)
     print(f'Powers in {time.perf_counter() - t0} s')
-    """
+
 
     """
     import matplotlib.pyplot as plt
