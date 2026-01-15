@@ -1,4 +1,4 @@
-"""Transforms for computing complex-valued signals from real signals for
+"""Transforms for computing complex-valued signals from real data for
 amplitude and phase extraction.
 """
 
@@ -25,6 +25,8 @@ class Transform(abc.ABC, ViewInstance):
         data:
             A producer of raw data arrays to transform under the estimate
             method.
+        signal:
+            A producer of the estimated complex transform of data.
         chunksize:
             The size of each produced array along axis.
         axis:
@@ -34,19 +36,22 @@ class Transform(abc.ABC, ViewInstance):
     def __init__(
         self,
         data: Producer | npt.NDArray,
+        fs: float,
         chunksize: int = int(10e6),
         axis: int = -1,
+        **kwargs,
     ) -> None:
         """Initialize this transform with raw data."""
 
-        self.data = producer(data, chunksize=chunksize, axis=axis)
-        self.estimated: Producer | None = None
+        self.fs = fs
         self.chunksize = chunksize
         self.axis = axis
+        self.data = producer(data, chunksize, axis)
+        self.signal: Producer = self.estimate(self.data, **kwargs)
 
     @abc.abstractmethod
-    def estimate(self, *args, **kwargs):
-        """Stores a complex producer to this Transform's 'estimated' attr."""
+    def estimate(self, data, **kwargs) -> Producer:
+        """Returns a complex producer transformed estimate."""
 
     def _envelope(self):
         """A generator of amplitudes from a complex signal.
@@ -54,7 +59,7 @@ class Transform(abc.ABC, ViewInstance):
         This protected method is a helper for 'amplitudes' property.
         """
 
-        for arr in self.estimated:
+        for arr in self.signal:
             yield np.abs(arr)
 
     @property
@@ -63,19 +68,14 @@ class Transform(abc.ABC, ViewInstance):
         complex signal.
 
         Returns:
-            A producer of real amplitudes or None if this Transformer does not
-            contain an estimated complex signal.
+            A producer of real amplitude values.
         """
-
-        if not self.estimated:
-            msg = "This Transformer does not contain a complex signal estimate."
-            raise ValueError(msg)
 
         return producer(
             self._envelope,
             self.chunksize,
             self.axis,
-            shape=self.estimated.shape,
+            shape=self.signal.shape,
         )
 
     def _phase(self):
@@ -84,7 +84,7 @@ class Transform(abc.ABC, ViewInstance):
         This protected method is a helper for 'phases' property
         """
 
-        for arr in self.estimated:
+        for arr in self.signal:
             phi = np.angle(arr)
             phi[phi < 0] += 2 * np.pi
             yield phi
@@ -95,19 +95,14 @@ class Transform(abc.ABC, ViewInstance):
         complex signal.
 
         Returns:
-            A producer of real phases or None if this Transformer does not
-            contain an estimated complex signal.
+            A producer of real phase values.
         """
-
-        if not self.estimated:
-            msg = "This Transformer does not contain a complex signal estimate."
-            raise ValueError(msg)
 
         return producer(
             self._phase,
             self.chunksize,
             self.axis,
-            shape=self.estimated.shape,
+            shape=self.signal.shape,
         )
 
 
@@ -122,6 +117,7 @@ class Analytic(Transform):
     for adding it to the original signal for the analytic signal construction.
 
     Examples:
+        >>> import numpy as np
         >>> from scipy.signal import chirp, hilbert
         >>> import matplotlib.pyplot as plt
         >>> # make a chirp signal modulated by a slow signal
@@ -135,8 +131,7 @@ class Analytic(Transform):
         >>> scipy_phase = np.angle(analytic_signal)
         >>> scipy_phase[scipy_phase < 0] += 2*np.pi
         >>> # use openseize to compute envelope and phases
-        >>> analytic = Analytic(data)
-        >>> analytic.estimate(width=4, fs=fs)
+        >>> analytic = Analytic(data, fs, chunksize=int(100e3), axis=-1, width=4)
         >>> open_envelope = analytic.amplitudes.to_array()
         >>> open_phase = analytic.phases.to_array()
         >>> # Plot comparison betweeen scipy and openseize
@@ -148,24 +143,22 @@ class Analytic(Transform):
         >>> _ = ax0.plot(t, open_envelope, label='Openseize Envelope')
         >>> _ = ax0.legend()
         >>> _ = ax1.set(xlabel="Time in seconds", ylabel="Phase in rad")
-        >>> _ = ax1.plot(t, scipy_phase, 'b-', label='Scipy Phase')
-        >>> _ = ax1.plot(t, open_phase, 'r--', label='Openseize Phase')
+        >>> _ = ax1.plot(t, np.squeeze(scipy_phase), 'b-', label='Scipy Phase')
+        >>> _ = ax1.plot(t, np.squeeze(open_phase), 'r--', label='Openseize Phase')
         >>> _ = ax1.legend()
-        >>> indices = analytic.indices(analytic.phases, 0, epsi=.3)
-        >>> _ = ax1.scatter(np.array(indices[0])/fs, np.zeros(len(indices[0])))
         >>> plt.show()
     """
 
     # pylint: disable-next=arguments-differ
     def estimate(
         self,
+        data: Producer,
+        *,
         width: float,
-        fs: int,
-        *args,
         gpass: float = 0.01,
         gstop: float = 60,
         **kwargs,
-    ):
+    ) -> None:
         """Estimate the complex analytic signal.
 
         Args:
@@ -183,19 +176,20 @@ class Analytic(Transform):
             gstop:
                 The minimum attenuation required in the stop band in dB.
                 Default of 60 dB is a 99.9% amplitude attenuation.
-            **
+            **kwargs:
+                Keyword arguments are ignored
 
         Returns:
             None but stores analytic signal to 'estimated' attribute.
         """
 
-        hilbert = Hilbert(width, fs=fs, gpass=gpass, gstop=gstop)
-        real = producer(self.data, self.chunksize, self.axis)
+        hilbert = Hilbert(width, fs=self.fs, gpass=gpass, gstop=gstop)
+        real = producer(data, self.chunksize, self.axis)
         imag = hilbert(real, self.chunksize, self.axis)
         assert isinstance(imag, Producer)
         imag = protools.multiply(imag, complex(0, 1))
 
-        self.estimated = protools.add(real, imag)
+        return protools.add(real, imag)
 
 
 if __name__ == "__main__":
