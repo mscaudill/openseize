@@ -15,6 +15,60 @@ from openseize.core import arraytools
 from openseize.core.producer import Producer
 
 
+def _squeezer(pro: Producer, axis: int | None) -> Iterator:
+    """Helper for squeezing a producer's singleton axes.
+
+    Args:
+        pro:
+            A producer of ndarrays.
+        axis:
+            The singleton axis to squeeze. If None, all singleton axes are
+            squeezed. If dimension along axis is not 1 an error is raised.
+
+    Returns:
+        An iterator of squeezed arrays.
+    """
+
+    for arr in pro:
+        yield np.squeeze(arr)
+
+
+def squeeze(pro: Producer, axis: int | None = None) -> Producer:
+    """Removes axes of length one from pro.
+
+    Args:
+        pro:
+            A producer of ndarrays.
+        axis:
+            The singleton axis to squeeze. If None, all singleton axes are
+            squeezed. If dimension along axis is not 1 an error is raised.
+
+    Returns:
+        A producer with reduced shape.
+    """
+
+    # enumerate axes to track where sample axis moves as axes removed
+    enumerated = list(enumerate(pro.shape))
+    sample_axis = enumerated[pro.axis]
+    if axis is None:
+        reduced = [(idx, size) for idx, size in enumerated if size > 1]
+    else:
+        ax = arraytools.normalize_axis(axis, pro.ndim)
+        if pro.shape[ax] != 1:
+            msg = (
+                    'cannot select an axis to squeeze out which has size not'
+                    ' equal to one'
+            )
+            raise ValueError(msg)
+        reduced = [tup for tup in enumerated if tup[0] != ax]
+
+    new_axis = reduced.index(sample_axis)
+    new_shape = tuple(size for _, size in reduced)
+    func = partial(_squeezer, pro, axis=axis)
+
+    return producer(func, pro.chunksize, new_axis, shape=new_shape)
+
+
 def add(
     pro: Producer,
     other: int | float | complex | np.number | npt.NDArray | Producer,
@@ -284,6 +338,7 @@ def _expand_gen(pro, axes):
         yield np.expand_dims(arr, axes)
 
 # FIXME this may no longer be needed since muliply can handle arrays too
+# but caution it is used in numerical currently 1/15/2026
 def multiply_along_axis(
     pro: Producer,
     arr: npt.NDArray,
@@ -624,7 +679,7 @@ if __name__ == '__main__':
     pro_z = add(pro_x, pro_y)
 
     result = pro_z.to_array()
-    
+
     pro_a = add(pro_x, np.array([[-10, 0, 10]]).T)
     result2 = pro_a.to_array()
 
