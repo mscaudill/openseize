@@ -240,7 +240,7 @@ class PhaseLock(ViewInstance):
         in_memory: bool,
         axis: int,
         **kwargs,
-    ):
+    ) -> tuple[float, npt.NDArray, npt.NDArray]:
         """Returns average power & unadjusted p-values if shuffle count.
 
         This protected method is not part of this class' public API & should not
@@ -265,6 +265,9 @@ class PhaseLock(ViewInstance):
                 The axis along which the power of the  signal will be estimated.
             kwargs:
                 All keyword arguments are passed to the Kaiser FIR filter.
+
+        Returns:
+            A tuple of center frequency, 1-D power signal and 1-D pvalues.
         """
 
         fpass = center + np.array([-bandwidth / 2, bandwidth / 2])
@@ -312,10 +315,6 @@ class PhaseLock(ViewInstance):
         # pylint: disable-next=expression-not-assigned
         print(msg, end=end, flush=flush) if verbose else None
 
-    # FIXME
-    # lint, type check etc
-    # maybe a index plotting too to check that the epsi is set right?
-    # better if we store centers, bandwidth, window, surrogates and axis
     def estimate(
         self,
         signal: Producer | npt.NDArray,
@@ -384,6 +383,7 @@ class PhaseLock(ViewInstance):
             winsize=window * self.fs,
             surrogates=surrogates,
             in_memory=in_memory,
+            axis=axis,
             **kwargs,
         )
 
@@ -420,42 +420,58 @@ class PhaseLock(ViewInstance):
 
         return powers, pvalues
 
-    # TODO a little annoying that centers and window have to be respecified here
-    # also I think you should specify alpha/2
     def plot(
         self,
         centers,
         powers,
         pvalues,
         window,
-        axis: int = -1,
+        alpha = 0.002,
         mpl_ax=None,
         center=True,
         **kwargs,
     ) -> None:
-        """ """
+        """Constructs a plot of the average phase-indexed windowed power at each
+        center frequency.
+
+        Args:
+            centers:
+                A 1-D sequence or array of center frequencies (in Hz) at which
+                the powers were be estimated.
+            powers:
+                A 2D array of average powers of shape centers x windows * sample
+                rate.
+            pvalues:
+                A 2D array of p-values of shape centers x windows * sample rate.
+            window:
+                The time in secs the power was calculated around each indexed
+                phase.
+            alpha:
+                The statistical level. This value will be divided by 2 for the
+                alpha/2 probability of making a Type I error for p-value
+                determination.
+            mpl_axis:
+                The matplotlib axis to plot to. If None, an axis will be
+                created.
+            **kwargs:
+                Any valid kwarg for matplotlibs pcolormesh.
+
+        Returns:
+            None
+        """
 
         winsize = window * self.fs
         time = np.linspace(-(winsize) // 2, (winsize) // 2, winsize)
         _, ax = plt.subplots() if not mpl_ax else mpl_ax
-        z = powers - np.mean(powers, axis=axis, keepdims=True) if center else powers
-        mesh = ax.pcolormesh(time, centers, z, **kwargs)
+        z = powers - np.mean(powers, -1, keepdims=True) if center else powers
+        cmap = kwargs.pop('cmap', 'jet')
+        mesh = ax.pcolormesh(time, centers, z, cmap=cmap, **kwargs)
         colorbar = plt.colorbar(mesh)
 
-        for level in [0.02/2, 0.002/2, 0.0002/2]:
-            z = pvalues < level
-            ax.contour(time, centers, z, colors='gray')
+        z = pvalues < alpha / 2
+        ax.contour(time, centers, z, colors='white')
 
         plt.show()
-
-
-
-
-def inverse_dist_weight(powers, freqs: npt.NDArray[np.float64], replace: Sequence[float], width: int):
-    """ """
-
-    pass
-
 
 
 if __name__ == "__main__":
@@ -465,9 +481,11 @@ if __name__ == "__main__":
     import time
     from pathlib import Path
 
-    base = "/media/matt/Magnus/Qi/EEG_annotation_03272024/"
-    name = "No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf"
-    path = Path(base) / Path(name)
+    base = "/media/matt/Magnus/data/rett_eeg/eegs/"
+    condition = "rtt_sham"
+    #name = "No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf"
+    name = 'No_6492_right_2022-02-08_11_06_46_annotations.edf'
+    path = Path(base) / Path(condition) / Path(name)
     csize = int(10e6)
     axis = -1
     down_fs = 500
@@ -494,24 +512,16 @@ if __name__ == "__main__":
     estimator.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
     print(f"Phase events in {time.perf_counter() - t0} s")
 
+    """
     t0 = time.perf_counter()
     c, power, pvalues = estimator._estimate(dypro, center=30, bandwidth=4,
             winsize=1000, surrogates=None, in_memory=True, axis=axis)
     print(f'Powers in {time.perf_counter() - t0} s')
-
-
-    """
-    import matplotlib.pyplot as plt
-    corrected_p = stats.false_discovery_control(pvalues)
-    plt.plot(power - np.mean(power))
-    plt.plot(corrected_p)
-    plt.show()
     """
 
-    """
+
     powers, pvalues = estimator.estimate(dypro, centers=CENTERS)
     estimator.plot(CENTERS, powers, pvalues, window=2)
-    """
 
     """
     center, power, pvalues, mean_surrogate, std_surrogate = estimator._estimate(
