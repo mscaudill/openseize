@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence, Iterator
 from types import SimpleNamespace
+import time
 import multiprocessing as mp
 from itertools import zip_longest
 from functools import partial
@@ -195,7 +196,7 @@ class PhaseLock(ViewInstance):
         """
 
         max_shift = min(self.chunksize, n_samples)
-        shift = self.rng.integers(0, csize)
+        shift = self.rng.integers(0, max_shift)
         return [np.mod(arr + shift, max_shift) for arr in self.indices]
 
     def _avg(self, amplitudes, indices, winpoints):
@@ -387,6 +388,7 @@ class PhaseLock(ViewInstance):
             **kwargs,
         )
 
+        t0 = time.perf_counter()
         result = {}
         # multiprocess
         if cores > 1:
