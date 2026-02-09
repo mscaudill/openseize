@@ -12,10 +12,8 @@ import scipy.signal as sps
 
 from openseize.core import mixins
 from openseize.core import numerical as nm
-from openseize.core.producer import Producer
-from openseize.core.producer import producer
-from openseize.filtering.mixins import FIRViewer
-from openseize.filtering.mixins import IIRViewer
+from openseize.core.producer import Producer, producer
+from openseize.filtering.mixins import FIRViewer, IIRViewer
 
 
 class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
@@ -56,13 +54,14 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
         instantiable.
     """
 
-    def __init__(self,
-                 fpass: Union[float, Sequence[float], npt.NDArray],
-                 fstop: Union[float, Sequence[float], npt.NDArray],
-                 gpass: float,
-                 gstop: Union[float, None],
-                 fs: float,
-                 fmt: str,
+    def __init__(
+        self,
+        fpass: Union[float, Sequence[float], npt.NDArray],
+        fstop: Union[float, Sequence[float], npt.NDArray],
+        gpass: float,
+        gstop: Union[float, None],
+        fs: float,
+        fmt: str,
     ) -> None:
         """Initialize this IIR Filter.
 
@@ -97,18 +96,18 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
         """
 
         self.fs = fs
-        self.nyq = fs/2
+        self.nyq = fs / 2
         self.fpass = np.atleast_1d(fpass)
         self.fstop = np.atleast_1d(fstop)
 
-        #validate lens of bands
+        # validate lens of bands
         if len(self.fpass) != len(self.fstop):
-            msg = 'fpass and fstop must have the same shape, got {} and {}'
+            msg = "fpass and fstop must have the same shape, got {} and {}"
             raise ValueError(msg.format(self.fpass.shape, self.fstop.shape))
 
         self.gpass = gpass
         self.gstop = gstop
-        self.fmt = 'sos' if fmt == 'zpk' else fmt
+        self.fmt = "sos" if fmt == "zpk" else fmt
         # on subclass init build the filter
         self.coeffs = self._build()
 
@@ -124,10 +123,10 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
 
         fp, fs = self.fpass, self.fstop
         if len(fp) < 2:
-            btype = 'lowpass' if fp < fs else 'highpass'
+            btype = "lowpass" if fp < fs else "highpass"
 
         else:
-            btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
+            btype = "bandstop" if fp[0] < fs[0] else "bandpass"
 
         return btype
 
@@ -140,17 +139,26 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
         """Returns an ndarray of this filter's coeffecients in 'fmt'."""
 
         N, Wn = self.order
-        return sps.iirfilter(N, Wn, rp=self.gpass, rs=self.gstop,
-                             btype=self.btype, ftype=self.ftype,
-                             output=self.fmt, fs=self.fs)
+        return sps.iirfilter(
+            N,
+            Wn,
+            rp=self.gpass,
+            rs=self.gstop,
+            btype=self.btype,
+            ftype=self.ftype,
+            output=self.fmt,
+            fs=self.fs,
+        )
 
-    def __call__(self,
-                 data: Union[Producer, npt.NDArray],
-                 chunksize: int,
-                 axis: int = -1,
-                 dephase: bool = True,
-                 zi: Optional[npt.NDArray] = None,
-                 **kwargs) -> Union[Producer, npt.NDArray]:
+    def __call__(
+        self,
+        data: Union[Producer, npt.NDArray],
+        chunksize: int,
+        axis: int = -1,
+        dephase: bool = True,
+        zi: Optional[npt.NDArray] = None,
+        **kwargs,
+    ) -> Union[Producer, npt.NDArray]:
         """Apply this filter to an ndarray or producer of ndarrays.
 
         Args:
@@ -182,17 +190,17 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
 
         pro = producer(data, chunksize, axis, **kwargs)
 
-        if self.fmt == 'sos':
+        if self.fmt == "sos":
             if dephase:
                 genfunc = partial(nm.sosfiltfilt, pro, self.coeffs, axis)
             else:
-                genfunc = partial(nm.sosfilt, pro, self.coeffs, axis, zi) 
+                genfunc = partial(nm.sosfilt, pro, self.coeffs, axis, zi)
 
-        if self.fmt == 'ba':
+        if self.fmt == "ba":
             if dephase:
                 genfunc = partial(nm.filtfilt, pro, self.coeffs, axis)
             else:
-                genfunc = partial(nm.lfilter, pro, self.coeffs, axis, zi) 
+                genfunc = partial(nm.lfilter, pro, self.coeffs, axis, zi)
 
         # build producer from a generating function
         result = producer(genfunc, chunksize, axis, shape=pro.shape)
@@ -200,9 +208,9 @@ class IIR(abc.ABC, IIRViewer, mixins.ViewInstance):
         # if data is an ndarray return an ndarray
         if isinstance(data, np.ndarray):
             # pylint incorrectly believes result is gen
-            result = result.to_array() # pylint: disable=no-member
+            result = result.to_array()  # pylint: disable=no-member
 
-        return result #type: ignore
+        return result  # type: ignore
 
 
 class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
@@ -235,13 +243,14 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         instantiable.
     """
 
-    def __init__(self,
-                 fpass: Union[float, Sequence[float]],
-                 fstop: Union[float, Sequence[float]],
-                 gpass: float,
-                 gstop: float,
-                 fs: float,
-                 **kwargs,
+    def __init__(
+        self,
+        fpass: Union[float, Sequence[float]],
+        fstop: Union[float, Sequence[float]],
+        gpass: float,
+        gstop: float,
+        fs: float,
+        **kwargs,
     ) -> None:
         """Initialize this FIR.
 
@@ -265,9 +274,9 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         self.fpass = np.atleast_1d(fpass)
         self.fstop = np.atleast_1d(fstop)
 
-        #validate lens of bands
+        # validate lens of bands
         if len(self.fpass) != len(self.fstop):
-            msg = 'fpass and fstop must have the same shape, got {} and {}'
+            msg = "fpass and fstop must have the same shape, got {} and {}"
             raise ValueError(msg.format(self.fpass.shape, self.fstop.shape))
 
         self.gpass = gpass
@@ -290,13 +299,13 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
 
         fp, fs = self.fpass, self.fstop
         if len(fp) < 2:
-            btype = 'lowpass' if fp < fs else 'highpass'
+            btype = "lowpass" if fp < fs else "highpass"
 
         elif len(fp) == 2:
-            btype = 'bandstop' if fp[0] < fs[0] else 'bandpass'
+            btype = "bandstop" if fp[0] < fs[0] else "bandpass"
 
         else:
-            msg = '{} supports only lowpass, highpass, bandpass & bandstop.'
+            msg = "{} supports only lowpass, highpass, bandpass & bandstop."
             raise ValueError(msg.format(type(self)))
 
         return btype
@@ -340,16 +349,25 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
 
         # get the window from this FIRs name and ask for add. params
         window = (self.ftype, *self.window_params)
-        return sps.firwin(self.numtaps, cutoff=self.cutoff, width=None,
-                          window=window, pass_zero=self.btype,
-                          scale=True, fs=self.fs, **kwargs)
+        return sps.firwin(
+            self.numtaps,
+            cutoff=self.cutoff,
+            width=None,
+            window=window,
+            pass_zero=self.btype,
+            scale=True,
+            fs=self.fs,
+            **kwargs,
+        )
 
-    def __call__(self,
-                 data: Union[Producer, npt.NDArray],
-                 chunksize: int,
-                 axis: int = -1,
-                 mode: str = 'same',
-                 **kwargs) -> Union[Producer, npt.NDArray]:
+    def __call__(
+        self,
+        data: Union[Producer, npt.NDArray],
+        chunksize: int,
+        axis: int = -1,
+        mode: str = "same",
+        **kwargs,
+    ) -> Union[Producer, npt.NDArray]:
         """Apply this filter to an ndarray or producer of ndarrays.
 
         Args:
@@ -385,7 +403,7 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         """
 
         pro = producer(data, chunksize, axis, **kwargs)
-        #window = np.atleast_2d(self.coeffs)
+        # window = np.atleast_2d(self.coeffs)
         window = self.coeffs
 
         # construct overlap-add generating function & get resultant shape
@@ -398,7 +416,6 @@ class FIR(abc.ABC, mixins.ViewInstance, FIRViewer):
         # return array if input data is array
         if isinstance(data, np.ndarray):
             # pylint incorrectly believes result is a generator
-            result = result.to_array() # pylint: disable=no-member
-
+            result = result.to_array()  # pylint: disable=no-member
 
         return result

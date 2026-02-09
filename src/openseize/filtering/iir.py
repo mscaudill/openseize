@@ -72,13 +72,14 @@ class Butter(IIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int,
-                 gpass: float = 1.0,
-                 gstop: float = 40.0,
-                 fmt: str = 'sos'
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
+        gpass: float = 1.0,
+        gstop: float = 40.0,
+        fmt: str = "sos",
     ) -> None:
         """Initialize this Butterworth IIR filter.
 
@@ -116,8 +117,7 @@ class Butter(IIR):
     def order(self):
         """Returns the minimum order and 3 dB point of this filter."""
 
-        return sps.buttord(self.fpass, self.fstop, self.gpass, self.gstop,
-                             fs=self.fs)
+        return sps.buttord(self.fpass, self.fstop, self.gpass, self.gstop, fs=self.fs)
 
 
 class Cheby1(IIR):
@@ -149,13 +149,14 @@ class Cheby1(IIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int,
-                 gpass: float = 1.0,
-                 gstop: float = 40.0,
-                 fmt: str = 'sos'
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
+        gpass: float = 1.0,
+        gstop: float = 40.0,
+        fmt: str = "sos",
     ) -> None:
         """Initialize this Chebyshev Type I IIR filter.
 
@@ -193,8 +194,7 @@ class Cheby1(IIR):
     def order(self):
         """Returns the minimum order and 3 dB point of this filter."""
 
-        return sps.cheb1ord(self.fpass, self.fstop, self.gpass, self.gstop,
-                             fs=self.fs)
+        return sps.cheb1ord(self.fpass, self.fstop, self.gpass, self.gstop, fs=self.fs)
 
 
 class Cheby2(IIR):
@@ -226,13 +226,14 @@ class Cheby2(IIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int,
-                 gpass: float = 1.0,
-                 gstop: float = 40.0,
-                 fmt: str = 'sos'
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
+        gpass: float = 1.0,
+        gstop: float = 40.0,
+        fmt: str = "sos",
     ) -> None:
         """Initialize this Chebyshev Type II IIR filter.
 
@@ -270,8 +271,7 @@ class Cheby2(IIR):
     def order(self):
         """Returns the minimum order and 3 dB point of this filter."""
 
-        return sps.cheb2ord(self.fpass, self.fstop, self.gpass, self.gstop,
-                            fs=self.fs)
+        return sps.cheb2ord(self.fpass, self.fstop, self.gpass, self.gstop, fs=self.fs)
 
 
 class Ellip(IIR):
@@ -303,13 +303,14 @@ class Ellip(IIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int,
-                 gpass: float = 1.0,
-                 gstop: float = 40.0,
-                 fmt: str = 'sos'
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
+        gpass: float = 1.0,
+        gstop: float = 40.0,
+        fmt: str = "sos",
     ) -> None:
         """Initialize this Elliptical IIR filter.
 
@@ -347,8 +348,7 @@ class Ellip(IIR):
     def order(self):
         """Returns the minimum order and 3 dB point of this filter."""
 
-        return sps.ellipord(self.fpass, self.fstop, self.gpass, self.gstop,
-                             fs=self.fs)
+        return sps.ellipord(self.fpass, self.fstop, self.gpass, self.gstop, fs=self.fs)
 
 
 class Notch(IIR):
@@ -370,7 +370,7 @@ class Notch(IIR):
         array([60, 60])
     """
 
-    def __init__(self, fstop: float, width: float, fs:float) -> None:
+    def __init__(self, fstop: float, width: float, fs: float) -> None:
         """Initialize this Second Order Notch IIR.
 
         Args:
@@ -378,7 +378,7 @@ class Notch(IIR):
                 The stop frequency at which the filter reaches maximum
                 attenuation in the same units as fs.
             width:
-                The width of the trasition band centered on the stop
+                The width of the transition band centered on the stop
                 frequency in the same units as fs.
             fs:
                 The sampling rate of the digital system.
@@ -388,7 +388,7 @@ class Notch(IIR):
         fstops = np.array([fstop, fstop])
         self.width = width
         # gpass is 3dB, gstop is determined by width
-        super().__init__(fpass, fstops, gpass=3, gstop=None, fs=fs, fmt='ba')
+        super().__init__(fpass, fstops, gpass=3, gstop=None, fs=fs, fmt="ba")
 
     @property
     def order(self):

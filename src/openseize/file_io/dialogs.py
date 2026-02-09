@@ -17,11 +17,11 @@ This module contains the following functions
 ```
 """
 
-from collections import defaultdict
-from pathlib import Path
 import tkinter as tk
 import tkinter.filedialog as tkdialogs
 import tkinter.messagebox as tkmsgbox
+from collections import defaultdict
+from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
 from openseize.file_io.path_utils import re_match
@@ -31,13 +31,14 @@ def root_deco(dialog):
     """Decorates a dialog with a toplevel that is destroyed on dialog exit."""
 
     def decorated(*args, **kwargs):
-        #create root and withdraw from screen
+        # create root and withdraw from screen
         root = tk.Tk()
         root.withdraw()
-        #open dialog returning result and destroy root
+        # open dialog returning result and destroy root
         result = dialog(*args, parent=root, **kwargs)
         root.destroy()
         return result
+
     return decorated
 
 
@@ -63,7 +64,7 @@ def standard(kind: str, **options: str) -> Union[Path, List[Path]]:
     """
 
     # disable parent placement since root_deco automates this
-    options.pop('parent', None)
+    options.pop("parent", None)
     paths = getattr(tkdialogs, kind)(**options)
     return Path(paths) if isinstance(paths, str) else [Path(p) for p in paths]
 
@@ -82,13 +83,16 @@ def message(kind: str, **options: str):
         A subset of (True, False, OK, None, Yes, No).
     """
 
-    #disable parent placement since root_deco automates this
-    options.pop('parent', None)
+    # disable parent placement since root_deco automates this
+    options.pop("parent", None)
     return getattr(tkmsgbox, kind)(**options)
 
 
-def matching(pattern: str, kind: Optional[str] = None,
-             dirpath: Optional[Union[str, Path]] = None, **options
+def matching(
+    pattern: str,
+    kind: Optional[str] = None,
+    dirpath: Optional[Union[str, Path]] = None,
+    **options,
 ) -> List[Tuple[Path, Path]]:
     r"""A dialog that regex pattern matches Path stems of two sets of files.
 
@@ -137,27 +141,29 @@ def matching(pattern: str, kind: Optional[str] = None,
         True
     """
 
-    if dirpath or kind == 'askdirectory':
+    if dirpath or kind == "askdirectory":
 
         # dialog for dir if none given
         dirpath = standard(kind, **options) if not dirpath else Path(dirpath)
         # separate file paths in dirpat by suffix
-        filepaths = dirpath.glob('*.*')
+        filepaths = dirpath.glob("*.*")
         sorted_paths = defaultdict(list)
         for path in filepaths:
             sorted_paths[path.suffix].append(path)
         paths, others = list(sorted_paths.values())
 
-    elif kind == 'askopenfilenames':
+    elif kind == "askopenfilenames":
 
         # open two dialogs to user select files to match
-        paths = standard(kind, title='Select File Set 1', **options)
-        others = standard(kind, title='Select File Set 2', **options)
+        paths = standard(kind, title="Select File Set 1", **options)
+        others = standard(kind, title="Select File Set 2", **options)
 
     else:
 
-        msg = ("matching dialog requires 'kind' argument to be one of '{}' "
-                "or '{}' or a Path passed to the dirpath argument.")
-        raise TypeError(msg.format('askdirectory', 'askopenfilenames'))
+        msg = (
+            "matching dialog requires 'kind' argument to be one of '{}' "
+            "or '{}' or a Path passed to the dirpath argument."
+        )
+        raise TypeError(msg.format("askdirectory", "askopenfilenames"))
 
     return re_match(paths, others, pattern)

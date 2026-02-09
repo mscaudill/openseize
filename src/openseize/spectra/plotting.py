@@ -5,27 +5,27 @@ This module contains the following classes and functions:
 - banded: A function for plotting bands (e.g. Confidence Intervals) onto
     a PSD estimate.
 
-- STFTViewer: An iteractive matplotlib figure for viewing the STFT of
+- STFTViewer: An interactive matplotlib figure for viewing the STFT of
     multichannel EEG data.
 """
 
 from functools import partial
 from typing import Optional, Sequence, Tuple
 
-from matplotlib import widgets
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+from matplotlib import widgets
 
-from openseize.core.arraytools import nearest1D
-from openseize.core.arraytools import slice_along_axis
+from openseize.core.arraytools import nearest1D, slice_along_axis
 
 
-def banded(x: npt.NDArray[np.float64],
-           upper: npt.NDArray[np.float64],
-           lower: npt.NDArray[np.float64],
-           ax: plt.Axes,
-           **kwargs,
+def banded(
+    x: npt.NDArray[np.float64],
+    upper: npt.NDArray[np.float64],
+    lower: npt.NDArray[np.float64],
+    ax: plt.Axes,
+    **kwargs,
 ) -> plt.Axes:
     """Plots upper & lower error bands on an existing axis.
 
@@ -47,12 +47,13 @@ def banded(x: npt.NDArray[np.float64],
 
     x = np.arange(len(upper)) if x is None else x
 
-    color = kwargs.pop('color', 'k')
-    facecolor = kwargs.pop('facecolor', 'tab:gray')
-    alpha = kwargs.pop('alpha', 0.4)
+    color = kwargs.pop("color", "k")
+    facecolor = kwargs.pop("facecolor", "tab:gray")
+    alpha = kwargs.pop("alpha", 0.4)
 
-    ax.fill_between(x, lower, upper, color=color, facecolor=facecolor,
-                    alpha=alpha, **kwargs)
+    ax.fill_between(
+        x, lower, upper, color=color, facecolor=facecolor, alpha=alpha, **kwargs
+    )
     return ax
 
 
@@ -62,15 +63,16 @@ class STFTViewer:
     """An interactive matplotlib figure for plotting the magnitude of
     a Short-Time Fourier transform of multichannel eeg data."""
 
-    def __init__(self,
-                 freqs: npt.NDArray[np.float64],
-                 time: npt.NDArray[np.float64],
-                 data: npt.NDArray[np.float64],
-                 scale: Optional[str] = 'dB',
-                 chs: Optional[Sequence[int]] = None,
-                 names: Optional[Sequence[str]] = None,
-                 stride: int = 120,
-                 figsize: Tuple[int, int] = (8,6)
+    def __init__(
+        self,
+        freqs: npt.NDArray[np.float64],
+        time: npt.NDArray[np.float64],
+        data: npt.NDArray[np.float64],
+        scale: Optional[str] = "dB",
+        chs: Optional[Sequence[int]] = None,
+        names: Optional[Sequence[str]] = None,
+        stride: int = 120,
+        figsize: Tuple[int, int] = (8, 6),
     ) -> None:
         """Initialize this Viewer by creating the matploltib figure.
 
@@ -123,8 +125,8 @@ class STFTViewer:
         self.current = stride / 2
 
         # min and max values for each channel
-        self.vmins = np.amin(self.data, axis=(1,2))
-        self.vmaxes = np.amax(self.data, axis=(1,2))
+        self.vmins = np.amin(self.data, axis=(1, 2))
+        self.vmaxes = np.amax(self.data, axis=(1, 2))
 
         # initialize viewer to display all frequencies
         self.limits = (freqs[0], freqs[-1])
@@ -155,10 +157,10 @@ class STFTViewer:
         if scale is None:
             return data
 
-        if scale == 'dB':
+        if scale == "dB":
             return 10 * np.log10(data + 1)
 
-        raise ValueError('Unknown scaling')
+        raise ValueError("Unknown scaling")
 
     def init_channels(self, chs):
         """Initialize the channels to display in this viewer."""
@@ -172,7 +174,7 @@ class STFTViewer:
         """Initialize the channel names to display in this viewer."""
 
         if not names:
-            names = [f'Ch {x}' for x in self.chs]
+            names = [f"Ch {x}" for x in self.chs]
 
         return names
 
@@ -181,10 +183,11 @@ class STFTViewer:
 
         # create figure, mpl axes array, & config. margins
         nrows = len(self.chs)
-        self.fig, self.axarr = plt.subplots(nrows, 1, figsize=figsize,
-                                            sharex=True, sharey=True)
+        self.fig, self.axarr = plt.subplots(
+            nrows, 1, figsize=figsize, sharex=True, sharey=True
+        )
         self.axarr = np.atleast_1d(self.axarr)
-        self.fig.subplots_adjust(left=0.08, bottom=0.2, right=.98, top=0.98)
+        self.fig.subplots_adjust(left=0.08, bottom=0.2, right=0.98, top=0.98)
 
     def add_slider(self):
         """Adds a fully configured slider widget to this viewer's figure."""
@@ -195,9 +198,14 @@ class STFTViewer:
         # add slider widget setting its min, max & step
         vmin = self.stride // 2
         vmax = self.time[-1] - self.stride // 2
-        self.slider = widgets.Slider(self.slider_ax, 'Time', vmin,
-                                     vmax, valinit=self.current,
-                                     valstep=self.stride)
+        self.slider = widgets.Slider(
+            self.slider_ax,
+            "Time",
+            vmin,
+            vmax,
+            valinit=self.current,
+            valstep=self.stride,
+        )
 
         # define the callback of this slider
         self.slider.on_changed(self.slide)
@@ -214,12 +222,13 @@ class STFTViewer:
         """Adds a fully configured time entry box to this viewer."""
 
         # build container axis
-        self.time_ax = plt.axes([.89, 0.08, 0.1, 0.03])
+        self.time_ax = plt.axes([0.89, 0.08, 0.1, 0.03])
 
         # add textbox setting its initial value
-        initval = str(self.stride//2)
-        self.time_entry = widgets.TextBox(self.time_ax, '', initval, '1',
-                                        textalignment='left')
+        initval = str(self.stride // 2)
+        self.time_entry = widgets.TextBox(
+            self.time_ax, "", initval, "1", textalignment="left"
+        )
 
         # define the callback of this time entry
         self.time_entry.on_submit(self.time_submission)
@@ -229,7 +238,7 @@ class STFTViewer:
 
         value = int(value)
 
-        #value must be in range [stride //2 , total time - stride // 2]
+        # value must be in range [stride //2 , total time - stride // 2]
         if value < self.stride // 2:
             value = self.stride // 2
 
@@ -243,8 +252,8 @@ class STFTViewer:
         """Add a fully configured time advance button to this viewer."""
 
         # build container axis, add widget and set callback
-        self.forward_ax = plt.axes([0.84, .03, .04, 0.04])
-        self.forward_button = widgets.Button(self.forward_ax, '>')
+        self.forward_ax = plt.axes([0.84, 0.03, 0.04, 0.04])
+        self.forward_button = widgets.Button(self.forward_ax, ">")
         self.forward_button.label.set_fontsize(15)
         self.forward_button.on_clicked(self.forward)
 
@@ -265,8 +274,8 @@ class STFTViewer:
         """Add a fully configured time reverse button to this viewer."""
 
         # build container axis, add widget and set callback
-        self.reverse_ax = plt.axes([0.15, .03, .04, 0.04])
-        self.reverse_button = widgets.Button(self.reverse_ax, '<')
+        self.reverse_ax = plt.axes([0.15, 0.03, 0.04, 0.04])
+        self.reverse_button = widgets.Button(self.reverse_ax, "<")
         self.reverse_button.label.set_fontsize(15)
         self.reverse_button.on_clicked(self.reverse)
 
@@ -288,12 +297,12 @@ class STFTViewer:
         displayed to this viewer."""
 
         # build container axis
-        self.restride_ax = plt.axes([.45, 0.03, 0.04, 0.03])
+        self.restride_ax = plt.axes([0.45, 0.03, 0.04, 0.03])
 
         # add textbox setting its initial value
-        self.stride_entry = widgets.TextBox(self.restride_ax, 'Stride ',
-                                            self.stride, '1',
-                                            textalignment='center')
+        self.stride_entry = widgets.TextBox(
+            self.restride_ax, "Stride ", self.stride, "1", textalignment="center"
+        )
 
         # define the callback of this time entry
         self.stride_entry.on_submit(self.stride_submission)
@@ -323,15 +332,16 @@ class STFTViewer:
 
         position = ax.get_position()
         # build entry axis container relative to first plotting axis
-        left = position.x0 - .06
+        left = position.x0 - 0.06
         bottom = position.y0 - 0.015
         self.low_limit_ax = plt.axes([left, bottom, 0.05, 0.03])
 
         # add textbox setting init value to init limit of plot axis
         low, _ = ax.get_ylim()
         low = str(int(low))
-        self.low_limit = widgets.TextBox(self.low_limit_ax, '', low, '1',
-                                         '1', textalignment='right')
+        self.low_limit = widgets.TextBox(
+            self.low_limit_ax, "", low, "1", "1", textalignment="right"
+        )
         # define the callback of this limit entry
         self.low_limit.on_submit(self.limit_submit)
 
@@ -345,15 +355,16 @@ class STFTViewer:
 
         position = ax.get_position()
         # build entry axis container relative to first plotting axis
-        left = position.x0 - .06
+        left = position.x0 - 0.06
         top = position.y1 - 0.015
         self.high_limit_ax = plt.axes([left, top, 0.05, 0.03])
 
         # add textbox setting init value to init limit of plot axis
         _, high = ax.get_ylim()
         high = str(int(high))
-        self.high_limit = widgets.TextBox(self.high_limit_ax, '', high, '1',
-                                          '1', textalignment='right')
+        self.high_limit = widgets.TextBox(
+            self.high_limit_ax, "", high, "1", "1", textalignment="right"
+        )
         # define the callback of this limit entry
         self.high_limit.on_submit(self.limit_submit)
 
@@ -373,10 +384,10 @@ class STFTViewer:
         f_idx = nearest1D(self.freqs, y)
         t_idx = nearest1D(self.time, x)
         z = self.data[channel, f_idx, t_idx]
-        scale = self.scale if self.scale else ''
+        scale = self.scale if self.scale else ""
 
-        msg = '\ntime = {:.2f}, freq = {:.2f}, [{:.1f}] {scale}\n {blank:>100}'
-        return msg.format(x, y, z, scale=scale, blank='_')
+        msg = "\ntime = {:.2f}, freq = {:.2f}, [{:.1f}] {scale}\n {blank:>100}"
+        return msg.format(x, y, z, scale=scale, blank="_")
 
     def update(self):
         """Updates the data displayed to this viewer plotting axes."""
@@ -404,8 +415,9 @@ class STFTViewer:
             # fetch subplot axis and display sliced data
             ax = self.axarr[idx]
             vmin, vmax = self.vmins[idx], self.vmaxes[idx]
-            ax.pcolormesh(t, f, x[idx], shading='nearest', vmin=vmin,
-                          vmax=vmax, rasterized=True)
+            ax.pcolormesh(
+                t, f, x[idx], shading="nearest", vmin=vmin, vmax=vmax, rasterized=True
+            )
 
             # configure ticks
             ax.xaxis.set_visible(False)
@@ -414,14 +426,15 @@ class STFTViewer:
             ax.format_coord = partial(self.fmt_coord, ch)
 
         # add labels to last axis
-        self.axarr[-1].set_ylabel('Frequency (Hz)', fontsize=12)
-        self.axarr[-1].set_xlabel('Time (s)', fontsize=12)
+        self.axarr[-1].set_ylabel("Frequency (Hz)", fontsize=12)
+        self.axarr[-1].set_xlabel("Time (s)", fontsize=12)
         self.axarr[-1].xaxis.set_visible(True)
 
         # add channel names
         for ax, name in zip(self.axarr, self.names):
-            ax.annotate(name, (0.95, .85), xycoords='axes fraction',
-                        color='white', fontsize=12)
+            ax.annotate(
+                name, (0.95, 0.85), xycoords="axes fraction", color="white", fontsize=12
+            )
 
         # update drawn data
         plt.draw()

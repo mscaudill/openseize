@@ -1,15 +1,17 @@
-from functools import partial
 import itertools
+from functools import partial
 
 import numpy as np
 import scipy.signal as sps
 
 from openseize import producer
 from openseize.core import protools
-from openseize.core.arraytools import multiply_along_axis
-from openseize.core.arraytools import pad_along_axis
-from openseize.core.arraytools import slice_along_axis
-from openseize.core.arraytools import split_along_axis
+from openseize.core.arraytools import (
+    multiply_along_axis,
+    pad_along_axis,
+    slice_along_axis,
+    split_along_axis,
+)
 from openseize.core.producer import Producer
 from openseize.core.queues import FIFOArray
 
@@ -54,19 +56,19 @@ def convolved_shape(shape1, shape2, mode, axis):
     """
 
     m, n = shape1[axis], shape2[axis]
-    p, q = max(m,n), min(m,n)
+    p, q = max(m, n), min(m, n)
 
     # find array with largest ndims
     outshape = sorted([list(shape1), list(shape2)], key=len)[-1]
 
-    if mode == 'full':
+    if mode == "full":
         outshape[axis] = m + n - 1
 
-    elif mode == 'same':
+    elif mode == "same":
         outshape[axis] = p
 
-    elif mode == 'valid':
-        outshape[axis] = m + n - 1 - 2 * (q-1)
+    elif mode == "valid":
+        outshape[axis] = m + n - 1 - 2 * (q - 1)
 
     return tuple(outshape)
 
@@ -92,24 +94,24 @@ def convolve_slicer(arr, shape1, shape2, mode, axis):
     """
 
     m, n = shape1[axis], shape2[axis]
-    p, q = max(m,n), min(m,n)
+    p, q = max(m, n), min(m, n)
 
-    if mode == 'full':
+    if mode == "full":
 
         # full mode length is m + n - 1
         return arr
 
-    if mode == 'same':
+    if mode == "same":
 
         # same mode length is max(m,  n) centered along axis of arr
         start = (q - 1) // 2
         stop = start + p
         return slice_along_axis(arr, start, stop, axis=axis)
 
-    if mode == 'valid':
+    if mode == "valid":
 
         # valid mode length is m + n - 1 - 2 * (q-1) centered along axis
-        start= q - 1
+        start = q - 1
         stop = (n + m - 1) - (q - 1)
         return slice_along_axis(arr, start, stop, axis=axis)
 
@@ -137,17 +139,17 @@ def _oa_boundary(arr, window, side, axis, mode):
     ns = arr.shape[axis]
     lw = len(window)
 
-    #dict of slices to apply to axis for 0th & last segment for each mode
-    cuts = {'full': {'left': slice(None),
-                     'right': slice(None)},
+    # dict of slices to apply to axis for 0th & last segment for each mode
+    cuts = {
+        "full": {"left": slice(None), "right": slice(None)},
+        "same": {
+            "left": slice((lw - 1) // 2, None),
+            "right": slice(None, ns - int(np.ceil((lw - 1) / 2))),
+        },
+        "valid": {"left": slice(lw - 1, None), "right": slice(None, ns - lw + 1)},
+    }
 
-            'same': {'left': slice((lw - 1) // 2, None),
-                     'right': slice(None, ns - int(np.ceil((lw - 1) / 2)))},
-
-            'valid': {'left': slice(lw - 1, None),
-                      'right': slice(None, ns - lw + 1)}}
-
-    #apply slices
+    # apply slices
     slices = [slice(None)] * arr.ndim
     slices[axis] = cuts[mode][side]
     return arr[tuple(slices)]
@@ -200,7 +202,7 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
     nfft = optimal_nffts(window) * nfft_factor
 
     # fallback to optimal nffts if nfft_factor makes nfft > data size.
-    #if nfft - len(window) + 1 > pro.shape[axis]:
+    # if nfft - len(window) + 1 > pro.shape[axis]:
     #    nfft = optimal_nffts(window)
 
     # fallback to min of optimal nffts or data shape so FIFO starts full
@@ -236,14 +238,14 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
         product = multiply_along_axis(xf, H, axis=axis)
 
         # back transform to sample domain and return
-        return  np.fft.irfft(product, axis=axis).real
+        return np.fft.irfft(product, axis=axis).real
 
     def _add_overlap(y, overlap, wlen, axis):
         """Adds overlap to first wlen-1 samples of yth segment
         along axis."""
 
         slicer = [slice(None)] * y.ndim
-        slicer[axis] = slice(0, wlen-1)
+        slicer[axis] = slice(0, wlen - 1)
         y[tuple(slicer)] += overlap
 
         return y
@@ -259,18 +261,18 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
             arr = fifo.get()
             z = _cconvolve(arr, H, nfft, wlen, axis)
 
-            #split segment & next overlap
+            # split segment & next overlap
             y, new_overlap = split_along_axis(z, step, axis=axis)
 
             # add previous overlap & update overlap
             y = _add_overlap(y, overlap, wlen, axis)
             overlap = new_overlap
 
-            #apply the boundary mode to first and last segments
+            # apply the boundary mode to first and last segments
             if segment == 0:
-                y = _oa_boundary(y, window, 'left', axis, mode)
+                y = _oa_boundary(y, window, "left", axis, mode)
 
-            #update segment
+            # update segment
             segment += 1
 
             yield y
@@ -290,10 +292,10 @@ def oaconvolve(pro, window, axis, mode, nfft_factor=32):
             last = arr.shape[axis] + wlen - 1
             y = slice_along_axis(z, 0, last, axis=axis)
 
-            #add previous overlap
+            # add previous overlap
             y = _add_overlap(y, overlap, wlen, axis)
 
-            yield _oa_boundary(y, window, 'right', axis, mode)
+            yield _oa_boundary(y, window, "right", axis, mode)
 
 
 def sosfilt(pro, sos, axis, zi=None):
@@ -373,15 +375,15 @@ def sosfiltfilt(pro, sos, axis):
     x0 = slice_along_axis(subarr, 0, 1, axis=axis)
 
     # build steady state initial condition
-    zi = sps.sosfilt_zi(sos) #nsections x 2
+    zi = sps.sosfilt_zi(sos)  # nsections x 2
     # reshape zi so zi * x0 broadcast to correct shape for zi param
     s = [1] * len(pro.shape)
     s[axis] = 2
-    zi = np.reshape(zi, (sos.shape[0], *s)) #nsections,1,2
+    zi = np.reshape(zi, (sos.shape[0], *s))  # nsections,1,2
 
     # build a generators of forward filtered with one advanced
-    a_gen = iter(sosfilt(pro, sos, axis, zi=zi*x0))
-    b_gen = iter(sosfilt(pro, sos, axis, zi=zi*x0))
+    a_gen = iter(sosfilt(pro, sos, axis, zi=zi * x0))
+    b_gen = iter(sosfilt(pro, sos, axis, zi=zi * x0))
     next(b_gen)
 
     n = int(np.ceil(pro.shape[axis] / pro.chunksize))
@@ -394,7 +396,7 @@ def sosfiltfilt(pro, sos, axis):
             # advanced 'b' arr as initial values for current flipped arr.
             bflipped = np.flip(b, axis=axis)
             b_0 = slice_along_axis(bflipped, 0, 1, axis=axis)
-            _, zf = sps.sosfilt(sos, bflipped, axis=axis, zi=zi*b_0)
+            _, zf = sps.sosfilt(sos, bflipped, axis=axis, zi=zi * b_0)
 
             aflipped = np.flip(a, axis=axis)
             rfilt, _ = sps.sosfilt(sos, aflipped, axis=axis, zi=zf)
@@ -405,7 +407,7 @@ def sosfiltfilt(pro, sos, axis):
             # for last segment the initial condition is last sample ss
             aflipped = np.flip(a, axis=axis)
             a0 = slice_along_axis(aflipped, 0, 1, axis=axis)
-            rfilt, _ = sps.sosfilt(sos, aflipped, axis=axis, zi=zi*a0)
+            rfilt, _ = sps.sosfilt(sos, aflipped, axis=axis, zi=zi * a0)
             yield np.flip(rfilt, axis=axis)
 
 
@@ -489,8 +491,8 @@ def filtfilt(pro, coeffs, axis):
     zi = np.reshape(zi, s)
 
     # build generators of forward filtered with one advanced
-    x_gen = iter(lfilter(pro, coeffs, axis, zi=zi*x0))
-    y_gen = iter(lfilter(pro, coeffs, axis, zi=zi*x0))
+    x_gen = iter(lfilter(pro, coeffs, axis, zi=zi * x0))
+    y_gen = iter(lfilter(pro, coeffs, axis, zi=zi * x0))
     next(y_gen)
 
     n = int(np.ceil(pro.shape[axis] / pro.chunksize))
@@ -503,7 +505,7 @@ def filtfilt(pro, coeffs, axis):
             # advanced 'y' arr as initial values for current flipped x
             yflipped = np.flip(y, axis=axis)
             y0 = slice_along_axis(yflipped, 0, 1, axis=axis)
-            _, zf = sps.lfilter(*coeffs, yflipped, axis=axis, zi=zi*y0)
+            _, zf = sps.lfilter(*coeffs, yflipped, axis=axis, zi=zi * y0)
 
             xflipped = np.flip(x, axis=axis)
             rfilt, _ = sps.lfilter(*coeffs, xflipped, axis=axis, zi=zf)
@@ -514,7 +516,7 @@ def filtfilt(pro, coeffs, axis):
             # for last segment the initial condition is last sample ss
             xflipped = np.flip(x, axis=axis)
             x0 = slice_along_axis(xflipped, 0, 1, axis=axis)
-            rfilt, _ = sps.lfilter(*coeffs, xflipped, axis=axis, zi=zi*x0)
+            rfilt, _ = sps.lfilter(*coeffs, xflipped, axis=axis, zi=zi * x0)
             yield np.flip(rfilt, axis=axis)
 
 
@@ -565,19 +567,19 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
     """
 
     if M >= pro.shape[axis]:
-        msg = 'Decimation factor must M={} be < pro.shape[{}] = {}'
+        msg = "Decimation factor must M={} be < pro.shape[{}] = {}"
         raise ValueError(msg.format(M, axis, pro.shape[axis]))
 
     # pathological case: pro has  < 3 chunks  -> autoreduce csize
     csize = pro.chunksize
     if csize > pro.shape[axis] // 3:
-        csize = pro.shape[axis]  // 3
+        csize = pro.shape[axis] // 3
 
     # kaiser antialiasing & interpolation filter coeffecients
-    cutoff = fs / (2*max(L, M))
-    fstop = kwargs.pop('fstop', cutoff + cutoff / 10)
-    fpass = kwargs.pop('fpass', cutoff - cutoff / 10)
-    gpass, gstop = kwargs.pop('gpass', 0.1), kwargs.pop('gstop', 40)
+    cutoff = fs / (2 * max(L, M))
+    fstop = kwargs.pop("fstop", cutoff + cutoff / 10)
+    fpass = kwargs.pop("fpass", cutoff - cutoff / 10)
+    gpass, gstop = kwargs.pop("gpass", 0.1), kwargs.pop("gstop", 40)
     h = fir(fpass, fstop, fs, gpass, gstop).coeffs
 
     # ensure decimation of each produced array is integer samples
@@ -588,7 +590,7 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
     x = producer(pro, csize, axis)
     y = producer(pro, csize, axis)
     z = producer(pro, csize, axis)
-    iprior, icurrent, inext = (iter(pro) for pro in [x,y,z])
+    iprior, icurrent, inext = (iter(pro) for pro in [x, y, z])
 
     # num pts to append left & right on axis to cover convolve overhang
     # must be divisible by M to ensure int slicing after resample.
@@ -600,7 +602,7 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
     left = np.zeros(left_shape)
     # advance inext twice to get right pads
     next(inext)
-    right = slice_along_axis(next(inext), 0,  overhang, axis=axis)
+    right = slice_along_axis(next(inext), 0, overhang, axis=axis)
 
     # compute the first resampled chunk
     current = next(icurrent)
@@ -621,7 +623,7 @@ def polyphase_resample(pro, L, M, fs, fir, axis, **kwargs):
         if n < cnt - 1:
             right = slice_along_axis(nxt, 0, overhang, axis=axis)
         else:
-            # at cnt-1 chunks concantenate next to current
+            # at cnt-1 chunks concatenate next to current
             curr = np.concatenate((curr, nxt), axis=axis)
             right = np.zeros(left.shape)
 
@@ -695,18 +697,18 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
     # compute real DFT. Zeropad for nfft > nsamples is automatic
     # rfft uses 'backward' norm default which is no norm on rfft
     arr = np.fft.rfft(arr, nfft, axis=axis)
-    freqs = np.fft.rfftfreq(nfft, d=1/fs)
+    freqs = np.fft.rfftfreq(nfft, d=1 / fs)
 
     # scale using weighted mean of window values
-    if scaling == 'spectrum':
-        norm = 1 / np.sum(coeffs)**2
+    if scaling == "spectrum":
+        norm = 1 / np.sum(coeffs) ** 2
 
-    elif scaling == 'density':
-        #process loss Shiavi Eqn 7.54
+    elif scaling == "density":
+        # process loss Shiavi Eqn 7.54
         norm = 1 / (fs * np.sum(coeffs**2))
 
     else:
-        msg = 'Unknown scaling: {}'
+        msg = "Unknown scaling: {}"
         raise ValueError(msg.format(scaling))
 
     # before conjugate multiplication unlike scipy
@@ -716,8 +718,9 @@ def modified_dft(arr, fs, nfft, window, axis, detrend, scaling):
     return freqs, arr
 
 
-def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
-                detrend='constant', scaling='density'):
+def periodogram(
+    arr, fs, nfft=None, window="hann", axis=-1, detrend="constant", scaling="density"
+):
     """Estimates the power spectrum of an ndarray using the windowed
     periodogram method.
 
@@ -776,7 +779,7 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
 
     # compute modified DFT & take modulus to get power spectrum
     freqs, arr = modified_dft(arr, fs, nfft, window, axis, detrend, scaling)
-    arr = np.real(arr)**2 + np.imag(arr)**2
+    arr = np.real(arr) ** 2 + np.imag(arr) ** 2
 
     # since real FFT -> double for uncomputed negative freqs.
     slicer = [slice(None)] * arr.ndim
@@ -793,8 +796,9 @@ def periodogram(arr, fs, nfft=None, window='hann', axis=-1,
     return freqs, arr
 
 
-def _spectra_estimatives(pro, fs, nfft, window, overlap, axis, detrend,
-                         scaling, func, **kwargs):
+def _spectra_estimatives(
+    pro, fs, nfft, window, overlap, axis, detrend, scaling, func, **kwargs
+):
     """Iteratively estimates the power spectrum or modified DFT for each
     nfft segment in a producer.
 
@@ -917,14 +921,24 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     """
 
     # build the welch generating function
-    genfunc = partial(_spectra_estimatives, pro, fs, nfft, window, overlap,
-                      axis, detrend, scaling, func=periodogram)
+    genfunc = partial(
+        _spectra_estimatives,
+        pro,
+        fs,
+        nfft,
+        window,
+        overlap,
+        axis,
+        detrend,
+        scaling,
+        func=periodogram,
+    )
 
     # obtain the positive freqs.
-    freqs = np.fft.rfftfreq(nfft, 1/fs)
+    freqs = np.fft.rfftfreq(nfft, 1 / fs)
 
     # num. segments that fit into pro samples of len nfft with % overlap
-    nsegs = int((pro.shape[axis] - nfft) // (nfft * (1-overlap)) + 1)
+    nsegs = int((pro.shape[axis] - nfft) // (nfft * (1 - overlap)) + 1)
     shape = list(pro.shape)
     shape[axis] = nsegs
 
@@ -933,8 +947,7 @@ def welch(pro, fs, nfft, window, overlap, axis, detrend, scaling):
     return freqs, result
 
 
-def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
-         padded):
+def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary, padded):
     """Estimates the Discrete Short-time Fourier Transform of a real signal.
 
     STFT breaks the signal into overlapping segments and computes
@@ -1028,7 +1041,7 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
     if boundary:
 
         # center first & last segments by padding producer
-        data = protools.pad(data, nfft//2, axis=pro.axis)
+        data = protools.pad(data, nfft // 2, axis=pro.axis)
 
     if padded:
 
@@ -1038,25 +1051,37 @@ def stft(pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary,
         data = protools.pad(data, [0, amt], axis=pro.axis)
 
     # build the stft generating function
-    genfunc = partial(_spectra_estimatives, data, fs, nfft, window, overlap,
-                      axis, detrend, scaling, func=modified_dft)
+    genfunc = partial(
+        _spectra_estimatives,
+        data,
+        fs,
+        nfft,
+        window,
+        overlap,
+        axis,
+        detrend,
+        scaling,
+        func=modified_dft,
+    )
 
     # obtain the positive freqs.
-    freqs = np.fft.rfftfreq(nfft, 1/fs)
+    freqs = np.fft.rfftfreq(nfft, 1 / fs)
 
     # num. segments that fit into pro samples of len nfft with % overlap
-    nsegs = int((data.shape[axis] - nfft) // (nfft * (1-overlap)) + 1)
+    nsegs = int((data.shape[axis] - nfft) // (nfft * (1 - overlap)) + 1)
     shape = list(data.shape)
     shape[axis] = nsegs
 
     # compute the segment times
     if boundary:
-        time = 1 / fs * np.arange(0, data.shape[axis] - nfft + 1, nfft-noverlap)
+        time = 1 / fs * np.arange(0, data.shape[axis] - nfft + 1, nfft - noverlap)
     else:
-        time = 1 / fs * np.arange(nfft//2, data.shape[axis] + 1 - nfft//2,
-                                  nfft-noverlap)
+        time = (
+            1
+            / fs
+            * np.arange(nfft // 2, data.shape[axis] + 1 - nfft // 2, nfft - noverlap)
+        )
 
     # return producer from welch gen func with each yielded
     result = producer(genfunc, chunksize=len(freqs), axis=axis, shape=shape)
     return freqs, time, result
-

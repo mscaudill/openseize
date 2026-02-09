@@ -7,9 +7,9 @@ This module includes:
         A callable that executes a sequence of functions on any input.
 """
 
+import inspect
 from copy import copy
 from functools import partial
-import inspect
 from typing import Callable, List
 
 
@@ -67,8 +67,10 @@ class Pipeline:
         bound.apply_defaults()
         unbound_cnt = len(sig.parameters) - len(bound.arguments)
         if unbound_cnt > 1:
-            msg = ('Pipeline callers must have exactly one unbound argument.'
-                   f' {caller.__name__} has {unbound_cnt} unbound arguments.')
+            msg = (
+                "Pipeline callers must have exactly one unbound argument."
+                f" {caller.__name__} has {unbound_cnt} unbound arguments."
+            )
             raise TypeError(msg)
 
     def append(self, caller: Callable, **kwargs) -> None:

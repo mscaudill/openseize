@@ -19,15 +19,15 @@ import numpy.typing as npt
 from scipy.integrate import simpson
 from scipy.stats import chi2
 
-from openseize.core.arraytools import nearest1D
-from openseize.core.arraytools import slice_along_axis
+from openseize.core.arraytools import nearest1D, slice_along_axis
 
 
-def power(psd: npt.NDArray[np.float64],
-          freqs: npt.NDArray[np.float64],
-          start: Optional[float] = None,
-          stop: Optional[float]=None,
-          axis: int = -1
+def power(
+    psd: npt.NDArray[np.float64],
+    freqs: npt.NDArray[np.float64],
+    start: Optional[float] = None,
+    stop: Optional[float] = None,
+    axis: int = -1,
 ) -> npt.NDArray[np.float64]:
     """Returns the power in an array of power spectrum densities between
     start and stop frequencies using Simpson's rule.
@@ -80,17 +80,18 @@ def power(psd: npt.NDArray[np.float64],
     a, b = nearest1D(freqs, start), nearest1D(freqs, stop)
 
     # slice between freq indices inclusively & integrate
-    arr = slice_along_axis(psd, start=a, stop=b+1, axis=axis)
-    result = simpson(arr, dx=freqs[1]-freqs[0], axis=axis)
+    arr = slice_along_axis(psd, start=a, stop=b + 1, axis=axis)
+    result = simpson(arr, dx=freqs[1] - freqs[0], axis=axis)
 
-    return result #type: ignore
+    return result  # type: ignore
 
 
-def power_norm(estimate: npt.NDArray[np.float64],
-               freqs: npt.NDArray[np.float64],
-               start: Optional[int] = None,
-               stop: Optional[int] = None,
-               axis: int = -1
+def power_norm(
+    estimate: npt.NDArray[np.float64],
+    freqs: npt.NDArray[np.float64],
+    start: Optional[int] = None,
+    stop: Optional[int] = None,
+    axis: int = -1,
 ) -> npt.NDArray[np.float64]:
     """Normalizes power spectral densities by the total power between
     start and stop frequencies.
@@ -138,9 +139,8 @@ def power_norm(estimate: npt.NDArray[np.float64],
     return estimate / norm
 
 
-def confidence_interval(psd: npt.NDArray[np.float64],
-                        n_estimates: int,
-                        alpha: float = 0.05
+def confidence_interval(
+    psd: npt.NDArray[np.float64], n_estimates: int, alpha: float = 0.05
 ) -> List[Tuple[float, float]]:
     """Returns the 1-alpha level confidence interval for each signal in
     a power spectrum estimate.
@@ -175,7 +175,7 @@ def confidence_interval(psd: npt.NDArray[np.float64],
 
     # degrees of freedom are the number of estimatives
     dof = n_estimates
-    chi_bounds = chi2.ppf([alpha/2, 1-alpha/2], dof)
+    chi_bounds = chi2.ppf([alpha / 2, 1 - alpha / 2], dof)
 
     # factor of 2 diff with Shiavi 7.48; 7.47 assumes complex signals
     lowers, uppers = [psd * dof / b for b in chi_bounds]

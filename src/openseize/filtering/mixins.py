@@ -4,13 +4,14 @@ figure called the 'Viewer'.
 
 For usage, please see opensieze.filtering.iir or fir modules
 """
+
 import typing
 from typing import Optional, Sequence, Tuple
 
-from matplotlib.patches import Rectangle
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.signal as sps
+from matplotlib.patches import Rectangle
 
 
 class Viewer:
@@ -36,14 +37,14 @@ class Viewer:
         """
 
         imp_response = self.impulse_response()
-        time = np.arange(0, len(imp_response))/ self.fs
+        time = np.arange(0, len(imp_response)) / self.fs
         ax.plot(time, imp_response, **kwargs)
-        if hasattr(self, 'order'):
+        if hasattr(self, "order"):
             N, wn = self.order
-            text = 'Filter Order = {}'.format(N)
-        elif hasattr(self, 'numtaps'):
-            text = 'Num. Taps = {}'.format(self.numtaps)
-        ax.text(.8, .8, text, transform=ax.transAxes, weight='bold')
+            text = "Filter Order = {}".format(N)
+        elif hasattr(self, "numtaps"):
+            text = "Num. Taps = {}".format(self.numtaps)
+        ax.text(0.8, 0.8, text, transform=ax.transAxes, weight="bold")
 
         return ax
 
@@ -84,65 +85,68 @@ class Viewer:
         """
 
         bands = np.stack((self.fpass, self.fstop), axis=0)
-        trans_bands = np.stack((np.min(bands, axis=0),
-                                np.max(bands, axis=0))).T
+        trans_bands = np.stack((np.min(bands, axis=0), np.max(bands, axis=0))).T
 
-        if self.btype == 'lowpass':
+        if self.btype == "lowpass":
             pass_bands = np.array([[0, self.fpass[0]]])
 
-        elif self.btype == 'highpass':
+        elif self.btype == "highpass":
             pass_bands = np.array([[self.fpass[0], self.nyq]])
 
-        elif self.btype == 'bandpass':
+        elif self.btype == "bandpass":
             pass_bands = np.atleast_2d(self.fpass)
 
-        elif self.btype == 'bandstop':
-            pass_bands = np.array([[0, self.fpass[0]],
-                                  [self.fpass[1], self.nyq]])
+        elif self.btype == "bandstop":
+            pass_bands = np.array([[0, self.fpass[0]], [self.fpass[1], self.nyq]])
 
-        else: # Multiband case
+        else:  # Multiband case
             pass_bands = self.bands[np.where(self.desired)[0]]
-            trans_bands = np.stack((self.bands[:-1,1],
-                                    self.bands[1:, 0]), axis=1)
+            trans_bands = np.stack((self.bands[:-1, 1], self.bands[1:, 0]), axis=1)
 
         # Get bottom and top of pass and trans bands
         b = ax.get_ylim()[0]
-        top = 0 if scale=='dB' else 1
+        top = 0 if scale == "dB" else 1
         h = top - b
 
         # Plot pass band Rectangles from coords [(left, b), width, h]
         pass_coords = [[(p[0], b), p[1] - p[0], h] for p in pass_bands]
-        pass_rects = [Rectangle(*pass_coord, fc='tab:green', alpha=0.2)
-                      for pass_coord in pass_coords]
+        pass_rects = [
+            Rectangle(*pass_coord, fc="tab:green", alpha=0.2)
+            for pass_coord in pass_coords
+        ]
         [ax.add_patch(rect) for rect in pass_rects]
 
         # Plot transition Rectangles from coords [(left, b), width, h]
         trans_coords = [[(t[0], b), t[1] - t[0], h] for t in trans_bands]
-        trans_rects = [Rectangle(*trans_coord, fc='red', alpha=0.2)
-                       for trans_coord in trans_coords]
+        trans_rects = [
+            Rectangle(*trans_coord, fc="red", alpha=0.2) for trans_coord in trans_coords
+        ]
         [ax.add_patch(rect) for rect in trans_rects]
 
         # Get bottom and top of each pass band attenuation Rectangle
-        att_b = -self.gpass if scale=='dB' else 10 ** (-self.gpass / 20)
-        att_top = self.gpass if scale=='dB' else 10 ** (self.gpass / 20)
+        att_b = -self.gpass if scale == "dB" else 10 ** (-self.gpass / 20)
+        att_top = self.gpass if scale == "dB" else 10 ** (self.gpass / 20)
         att_h = att_top - att_b
 
         # Plot attenuation Rectangles from coords [(left, b), width, h]
         a_coords = [[(p[0], att_b), p[1] - p[0], att_h] for p in pass_bands]
-        att_rects = [Rectangle(*a_coord, fc='None', edgecolor='gray',
-                                linestyle='dotted') for a_coord in a_coords]
+        att_rects = [
+            Rectangle(*a_coord, fc="None", edgecolor="gray", linestyle="dotted")
+            for a_coord in a_coords
+        ]
         [ax.add_patch(rect) for rect in att_rects]
 
         return ax
 
-    @typing.no_type_check #mypy missing frequency_response attr.
-    def plot(self,
-             size: Tuple[int, int] = (8,6),
-             gridalpha: float = 0.3,
-             worN: int = 2048,
-             rope: float = -100,
-             axarr: Optional[Sequence[plt.Axes]] = None,
-             show: bool = True
+    @typing.no_type_check  # mypy missing frequency_response attr.
+    def plot(
+        self,
+        size: Tuple[int, int] = (8, 6),
+        gridalpha: float = 0.3,
+        worN: int = 2048,
+        rope: float = -100,
+        axarr: Optional[Sequence[plt.Axes]] = None,
+        show: bool = True,
     ) -> Optional[Sequence[plt.Axes]]:
         """Plots the impulse and frequency response of this filter.
 
@@ -168,38 +172,38 @@ class Viewer:
             fig, axarr = plt.subplots(3, 1, figsize=size)
 
         # Plot impulse response and configure axis
-        self._plot_impulse(axarr[0], color='tab:blue')
-        axarr[0].set_xlabel('Time (s)', fontweight='bold')
-        axarr[0].set_ylabel('Amplitude (au)', color='k', weight='bold')
-        axarr[0].spines['right'].set_visible(False)
-        axarr[0].spines['top'].set_visible(False)
+        self._plot_impulse(axarr[0], color="tab:blue")
+        axarr[0].set_xlabel("Time (s)", fontweight="bold")
+        axarr[0].set_ylabel("Amplitude (au)", color="k", weight="bold")
+        axarr[0].spines["right"].set_visible(False)
+        axarr[0].spines["top"].set_visible(False)
 
         # Plot frequency response in dB and configure axis
-        freqs, g_dB, scale = self.frequency_response('dB', worN, rope)
-        color = 'tab:blue'
+        freqs, g_dB, scale = self.frequency_response("dB", worN, rope)
+        color = "tab:blue"
         self._plot_response(axarr[1], freqs, g_dB, color=color)
-        axarr[1].set_ylabel('Gain (dB)', color=color, weight='bold')
-        axarr[1].spines['top'].set_visible(False)
+        axarr[1].set_ylabel("Gain (dB)", color=color, weight="bold")
+        axarr[1].spines["top"].set_visible(False)
         # add pass and transition rectangles
         self._plot_rectangles(axarr[1], scale)
 
         # Plot phase response of this filter to twin axis
         ax2 = axarr[1].twinx()
-        freqs, g_z, scale = self.frequency_response('complex', worN, rope)
+        freqs, g_z, scale = self.frequency_response("complex", worN, rope)
         angles = np.unwrap(np.angle(g_z, deg=False))
-        color = 'tab:orange'
+        color = "tab:orange"
         ax2.plot(freqs, angles, color=color, alpha=0.5)
-        ax2.spines['top'].set_visible(False)
-        ax2.set_ylabel('Angle (radians)', color=color, weight='bold')
-        axarr[2].spines['right'].set_visible(False)
-        axarr[2].spines['top'].set_visible(False)
+        ax2.spines["top"].set_visible(False)
+        ax2.set_ylabel("Angle (radians)", color=color, weight="bold")
+        axarr[2].spines["right"].set_visible(False)
+        axarr[2].spines["top"].set_visible(False)
 
         # Plot frequency response in relative magnitude and configure axis
-        freqs, g_abs, scale = self.frequency_response('abs', worN, rope)
-        color = 'tab:blue'
+        freqs, g_abs, scale = self.frequency_response("abs", worN, rope)
+        color = "tab:blue"
         self._plot_response(axarr[2], freqs, g_abs, color=color)
-        axarr[2].set_xlabel('Frequency (Hz)', weight='bold')
-        axarr[2].set_ylabel('Gain (au)', color='k', weight='bold')
+        axarr[2].set_xlabel("Frequency (Hz)", weight="bold")
+        axarr[2].set_ylabel("Gain (au)", color="k", weight="bold")
         # add pass and transition rectangles
         self._plot_rectangles(axarr[2], scale)
         # share axes 1 and 2
@@ -225,10 +229,10 @@ class IIRViewer(Viewer):
         # 1-s array with unit pulse at 0th sample
         pulse = sps.unit_impulse(self.fs)
 
-        if self.fmt == 'sos':
+        if self.fmt == "sos":
             resp = sps.sosfilt(self.coeffs, pulse)
 
-        if self.fmt == 'ba':
+        if self.fmt == "ba":
             resp = sps.lfilter(*self.coeffs, pulse)
 
         return resp
@@ -253,16 +257,16 @@ class IIRViewer(Viewer):
         Returns: array of frequencies (1 x worN) and an array of responses
         """
 
-        if self.fmt == 'sos':
+        if self.fmt == "sos":
             freqs, h = sps.sosfreqz(self.coeffs, fs=self.fs, worN=worN)
-        if self.fmt == 'ba':
+        if self.fmt == "ba":
             freqs, h = sps.freqz(*self.coeffs, fs=self.fs, worN=worN)
 
-        if scale == 'dB':
-            gain = 20 * np.log10(np.maximum(np.abs(h), 10**(rope/20)))
-        elif scale == 'abs':
+        if scale == "dB":
+            gain = 20 * np.log10(np.maximum(np.abs(h), 10 ** (rope / 20)))
+        elif scale == "abs":
             gain = abs(h)
-        elif scale == 'complex':
+        elif scale == "complex":
             gain = h
 
         return freqs, gain, scale
@@ -277,7 +281,7 @@ class FIRViewer(Viewer):
 
         # 1-s array with unit pulse at 0th sample
         pulse = sps.unit_impulse(self.fs)
-        resp = np.convolve(self.coeffs, pulse, mode='full')
+        resp = np.convolve(self.coeffs, pulse, mode="full")
 
         return resp
 
@@ -303,13 +307,11 @@ class FIRViewer(Viewer):
 
         freqs, h = sps.freqz(self.coeffs, fs=self.fs, worN=worN)
 
-        if scale == 'dB':
-            gain = 20 * np.log10(np.maximum(np.abs(h), 10**(rope/20)))
-        elif scale == 'abs':
+        if scale == "dB":
+            gain = 20 * np.log10(np.maximum(np.abs(h), 10 ** (rope / 20)))
+        elif scale == "abs":
             gain = abs(h)
-        elif scale == 'complex':
+        elif scale == "complex":
             gain = h
 
         return freqs, gain, scale
-
-

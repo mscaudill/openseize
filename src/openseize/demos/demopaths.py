@@ -9,8 +9,8 @@ See DataLocator docs for examples.
 """
 
 import inspect
-from pathlib import Path
 import reprlib
+from pathlib import Path
 
 # wget missing stubs & request usage here is very limited
 import requests  # type: ignore
@@ -56,17 +56,17 @@ class DataLocator:
 
         # module (demos) name of locator from call stack & make data dir
         current = Path(inspect.getabsfile(inspect.currentframe())).parent
-        self.data_dir = current.joinpath('data')
+        self.data_dir = current.joinpath("data")
 
         # define the zenodo records url containing openseize demo data
-        self.records_url = 'https://zenodo.org/api/records/6799475'
+        self.records_url = "https://zenodo.org/api/records/6799475"
 
     def _local(self):
         """Returns a dict of file paths in the data directory."""
 
         result = []
         for item in Path.iterdir(self.data_dir):
-            if item.is_file() and item.suffix not in ('.py'):
+            if item.is_file() and item.suffix not in (".py"):
                 result.append((item.name, item))
 
         return dict(result)
@@ -76,14 +76,14 @@ class DataLocator:
         requests."""
 
         response = requests.get(self.records_url)
-        files = response.json()['files']
+        files = response.json()["files"]
 
         # sizes are not needed if the file is local
         # pylint: disable-next=attribute-defined-outside-init
-        self._sizes = {item['key'] : item['size'] for item in files}
+        self._sizes = {item["key"]: item["size"] for item in files}
 
-        return {item['key']: item['links']['self'] for item in files}
-        #return dict([(item['key'], item['links']['self']) for item in files])
+        return {item["key"]: item["links"]["self"] for item in files}
+        # return dict([(item['key'], item['links']['self']) for item in files])
 
     def _available(self):
         """Returns a dict of both remote and local files available."""
@@ -120,11 +120,11 @@ class DataLocator:
             url, size = repo[name], self._sizes[name]
 
             if dialog:
-                msg = '{} will use {} MB of space. Continue?'
+                msg = "{} will use {} MB of space. Continue?"
                 msg = msg.format(name, round(size / 1e6, 1))
 
-                if message('askquestion', message=msg) == 'no':
-                    msg = '{} not downloaded - user cancelled.'
+                if message("askquestion", message=msg) == "no":
+                    msg = "{} not downloaded - user cancelled."
                     print(msg.format(name))
                     return None
 
@@ -135,16 +135,16 @@ class DataLocator:
             return filename
 
         # client is asking for unknown name/path
-        msg = '{} contains no path for data named {}'
-        raise AttributeError(msg.format('Demos', name))
+        msg = "{} contains no path for data named {}"
+        raise AttributeError(msg.format("Demos", name))
 
     @property
     def available(self):
         """Prints string representation of this locator displaying all
         available demo data files & their locations, both local & remote."""
 
-        msg_start =  '---Available demo data files & location---'
-        msg_header = '-' * len(msg_start)
+        msg_start = "---Available demo data files & location---"
+        msg_header = "-" * len(msg_start)
 
         # build string of available file names and locs.
         fmt = reprlib.aRepr
@@ -153,5 +153,5 @@ class DataLocator:
         msg = {name: fmt.repr(str(path)) for name, path in result.items()}
         # new lines are not as clear in fstrings
         # pylint: disable-next=consider-using-f-string
-        msg_body = ['{:30} {}'.format(k, v) for k, v  in msg.items()]
-        print('\n'.join([msg_start, msg_header, '\n'.join(msg_body)]))
+        msg_body = ["{:30} {}".format(k, v) for k, v in msg.items()]
+        print("\n".join([msg_start, msg_header, "\n".join(msg_body)]))

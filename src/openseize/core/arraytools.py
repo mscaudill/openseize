@@ -33,9 +33,9 @@ def pad_along_axis(arr, pad, axis=-1, **kwargs):
         **kwargs:                   any valid kwarg for np.pad
     """
 
-    #convert int pad to seq. of pads & place along axis of pads
+    # convert int pad to seq. of pads & place along axis of pads
     pad = [pad, pad] if isinstance(pad, int) else pad
-    pads = [(0,0)] * arr.ndim
+    pads = [(0, 0)] * arr.ndim
     pads[axis] = pad
     return np.pad(arr, pads, **kwargs)
 
@@ -103,7 +103,7 @@ def expand_along_axis(arr, l, value=0, axis=-1):
 
     # perform insertion into flattened x
     x = x.reshape(-1, 1)
-    inserts = value * np.ones((x.shape[0], l-1))
+    inserts = value * np.ones((x.shape[0], l - 1))
     x = np.concatenate((x, inserts), axis=-1)
     x = x.flatten()
 
@@ -133,6 +133,7 @@ def multiply_along_axis(x, y, axis=-1):
     shape[axis] = len(y)
     return x * y.reshape(shape)
 
+
 def filter1D(size, indices):
     """Returns a 1D array of False values except at indices where values are
     True.
@@ -154,7 +155,7 @@ def filter1D(size, indices):
     # TODO: In future this will support ndarray filtering
     """
 
-    locs = np.atleast_1d(np.array(indices, dtype='object'))
+    locs = np.atleast_1d(np.array(indices, dtype="object"))
     result = np.full(int(size), fill_value=False, dtype=bool)
     for idxs in locs:
         result[idxs] = True
@@ -167,7 +168,7 @@ def nearest1D(x, x0):
 
     Args:
         x: 1-D array
-            A sequence of values to search for minimim distance to x0.
+            A sequence of values to search for minimum distance to x0.
         x0: float
             The value whose distance from each value in x is measured.
 
@@ -255,12 +256,14 @@ def even_extend(arr, n, axis=-1):
 
     # for consistency match scipy error msg
     if n > arr.shape[axis] - 1:
-        msg = ('The extension length n ({}) is too big. It must not '
-               'exceed x.shape[axis] - 1, which is {}.')
+        msg = (
+            "The extension length n ({}) is too big. It must not "
+            "exceed x.shape[axis] - 1, which is {}."
+        )
         raise ValueError(msg.format(n, arr.shape[axis] - 1))
 
     left = slice_along_axis(arr, start=n, stop=0, step=-1, axis=axis)
-    right = slice_along_axis(arr, start=-2, stop=-(n+2), step=-1, axis=axis)
+    right = slice_along_axis(arr, start=-2, stop=-(n + 2), step=-1, axis=axis)
 
     return np.concatenate((left, arr, right), axis=axis)
 
@@ -289,8 +292,10 @@ def odd_extend(arr, n, axis=-1):
 
     # for consistency match scipy error msg
     if n > arr.shape[axis] - 1:
-        msg = ('The extension length n ({}) is too big. It must not '
-               'exceed x.shape[axis] - 1, which is {}.')
+        msg = (
+            "The extension length n ({}) is too big. It must not "
+            "exceed x.shape[axis] - 1, which is {}."
+        )
         raise ValueError(msg.format(n, arr.shape[axis] - 1))
 
     leftmost = slice_along_axis(arr, start=0, stop=1, axis=axis)
@@ -298,7 +303,7 @@ def odd_extend(arr, n, axis=-1):
 
     # get the boundary points to rotate about leftmost & rightmost
     left = slice_along_axis(arr, start=n, stop=0, step=-1, axis=axis)
-    right = slice_along_axis(arr, start=-2, stop=-(n+2), step=-1, axis=axis)
+    right = slice_along_axis(arr, start=-2, stop=-(n + 2), step=-1, axis=axis)
 
     # 180-deg rotation is a mirror followed by flip about left/rightmost
     left_ext = (leftmost - left) + leftmost

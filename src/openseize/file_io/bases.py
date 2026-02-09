@@ -11,11 +11,11 @@ be instantiated.
 """
 
 import abc
+import pprint
+import typing
 from dataclasses import dataclass
 from inspect import getmembers
 from pathlib import Path
-import pprint
-import typing
 
 import numpy as np
 import numpy.typing as npt
@@ -39,9 +39,7 @@ class Header(dict):
             A python path instance to an EEG datafile with header.
     """
 
-    def __init__(self,
-                 path: typing.Optional[typing.Union[str, Path]]
-    ) -> None:
+    def __init__(self, path: typing.Optional[typing.Union[str, Path]]) -> None:
         """Initialize this Header.
 
         Args:
@@ -74,7 +72,7 @@ class Header(dict):
 
         raise NotImplementedError
 
-    def read(self, encoding: str = 'ascii') -> dict:
+    def read(self, encoding: str = "ascii") -> dict:
         """Reads the header of a file into a dict using a file format
         specific bytemap.
 
@@ -87,16 +85,17 @@ class Header(dict):
         if not self.path:
             return header
 
-        with open(self.path, 'rb') as fp:
+        with open(self.path, "rb") as fp:
             # loop over the bytemap, read and store the decoded values
             for name, (nbytes, dtype) in self.bytemap().items():
-                res = [dtype(fp.read(n).strip().decode(encoding=encoding))
-                       for n in nbytes]
+                res = [
+                    dtype(fp.read(n).strip().decode(encoding=encoding)) for n in nbytes
+                ]
                 header[name] = res[0] if len(res) == 1 else res
         return header
 
     @classmethod
-    def from_dict(cls, dic: typing.Dict) -> 'Header':
+    def from_dict(cls, dic: typing.Dict) -> "Header":
         """Alternative constructor that creates Header instance from a
         bytemap dictionary.
 
@@ -123,8 +122,8 @@ class Header(dict):
         # get header properties and return  pprinter fmt str
         props = [k for k, v in getmembers(self.__class__, self._isprop)]
         pp = pprint.PrettyPrinter(sort_dicts=False, compact=True)
-        props = {'Accessible Properties': props}
-        return pp.pformat(self) + '\n\n' + pp.pformat(props)
+        props = {"Accessible Properties": props}
+        return pp.pformat(self) + "\n\n" + pp.pformat(props)
 
 
 class Reader(abc.ABC, mixins.ViewInstance):
@@ -145,8 +144,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
             Additional kwargs needed for opening the file at path.
     """
 
-    def __init__(self, path: typing.Union[str, Path], mode: str, **kwargs: str
-    ) -> None:
+    def __init__(self, path: typing.Union[str, Path], mode: str, **kwargs: str) -> None:
         """Initialize this reader.
 
         Args:
@@ -188,7 +186,7 @@ class Reader(abc.ABC, mixins.ViewInstance):
         """Returns the summed shape of all arrays the Reader will read."""
 
     @abc.abstractmethod
-    def read(self, start: int, stop:int) -> npt.NDArray[np.float64]:
+    def read(self, start: int, stop: int) -> npt.NDArray[np.float64]:
         """Returns a numpy array of sample values between start and stop for
         each channel in channels.
 
@@ -363,8 +361,9 @@ class Annotations(abc.ABC):
     def channel(self, row) -> typing.Union[int, str]:
         """Returns the channel this annotated event was detected on."""
 
-    def read(self,
-             labels: typing.Optional[typing.Sequence[str]] = None,
+    def read(
+        self,
+        labels: typing.Optional[typing.Sequence[str]] = None,
     ) -> typing.List[Annotation]:
         """Reads annotations with labels to a list of Annotation instances.
 
@@ -380,7 +379,7 @@ class Annotations(abc.ABC):
         labels = [labels] if isinstance(labels, str) else labels
 
         result = []
-        names = ['label', 'time', 'duration', 'channel']
+        names = ["label", "time", "duration", "channel"]
         for row in self._reader:
             ann = Annotation(*[getattr(self, name)(row) for name in names])
 

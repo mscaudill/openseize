@@ -1,4 +1,4 @@
-""""A collection of functions for working with path instances in Openseize.
+""" "A collection of functions for working with path instances in Openseize.
 
 This module includes the following utilities:
 
@@ -8,12 +8,13 @@ This module includes the following utilities:
     - metadata: Path instance metadata extraction to a dictionary.
 """
 
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Dict, List, Sequence, Set, Tuple, Union
 
 
-def re_match(paths: List[Path], others: List[Path], pattern: str
+def re_match(
+    paths: List[Path], others: List[Path], pattern: str
 ) -> List[Tuple[Path, Path]]:
     r"""Matches 2 equal lengthed sequences of Path instances using a regex
     pattern string common to the Path stems of both.
@@ -44,26 +45,28 @@ def re_match(paths: List[Path], others: List[Path], pattern: str
 
     # validate the number of passed paths match
     if len(paths) != len(others):
-        msg = 'Number of paths in paths and others must match: {} != {}'
+        msg = "Number of paths in paths and others must match: {} != {}"
         raise ValueError(msg.format(len(paths), len(others)))
 
     # validate that the pattern exist in all passed path stems
-    missing = [fp.stem for fp in paths + others
-               if not re.search(pattern, fp.stem)]
+    missing = [fp.stem for fp in paths + others if not re.search(pattern, fp.stem)]
     if missing:
-        msg = 'Pattern {} is missing in path stems: {}'
+        msg = "Pattern {} is missing in path stems: {}"
         raise ValueError(msg.format(pattern, missing))
 
     result = []
     for apath in paths:
         matched = re.search(pattern, apath.stem)
         # missing guard ensures matched is not None (i.e. has group) for mypy
-        opath = [other for other in others
-                if matched.group() in other.stem] #type: ignore[union-attr]
+        opath = [
+            other for other in others if matched.group() in other.stem
+        ]  # type: ignore[union-attr]
 
         if len(opath) != 1:
-            msg = ('The matches for path {} using pattern {} are {}. '
-                   'The number of matches must be exactly 1.')
+            msg = (
+                "The matches for path {} using pattern {} are {}. "
+                "The number of matches must be exactly 1."
+            )
             msg = msg.format(str(apath), pattern, [x.stem for x in opath])
             raise ValueError(msg)
 
@@ -136,7 +139,9 @@ def rename(paths: Sequence[Path], substring: str, replacement: str):
             file_path.rename(target)
 
 
-def metadata(path: Union[Path, str], **patterns: str,
+def metadata(
+    path: Union[Path, str],
+    **patterns: str,
 ) -> Dict:
     r"""Converts a path into a dictionary of metadata.
 

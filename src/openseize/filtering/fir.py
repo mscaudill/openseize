@@ -1,6 +1,6 @@
 """A collection of callable Finite Impulse Response filters.
 
-This module contains three distint types of FIR Filters.
+This module contains three distinct types of FIR Filters.
 
 ## General Cosine window (GCW) FIRs
 A filter design that allows for the specification of pass and stop bands but
@@ -88,12 +88,13 @@ class Kaiser(FIR):
            Processing" 3rd Edition. Pearson.
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int,
-                 gpass: float = 1.0,
-                 gstop: float = 40.0
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
+        gpass: float = 1.0,
+        gstop: float = 40.0,
     ) -> None:
         """Initialize this Kaiser windowed FIR.
 
@@ -170,10 +171,11 @@ class Rectangular(FIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
     ) -> None:
         """Initialize this Rectangular windowed FIR.
 
@@ -239,10 +241,11 @@ class Bartlett(FIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
     ) -> None:
         """Initialize this Bartlett windowed FIR.
 
@@ -306,10 +309,11 @@ class Hann(FIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
     ) -> None:
         """Initialize this Hann windowed FIR.
 
@@ -372,10 +376,11 @@ class Hamming(FIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
     ) -> None:
         """Initialize this Hamming windowed FIR.
 
@@ -440,10 +445,11 @@ class Blackman(FIR):
         'bandstop'
     """
 
-    def __init__(self,
-                 fpass: Union[float, Tuple[float, float]],
-                 fstop: Union[float, Tuple[float, float]],
-                 fs: int
+    def __init__(
+        self,
+        fpass: Union[float, Tuple[float, float]],
+        fstop: Union[float, Tuple[float, float]],
+        fs: int,
     ) -> None:
         """Initialize this Blackman windowed FIR.
 
@@ -536,13 +542,15 @@ class Remez(FIR):
 
     """
 
-    def __init__(self,
-                 bands: Sequence[float],
-                 desired: Sequence[float],
-                 fs: int,
-                 gpass: float = 1,
-                 gstop: float = 40,
-                 **kwargs):
+    def __init__(
+        self,
+        bands: Sequence[float],
+        desired: Sequence[float],
+        fs: int,
+        gpass: float = 1,
+        gstop: float = 40,
+        **kwargs,
+    ):
         """Initialize this Remez FIR.
 
         Args:
@@ -595,8 +603,9 @@ class Remez(FIR):
         # transform gpass and gstop to amplitudes
         self.delta_pass = 1 - 10 ** (-gpass / 20)
         self.delta_stop = 10 ** (-gstop / 20)
-        self.delta = (self.delta_pass * self.desired +
-                      self.delta_stop * (1 - self.desired))
+        self.delta = self.delta_pass * self.desired + self.delta_stop * (
+            1 - self.desired
+        )
 
         super().__init__(fpass, fstop, gpass, gstop, fs, **kwargs)
 
@@ -643,11 +652,13 @@ class Remez(FIR):
         maxiter = kwargs.pop("maxiter", 25)
         grid_density = kwargs.pop("grid_density", 16)
 
-        return sps.remez(ntaps,
-                         self.bands.flatten(),
-                         self.desired,
-                         weight=weight,
-                         maxiter=maxiter,
-                         grid_density=grid_density,
-                         fs=self.fs,
-                         **kwargs)
+        return sps.remez(
+            ntaps,
+            self.bands.flatten(),
+            self.desired,
+            weight=weight,
+            maxiter=maxiter,
+            grid_density=grid_density,
+            fs=self.fs,
+            **kwargs,
+        )

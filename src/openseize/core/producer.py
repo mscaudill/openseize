@@ -35,31 +35,30 @@ Examples:
     ...     print(arr.shape)
 """
 
-from abc import abstractmethod
-from collections import abc
 import functools
 import inspect
+from abc import abstractmethod
+from collections import abc
 from itertools import zip_longest
 from typing import Callable, Iterable, Optional, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
 
+from openseize.core import mixins, resources
 from openseize.core.arraytools import normalize_axis
-from openseize.core import mixins
-from openseize.core import resources
 from openseize.core.queues import FIFOArray
 from openseize.file_io.edf import Reader
 
 
-def producer(data: Union[npt.NDArray, Iterable[npt.NDArray], Reader,
-                         Callable, 'Producer'],
-             chunksize: int,
-             axis: int,
-             shape: Optional[Sequence[int]] = None,
-             mask: Optional[npt.NDArray[np.bool_]] = None,
-             **kwargs,
-) -> 'Producer':
+def producer(
+    data: Union[npt.NDArray, Iterable[npt.NDArray], Reader, Callable, "Producer"],
+    chunksize: int,
+    axis: int,
+    shape: Optional[Sequence[int]] = None,
+    mask: Optional[npt.NDArray[np.bool_]] = None,
+    **kwargs,
+) -> "Producer":
     """Constructs an iterable that produces ndarrays of length chunksize
     along axis during iteration.
 
@@ -134,7 +133,7 @@ def producer(data: Union[npt.NDArray, Iterable[npt.NDArray], Reader,
         result = ArrayProducer(x, chunksize, ax, **kwargs)
 
     else:
-        msg = 'unproducible type: {}'
+        msg = "unproducible type: {}"
         raise TypeError(msg.format(type(data)))
 
     # apply mask if passed
@@ -189,7 +188,6 @@ class Producer(abc.Iterable, mixins.ViewInstance):
     def shape(self):
         """Returns the shape of this producers data attr."""
 
-
     @property
     def ndim(self):
         """Returns the dimensionality of this producer."""
@@ -240,8 +238,8 @@ class ReaderProducer(Producer):
         super().__init__(data, chunksize, axis, **kwargs)
 
         # Pop the start and stop from kwargs
-        a = self.kwargs.pop('start', 0)
-        b = self.kwargs.pop('stop', self.data.shape[axis])
+        a = self.kwargs.pop("start", 0)
+        b = self.kwargs.pop("stop", self.data.shape[axis])
         self.start, self.stop, _ = slice(a, b).indices(data.shape[axis])
 
         # close for serialization
@@ -318,8 +316,8 @@ class GenProducer(Producer):
         """Initialize this producer with additional required shape."""
 
         if shape is None:
-            msg = 'A {} from a generating function requires a shape.'
-            raise ValueError(msg.format('Producer'))
+            msg = "A {} from a generating function requires a shape."
+            raise ValueError(msg.format("Producer"))
 
         super().__init__(data, chunksize, axis, **kwargs)
         self._shape = tuple(shape)
@@ -370,7 +368,7 @@ class GenProducer(Producer):
                 continue
 
         # else runs after normal loop exit -- required here
-        else: #pylint: disable=useless-else-on-loop
+        else:  # pylint: disable=useless-else-on-loop
 
             # yield whatever is left in tmp (its below chunksize)
             remaining = np.concatenate(tmp, axis=self.axis)
@@ -403,8 +401,8 @@ class MaskedProducer(Producer):
         """The cumulative shape of all arrays in this producer."""
 
         result = list(self.data.shape)
-        included  = np.count_nonzero(self.mask.to_array(dtype=bool))
-        #iteration stops when producer or mask runs out
+        included = np.count_nonzero(self.mask.to_array(dtype=bool))
+        # iteration stops when producer or mask runs out
         result[self.axis] = min(self.data.shape[self.axis], included)
 
         return tuple(result)
@@ -439,7 +437,7 @@ class MaskedProducer(Producer):
                 yield collector.get()
 
         # else runs after normal loop exit -- required here
-        else: #pylint: disable=useless-else-on-loop
+        else:  # pylint: disable=useless-else-on-loop
 
             if collector.qsize() > 0:
 

@@ -7,10 +7,11 @@ import numpy as np
 import psutil
 
 
-def assignable(shape: Tuple,
-               dtype: Optional[Type[float]] = float,
-               limit: Optional[int] = None,
-               msg=True,
+def assignable(
+    shape: Tuple,
+    dtype: Optional[Type[float]] = float,
+    limit: Optional[int] = None,
+    msg=True,
 ) -> bool:
     """Estimates if an object with shape number of items of dtypes is
     assignable to virtual memory.
@@ -34,16 +35,19 @@ def assignable(shape: Tuple,
     limit = psutil.virtual_memory().available if not limit else limit
     required = np.prod(shape) * np.dtype(dtype).itemsize
 
-    tolerance = int(50e6) # ensure required is at least 50MB below tolerance
+    tolerance = int(50e6)  # ensure required is at least 50MB below tolerance
     if required < limit - tolerance:
         return True
 
-    info = (f"{shape} type '{dtype.__name__}' requires"
-            f" {required / 1e9 :.2f} GB which exceeds the"
-            f" {(limit)/1e9:.1f} GB available")
+    info = (
+        f"{shape} type '{dtype.__name__}' requires"
+        f" {required / 1e9 :.2f} GB which exceeds the"
+        f" {(limit)/1e9:.1f} GB available"
+    )
     if msg:
         print(info)
     return False
+
 
 def allocate(jobs: int, requesting: Optional[int] = None) -> int:
     """Allocates requested number of physical cores to run jobs.
@@ -71,6 +75,7 @@ def allocate(jobs: int, requesting: Optional[int] = None) -> int:
 
     return min(jobs, requesting, available)
 
+
 def pickleable(obj: Any) -> bool:
     """Returns True if obj is pickleable and False otherwise.
 
@@ -85,7 +90,7 @@ def pickleable(obj: Any) -> bool:
     try:
         pickle.dumps(obj)
 
-    #pylint: disable-next=broad-except
+    # pylint: disable-next=broad-except
     except Exception:
         # for any error return False
         return False

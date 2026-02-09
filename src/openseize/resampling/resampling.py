@@ -40,7 +40,7 @@ A function that resamples an array or producer of arrays by
 a rational number L/M where L is the expansion factor and M is the
 decimation factor. This allows resampling of digital signals at
 non-integer frequency ratios.
-    
+
 Examples:
     >>> # Get demo data and build a reader then a producer
     >>> from openseize.demos import paths
@@ -65,15 +65,11 @@ import numpy as np
 import numpy.typing as npt
 
 from openseize.core.numerical import polyphase_resample
-from openseize.core.producer import producer
-from openseize.core.producer import Producer
+from openseize.core.producer import Producer, producer
 from openseize.filtering.fir import Kaiser
 
 
-def resampled_shape(pro: Producer,
-                    L: int,
-                    M: int,
-                    axis: int) -> Tuple[int,...]:
+def resampled_shape(pro: Producer, L: int, M: int, axis: int) -> Tuple[int, ...]:
     """Returns the resampled shape of a producer along axis.
 
     Args:
@@ -96,12 +92,13 @@ def resampled_shape(pro: Producer,
     return tuple(shape)
 
 
-def downsample(data: Union[Producer, npt.NDArray[np.float64]],
-               M: int,
-               fs: float,
-               chunksize: int,
-               axis: int = -1,
-               **kwargs,
+def downsample(
+    data: Union[Producer, npt.NDArray[np.float64]],
+    M: int,
+    fs: float,
+    chunksize: int,
+    axis: int = -1,
+    **kwargs,
 ) -> Union[Producer, npt.NDArray[np.float64]]:
     """Downsamples an array or producer of arrays using polyphase
     decomposition by an integer decimation factor.
@@ -139,7 +136,7 @@ def downsample(data: Union[Producer, npt.NDArray[np.float64]],
                 40 dB or 99%  amplitude attenuation.
 
     Returns:
-        An array or producer of arrays of downsampled data depending on 
+        An array or producer of arrays of downsampled data depending on
           input data parameters datatype.
 
     References:
@@ -148,29 +145,29 @@ def downsample(data: Union[Producer, npt.NDArray[np.float64]],
         2. Polyphase implementation: scipy.signal.resample_poly
     """
 
-   # no downsample requested
+    # no downsample requested
     if M == 1:
         return data
 
     pro = producer(data, chunksize, axis)
 
     # construct polyphase-resampling generating func & get resultant shape
-    genfunc = partial(polyphase_resample, pro, 1, M, fs, Kaiser, axis,
-                      **kwargs)
+    genfunc = partial(polyphase_resample, pro, 1, M, fs, Kaiser, axis, **kwargs)
     shape = resampled_shape(pro, L=1, M=M, axis=axis)
 
-    #build producer from generating function
+    # build producer from generating function
     result = producer(genfunc, chunksize, axis, shape=shape)
 
     return result.to_array() if isinstance(data, np.ndarray) else result
 
 
-def upsample(data: Union[Producer, npt.NDArray[np.float64]],
-             L: int,
-             fs: float,
-             chunksize: int,
-             axis: int = -1,
-             **kwargs,
+def upsample(
+    data: Union[Producer, npt.NDArray[np.float64]],
+    L: int,
+    fs: float,
+    chunksize: int,
+    axis: int = -1,
+    **kwargs,
 ) -> Union[Producer, npt.NDArray[np.float64]]:
     """Upsamples an array or producer of arrays using polyphase
     decomposition by an integer expansion factor.
@@ -208,7 +205,7 @@ def upsample(data: Union[Producer, npt.NDArray[np.float64]],
                 40 dB or 99%  amplitude attenuation.
 
     Returns:
-        An array or producer of arrays of upsampled data depending on the 
+        An array or producer of arrays of upsampled data depending on the
           input data parameters datatype.
 
     References:
@@ -224,23 +221,23 @@ def upsample(data: Union[Producer, npt.NDArray[np.float64]],
     pro = producer(data, chunksize, axis)
 
     # construct polyphase-resampling generating func & get resultant shape
-    genfunc = partial(polyphase_resample, pro, L, 1, fs, Kaiser, axis,
-                      **kwargs)
+    genfunc = partial(polyphase_resample, pro, L, 1, fs, Kaiser, axis, **kwargs)
     shape = resampled_shape(pro, L=L, M=1, axis=axis)
 
-    #build producer from generating function
+    # build producer from generating function
     result = producer(genfunc, chunksize, axis, shape=shape)
 
     return result.to_array() if isinstance(data, np.ndarray) else result
 
 
-def resample(data: Union[Producer, npt.NDArray[np.float64]],
-             L: int,
-             M: int,
-             fs: float,
-             chunksize: int,
-             axis: int = -1,
-             **kwargs,
+def resample(
+    data: Union[Producer, npt.NDArray[np.float64]],
+    L: int,
+    M: int,
+    fs: float,
+    chunksize: int,
+    axis: int = -1,
+    **kwargs,
 ) -> Union[Producer, npt.NDArray[np.float64]]:
     """Resamples an array or producer of arrays using polyphase
     decomposition by a rational factor L / M.
@@ -305,11 +302,10 @@ def resample(data: Union[Producer, npt.NDArray[np.float64]],
 
     pro = producer(data, chunksize, axis)
     # construct polyphase-resampling generating func & get resultant shape
-    genfunc = partial(polyphase_resample, pro, l, m, fs, Kaiser, axis,
-                      **kwargs)
+    genfunc = partial(polyphase_resample, pro, l, m, fs, Kaiser, axis, **kwargs)
     shape = resampled_shape(pro, L=L, M=M, axis=axis)
 
-    #build producer from generating function
+    # build producer from generating function
     result = producer(genfunc, chunksize, axis, shape=shape)
 
     return result.to_array() if isinstance(data, np.ndarray) else result

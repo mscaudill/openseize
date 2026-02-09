@@ -56,8 +56,8 @@ def squeeze(pro: Producer, axis: int | None = None) -> Producer:
         ax = arraytools.normalize_axis(axis, pro.ndim)
         if pro.shape[ax] != 1:
             msg = (
-                    'cannot select an axis to squeeze out which has size not'
-                    ' equal to one'
+                "cannot select an axis to squeeze out which has size not"
+                " equal to one"
             )
             raise ValueError(msg)
         reduced = [tup for tup in enumerated if tup[0] != ax]
@@ -91,10 +91,10 @@ def add(
 
     func = partial(_add, pro=pro, other=other)
     return producer(
-            func,
-            chunksize=pro.chunksize,
-            axis=pro.axis,
-            shape=pro.shape,
+        func,
+        chunksize=pro.chunksize,
+        axis=pro.axis,
+        shape=pro.shape,
     )
 
 
@@ -107,8 +107,8 @@ def _add(
     if isinstance(other, Producer):
         if pro.shape != other.shape:
             msg = (
-                    'producers can not be added together with shapes'
-                    f'{pro.shape} {other.shape}'
+                "producers can not be added together with shapes"
+                f"{pro.shape} {other.shape}"
             )
             raise ValueError(msg)
 
@@ -146,10 +146,10 @@ def multiply(
 
     func = partial(_multiply, pro=pro, other=other)
     return producer(
-            func,
-            chunksize=pro.chunksize,
-            axis=pro.axis,
-            shape=pro.shape,
+        func,
+        chunksize=pro.chunksize,
+        axis=pro.axis,
+        shape=pro.shape,
     )
 
 
@@ -162,8 +162,8 @@ def _multiply(
     if isinstance(other, Producer):
         if pro.shape != other.shape:
             msg = (
-                    'producers can not be multiplied with shapes'
-                    f'{pro.shape} {other.shape}'
+                "producers can not be multiplied with shapes"
+                f"{pro.shape} {other.shape}"
             )
             raise ValueError(msg)
 
@@ -337,7 +337,8 @@ def _expand_gen(pro, axes):
     for arr in pro:
         yield np.expand_dims(arr, axes)
 
-# FIXME this may no longer be needed since muliply can handle arrays too
+
+# FIXME this may no longer be needed since multiply can handle arrays too
 # but caution it is used in numerical currently 1/15/2026
 def multiply_along_axis(
     pro: Producer,
@@ -670,7 +671,7 @@ def _standardize_gen(
             yield (arr - mu) / dev
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     x = 2 * np.ones((3, 1000))
     y = 3 * np.ones((3, 1000))

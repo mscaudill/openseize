@@ -134,7 +134,7 @@ class Analytic(Transform):
         >>> analytic = Analytic(data, fs, chunksize=int(100e3), axis=-1, width=4)
         >>> open_envelope = analytic.amplitudes.to_array()
         >>> open_phase = analytic.phases.to_array()
-        >>> # Plot comparison betweeen scipy and openseize
+        >>> # Plot comparison between scipy and openseize
         >>> fig, (ax0, ax1) = plt.subplots(nrows=2, sharex='all', tight_layout=True)
         >>> _ = ax0.set_title("Amplitude-modulated Chirp Signal")
         >>> _ = ax0.set_ylabel("Amplitude")

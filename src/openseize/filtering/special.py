@@ -60,11 +60,11 @@ class Hilbert(Kaiser):
     """
 
     def __init__(
-            self,
-            width: float,
-            fs: int,
-            gpass: float = 0.01,
-            gstop: float = 60,
+        self,
+        width: float,
+        fs: int,
+        gpass: float = 0.01,
+        gstop: float = 60,
     ) -> None:
         """Initialize this Hilbert Transform Kaiser windowed FIR.
 
@@ -121,19 +121,19 @@ class Hilbert(Kaiser):
 
         order = self.numtaps - 1
         # create taps ensuring 0-tap is 1 to avoid ZeroDiv error
-        taps = np.linspace(-order/2, order/2, self.numtaps)
+        taps = np.linspace(-order / 2, order / 2, self.numtaps)
         taps[order // 2] = 1
         # compute impulse response over taps
         coeffs = (1 - np.cos(taps * np.pi)) / (taps * np.pi)
-        coeffs[order//2] = 0
+        coeffs[order // 2] = 0
         # window truncated impulse response
-        window = sps.get_window(('kaiser', *self.window_params), self.numtaps)
+        window = sps.get_window(("kaiser", *self.window_params), self.numtaps)
         result: npt.NDArray = coeffs * window
 
         return result
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     import time
     from pathlib import Path
@@ -141,10 +141,9 @@ if __name__ == '__main__':
     from openseize import producer
     from openseize.file_io.edf import Reader
 
-    base = '/media/matt/Magnus/Qi/EEG_annotation_03272024/'
-    name = 'No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf'
+    base = "/media/matt/Magnus/Qi/EEG_annotation_03272024/"
+    name = "No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf"
     path = Path(base) / Path(name)
-
 
     reader = Reader(path)
     pro = producer(reader, chunksize=10e6, axis=-1)
@@ -152,13 +151,15 @@ if __name__ == '__main__':
     hpro = hilbert(pro, chunksize=10e6, axis=-1)
     t0 = time.perf_counter()
     x = hpro.to_array()
-    print(f'Completed convolve with {hilbert.numtaps} tap filter in '
-          f'{time.perf_counter() - t0}')
+    print(
+        f"Completed convolve with {hilbert.numtaps} tap filter in "
+        f"{time.perf_counter() - t0}"
+    )
 
     arr = reader.read(0)
     t0 = time.perf_counter()
     sps.hilbert(arr, axis=-1)
-    print(f'Scipy FFT method in {time.perf_counter() - t0} secs')
+    print(f"Scipy FFT method in {time.perf_counter() - t0} secs")
     """
 
     import matplotlib.pyplot as plt

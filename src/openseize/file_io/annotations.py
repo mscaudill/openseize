@@ -30,14 +30,13 @@ Examples:
 import csv
 from datetime import datetime
 from pathlib import Path
-from typing import cast, Dict, IO, Iterable, Sequence, Tuple, Union
+from typing import IO, Dict, Iterable, Sequence, Tuple, Union, cast
 
 import numpy as np
 import numpy.typing as npt
 
 from openseize.core import arraytools
-from openseize.file_io.bases import Annotation
-from openseize.file_io.bases import Annotations
+from openseize.file_io.bases import Annotation, Annotations
 
 
 class Pinnacle(Annotations):
@@ -72,11 +71,8 @@ class Pinnacle(Annotations):
         >>> print(annotations[0].duration)
     """
 
-    def open(self,
-            path: Union[str, Path],
-            start: int = 0,
-            delimiter: str ='\t',
-            **kwargs
+    def open(
+        self, path: Union[str, Path], start: int = 0, delimiter: str = "\t", **kwargs
     ) -> Tuple[IO[str], Iterable[dict]]:
         """Opens a Pinnacle formatted CSV annotation file.
 
@@ -100,41 +96,42 @@ class Pinnacle(Annotations):
 
         # This method is called within context management (see base class)
         # pylint: disable-next=consider-using-with
-        fobj = open(Path(path), encoding='utf-8')
+        fobj = open(Path(path), encoding="utf-8")
         # advance to start row and return a reader
         # pylint: disable-next=expression-not-assigned
         [next(fobj) for _ in range(start)]
         return fobj, csv.DictReader(fobj, delimiter=delimiter, **kwargs)
 
-    def label(self, row:  Dict[str, str]) -> str:
+    def label(self, row: Dict[str, str]) -> str:
         """Extracts the annotation label for a row in this file."""
 
-        return row['Annotation']
+        return row["Annotation"]
 
     def time(self, row: Dict[str, str]) -> float:
         """Extracts the annotation time of a row of this file."""
 
-        return float(row['Time From Start'])
+        return float(row["Time From Start"])
 
     def duration(self, row: Dict[str, str]) -> float:
         """Measures the duration of an annotation for a row in this file."""
 
-        #compute time difference from start and stop datetime objs
-        fmt = '%m/%d/%y %H:%M:%S.%f'
-        start = datetime.strptime(row['Start Time'], fmt)
-        stop = datetime.strptime(row['End Time'], fmt)
+        # compute time difference from start and stop datetime objs
+        fmt = "%m/%d/%y %H:%M:%S.%f"
+        start = datetime.strptime(row["Start Time"], fmt)
+        stop = datetime.strptime(row["End Time"], fmt)
         return (stop - start).total_seconds()
 
     def channel(self, row: Dict[str, str]) -> Union[int, str]:
         """Extracts the annotation channel for a row in this file."""
 
-        return row['Channel']
+        return row["Channel"]
 
 
-def as_mask(annotations: Sequence[Annotation],
-            size: int,
-            fs: float,
-            include: bool = True,
+def as_mask(
+    annotations: Sequence[Annotation],
+    size: int,
+    fs: float,
+    include: bool = True,
 ) -> npt.NDArray[np.bool_]:
     """Creates a boolean mask from a sequence of annotation dataclass
     instances..
@@ -146,7 +143,7 @@ def as_mask(annotations: Sequence[Annotation],
 
     Args:
         annotations:
-            A sequence of annotation dataclass instances to convert to a 
+            A sequence of annotation dataclass instances to convert to a
             mask.
         size:
             The length of the boolean array to return.

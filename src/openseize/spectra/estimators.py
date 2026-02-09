@@ -56,14 +56,15 @@ from openseize.core.producer import Producer
 from openseize.core.resources import assignable
 
 
-def psd(data: Union[npt.NDArray[np.float64], Producer],
-        fs: float,
-        axis: int = -1,
-        resolution: float = 0.5,
-        window: str = 'hann',
-        overlap: float = 0.5,
-        detrend: str = 'constant',
-        scaling: str = 'density'
+def psd(
+    data: Union[npt.NDArray[np.float64], Producer],
+    fs: float,
+    axis: int = -1,
+    resolution: float = 0.5,
+    window: str = "hann",
+    overlap: float = 0.5,
+    detrend: str = "constant",
+    scaling: str = "density",
 ) -> Tuple[int, npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """A power spectrum (density) estimator using Welch's method.
 
@@ -143,8 +144,7 @@ def psd(data: Union[npt.NDArray[np.float64], Producer],
     nfft = int(fs / resolution)
 
     # build a producer of psd estimates, one per welch segment & store
-    freqs, psd_pro = nm.welch(pro, fs, nfft, window, overlap, axis, detrend,
-                              scaling)
+    freqs, psd_pro = nm.welch(pro, fs, nfft, window, overlap, axis, detrend, scaling)
 
     # compute the average PSD estimate
     result = 0
@@ -152,26 +152,24 @@ def psd(data: Union[npt.NDArray[np.float64], Producer],
         result = result + 1 / cnt * (arr - result)
 
     # pylint misses the cnt variable here
-    #pylint: disable-next=undefined-loop-variable
-    return cnt, freqs, result #type: ignore
+    # pylint: disable-next=undefined-loop-variable
+    return cnt, freqs, result  # type: ignore
 
 
 # pylint: disable-next=too-many-arguments,too-many-locals
-def stft(data: Union[npt.NDArray[np.float64], Producer],
-         fs: float,
-         axis: int = -1,
-         resolution: float = 0.5,
-         window: str = 'hann',
-         overlap: float = 0.5,
-         detrend: str = 'constant',
-         scaling: str = 'density',
-         boundary: bool = True,
-         padded: bool = True,
-         asarray: bool = True
-) -> Tuple[npt.NDArray[np.float64],
-           npt.NDArray[np.float64],
-           npt.NDArray[np.float64]
-           ]:
+def stft(
+    data: Union[npt.NDArray[np.float64], Producer],
+    fs: float,
+    axis: int = -1,
+    resolution: float = 0.5,
+    window: str = "hann",
+    overlap: float = 0.5,
+    detrend: str = "constant",
+    scaling: str = "density",
+    boundary: bool = True,
+    padded: bool = True,
+    asarray: bool = True,
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """A Short-Time Fourier Transform estimator.
 
     This estimator is useful for estimating changes in the frequency or
@@ -273,8 +271,9 @@ def stft(data: Union[npt.NDArray[np.float64], Producer],
     # convert requested resolution to DFT pts
     nfft = int(fs / resolution)
 
-    freqs, time, result = nm.stft(pro, fs, nfft, window, overlap, axis,
-                                    detrend, scaling, boundary, padded)
+    freqs, time, result = nm.stft(
+        pro, fs, nfft, window, overlap, axis, detrend, scaling, boundary, padded
+    )
 
     # attempt to return ndarray if requested
     if asarray:

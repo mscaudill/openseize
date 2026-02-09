@@ -1,28 +1,26 @@
 """Estimators of Cross-Frequency Coupling (CFC)."""
 
-from collections.abc import Sequence, Iterator
-from types import SimpleNamespace
-import time
 import multiprocessing as mp
-from itertools import zip_longest
+import time
+from collections.abc import Iterator, Sequence
 from functools import partial
+from itertools import zip_longest
+from types import SimpleNamespace
+
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from scipy import stats
 from scipy.stats import false_discovery_control as fdr
-import matplotlib.pyplot as plt
-
-from openseize.core.producer import Producer
-from openseize.filtering.bases import FIR
-from openseize.core import resources
-from openseize.core.mixins import ViewInstance
 
 from openseize import producer
-from openseize.core import protools
+from openseize.core import protools, resources
 from openseize.core.mixins import ViewInstance
-from openseize.filtering import fir
-from openseize.filtering.special import Hilbert
+from openseize.core.producer import Producer
 from openseize.coupling.transforms import Analytic
+from openseize.filtering import fir
+from openseize.filtering.bases import FIR
+from openseize.filtering.special import Hilbert
 
 
 class PhaseLock(ViewInstance):
@@ -34,7 +32,7 @@ class PhaseLock(ViewInstance):
     However, the current implementation drops phases from each time window
     near the edge of each produced chunk of filtered values. For large
     chunksizes the error is small. This estimator is an iterative
-    reimplemenation of the Canolty method (Refence 2).
+    reimplemenation of the Canolty method (Reference 2).
 
     Attributes:
         hilbert:
@@ -48,7 +46,7 @@ class PhaseLock(ViewInstance):
         rng:
             A numpy random number generator for Monte-Carlo surrogate estimates
             of the power for statistical significance determination. This rng
-            instance may be changed via the seed paramater during
+            instance may be changed via the seed parameter during
             initialization.
         indices:
             The indices of the phase of interest as computed by the index method
@@ -162,13 +160,13 @@ class PhaseLock(ViewInstance):
         filt = firfilt(fpass, fstop, self.fs, **kwargs)
         x = filt(pro, chunksize=self.chunksize, axis=axis)
         analytic = Analytic(
-                    x,
-                    self.fs,
-                    self.chunksize,
-                    axis,
-                    width=self.hilbert.width,
-                    gpass=self.hilbert.gpass,
-                    gstop=self.hilbert.gstop,
+            x,
+            self.fs,
+            self.chunksize,
+            axis,
+            width=self.hilbert.width,
+            gpass=self.hilbert.gpass,
+            gstop=self.hilbert.gstop,
         )
 
         # get indices whose angle is within epsi of phase
@@ -277,13 +275,13 @@ class PhaseLock(ViewInstance):
         x = filt(signal, chunksize=self.chunksize, axis=axis)
         z = protools.standardize(x, axis=axis)
         analytic = Analytic(
-                    z,
-                    self.fs,
-                    self.chunksize,
-                    axis,
-                    width=self.hilbert.width,
-                    gpass=self.hilbert.gpass,
-                    gstop=self.hilbert.gstop,
+            z,
+            self.fs,
+            self.chunksize,
+            axis,
+            width=self.hilbert.width,
+            gpass=self.hilbert.gpass,
+            gstop=self.hilbert.gstop,
         )
 
         if in_memory:
@@ -354,7 +352,7 @@ class PhaseLock(ViewInstance):
                faster but requires the entire 1-D signal be addressed to memory.
             ncores:
                 The number of processing cores to ulilize for concurrently
-                estimating the power across center frquencies. If None, all
+                estimating the power across center frequencies. If None, all
                 available cores will be utilized.
             verbose:
                 Boolean indicating if the progress of the estimation should be
@@ -372,7 +370,7 @@ class PhaseLock(ViewInstance):
 
         pro = producer(signal, chunksize=self.chunksize, axis=axis)
         if pro.ndim > 1:
-            msg = "Signal must be 1-D array or Prodcuer of 1-D arrays."
+            msg = "Signal must be 1-D array or Producer of 1-D arrays."
             raise ValueError(msg)
 
         # allocate upto available cores and partial accepting on center freq.
@@ -428,7 +426,7 @@ class PhaseLock(ViewInstance):
         powers,
         pvalues,
         window,
-        alpha = 0.002,
+        alpha=0.002,
         mpl_ax=None,
         center=True,
         **kwargs,
@@ -466,27 +464,28 @@ class PhaseLock(ViewInstance):
         time = np.linspace(-(winsize) // 2, (winsize) // 2, winsize)
         _, ax = plt.subplots() if not mpl_ax else mpl_ax
         z = powers - np.mean(powers, -1, keepdims=True) if center else powers
-        cmap = kwargs.pop('cmap', 'jet')
+        cmap = kwargs.pop("cmap", "jet")
         mesh = ax.pcolormesh(time, centers, z, cmap=cmap, **kwargs)
         colorbar = plt.colorbar(mesh)
 
         z = pvalues < alpha / 2
-        ax.contour(time, centers, z, colors='white')
+        ax.contour(time, centers, z, colors="white")
 
         plt.show()
 
 
 if __name__ == "__main__":
 
-    from openseize.file_io.edf import Reader
-    from openseize.resampling.resampling import downsample
     import time
     from pathlib import Path
 
+    from openseize.file_io.edf import Reader
+    from openseize.resampling.resampling import downsample
+
     base = "/media/matt/Magnus/data/rett_eeg/eegs/"
     condition = "rtt_sham"
-    #name = "No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf"
-    name = 'No_6492_right_2022-02-08_11_06_46_annotations.edf'
+    # name = "No_6489_right_2022-02-09_14_58_21_(2)_annotations.edf"
+    name = "No_6492_right_2022-02-08_11_06_46_annotations.edf"
     path = Path(base) / Path(condition) / Path(name)
     csize = int(10e6)
     axis = -1
@@ -500,15 +499,13 @@ if __name__ == "__main__":
     dxpro = downsample(xpro, M=10, fs=5000, chunksize=csize)
     dxpro = protools.squeeze(dxpro)
 
-
     y = Reader(path)
     y.channels = [2]
     ypro = producer(y, chunksize=csize, axis=axis)
     dypro = downsample(ypro, M=10, fs=5000, chunksize=csize)
     dypro = protools.squeeze(dypro)
 
-    estimator = PhaseLock(Hilbert(width=4, fs=down_fs), chunksize=csize,
-            seed=SEED)
+    estimator = PhaseLock(Hilbert(width=4, fs=down_fs), chunksize=csize, seed=SEED)
 
     t0 = time.perf_counter()
     estimator.index(dxpro, fpass=[4, 12], fstop=[2, 14], phase=0, epsi=0.05)
@@ -520,7 +517,6 @@ if __name__ == "__main__":
             winsize=1000, surrogates=None, in_memory=True, axis=axis)
     print(f'Powers in {time.perf_counter() - t0} s')
     """
-
 
     powers, pvalues = estimator.estimate(dypro, centers=CENTERS)
     estimator.plot(CENTERS, powers, pvalues, window=2)

@@ -100,7 +100,7 @@ single subject EDFs. The original 'joined' EDF is left unmodified.
 
 import copy
 from pathlib import Path
-from typing import cast, Dict, Generator, List, Optional, Sequence, Tuple, Union
+from typing import Dict, Generator, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -142,26 +142,28 @@ class Header(bases.Header):
         if num_signals is None:
             num_signals = self.count_signals()
 
-        return {'version': ([8], str),
-                'patient': ([80], str),
-                'recording': ([80], str),
-                'start_date': ([8], str),
-                'start_time': ([8], str),
-                'header_bytes': ([8], int),
-                'reserved_0': ([44], str),
-                'num_records': ([8], int),
-                'record_duration': ([8], float),
-                'num_signals': ([4], int),
-                'names': ([16] * num_signals, str),
-                'transducers': ([80] * num_signals, str),
-                'physical_dim': ([8] * num_signals, str),
-                'physical_min': ([8] * num_signals, float),
-                'physical_max': ([8] * num_signals, float),
-                'digital_min': ([8] * num_signals, float),
-                'digital_max': ([8] * num_signals, float),
-                'prefiltering': ([80] * num_signals, str),
-                'samples_per_record': ([8] * num_signals, int),
-                'reserved_1': ([32] * num_signals, str)}
+        return {
+            "version": ([8], str),
+            "patient": ([80], str),
+            "recording": ([80], str),
+            "start_date": ([8], str),
+            "start_time": ([8], str),
+            "header_bytes": ([8], int),
+            "reserved_0": ([44], str),
+            "num_records": ([8], int),
+            "record_duration": ([8], float),
+            "num_signals": ([4], int),
+            "names": ([16] * num_signals, str),
+            "transducers": ([80] * num_signals, str),
+            "physical_dim": ([8] * num_signals, str),
+            "physical_min": ([8] * num_signals, float),
+            "physical_max": ([8] * num_signals, float),
+            "digital_min": ([8] * num_signals, float),
+            "digital_max": ([8] * num_signals, float),
+            "prefiltering": ([80] * num_signals, str),
+            "samples_per_record": ([8] * num_signals, int),
+            "reserved_1": ([32] * num_signals, str),
+        }
 
     def count_signals(self) -> int:
         """Returns the signal count in the EDF's header.
@@ -173,12 +175,12 @@ class Header(bases.Header):
             # if this Header was built from a dict, path is None
             return int(self.num_signals)
 
-        with open(self.path, 'rb') as fp:
-            fp.seek(252) # edf specifies num signals at 252nd byte
+        with open(self.path, "rb") as fp:
+            fp.seek(252)  # edf specifies num signals at 252nd byte
             return int(fp.read(4).strip().decode())
 
     @classmethod
-    def from_dict(cls, dic: Dict) -> 'Header':
+    def from_dict(cls, dic: Dict) -> "Header":
         """Alternative constructor for creating a Header from a bytemap.
 
         Args:
@@ -192,14 +194,14 @@ class Header(bases.Header):
         if set(dic) == set(instance.bytemap(1)):
             return instance
 
-        msg='Missing keys required to create a header of type {}.'
+        msg = "Missing keys required to create a header of type {}."
         raise ValueError(msg.format(cls.__name__))
 
     @property
     def annotated(self) -> bool:
         """Returns True if the EDF header contains annotations."""
 
-        return 'EDF Annotations' in self.names
+        return "EDF Annotations" in self.names
 
     @property
     def annotation(self) -> Optional[int]:
@@ -208,7 +210,7 @@ class Header(bases.Header):
 
         result = None
         if self.annotated:
-            result = self.names.index('EDF Annotations')
+            result = self.names.index("EDF Annotations")
         return result
 
     @property
@@ -286,7 +288,7 @@ class Header(bases.Header):
         dmins = np.array(self.digital_min)[self.channels]
         return pmins - self.slopes * dmins
 
-    def filter(self, indices: Sequence[int]) -> 'Header':
+    def filter(self, indices: Sequence[int]) -> "Header":
         """Returns a new Header instance that contains only the metadata for
         each signal index in indices.
 
@@ -306,8 +308,8 @@ class Header(bases.Header):
         # update header_bytes and num_signals
         bytemap = self.bytemap(len(indices))
         nbytes = sum(sum(tup[0]) for tup in bytemap.values())
-        header['header_bytes'] = nbytes
-        header['num_signals'] = len(indices)
+        header["header_bytes"] = nbytes
+        header["num_signals"] = len(indices)
 
         return header
 
@@ -344,7 +346,7 @@ class Reader(bases.Reader):
     def __init__(self, path: Union[str, Path]) -> None:
         """Extends the Reader ABC with a header attribute."""
 
-        super().__init__(path, mode='rb')
+        super().__init__(path, mode="rb")
         self.header = Header(path)
         self._channels = self.header.channels
 
@@ -365,7 +367,7 @@ class Reader(bases.Reader):
         """
 
         if not isinstance(values, Sequence):
-            msg = 'Channels must be type Sequence not {}'
+            msg = "Channels must be type Sequence not {}"
             raise ValueError(msg.format(type(values)))
 
         self._channels = values
@@ -377,10 +379,11 @@ class Reader(bases.Reader):
 
         return len(self.channels), max(self.header.samples)
 
-    def _decipher(self,
-                  arr: npt.NDArray,
-                  channels: Sequence[int],
-                  axis: int = -1,
+    def _decipher(
+        self,
+        arr: npt.NDArray,
+        channels: Sequence[int],
+        axis: int = -1,
     ):
         """Converts decoded data record integers to float voltages.
 
@@ -408,17 +411,18 @@ class Reader(bases.Reader):
 
         slopes = np.array(self.header.slopes[channels])
         offsets = np.array(self.header.offsets[channels])
-        #expand to 2-D for broadcasting
+        # expand to 2-D for broadcasting
         slopes = np.expand_dims(slopes, axis=axis)
         offsets = np.expand_dims(offsets, axis=axis)
         result = arr * slopes
         result += offsets
         return cast(np.ndarray, result)
 
-    def _find_records(self,
-                      start: int,
-                      stop: int,
-                      channels: Sequence[int],
+    def _find_records(
+        self,
+        start: int,
+        stop: int,
+        channels: Sequence[int],
     ) -> Sequence[Tuple[int, int]]:
         """Returns the first and last record indices that include start to
         stop samples for each channel in channels.
@@ -442,7 +446,7 @@ class Reader(bases.Reader):
 
         spr = np.array(self.header.samples_per_record)[channels]
         starts = start // spr
-        stops = np.ceil(stop / spr).astype('int')
+        stops = np.ceil(stop / spr).astype("int")
         return list(zip(starts, stops))
 
     def _records(self, a: int, b: int):
@@ -463,26 +467,22 @@ class Reader(bases.Reader):
         """
 
         if a >= self.header.num_records:
-            return np.empty((1,0))
+            return np.empty((1, 0))
         b = min(b, self.header.num_records)
         cnt = b - a
 
         self._fobj.seek(0)
-        #EDF samples are 2-byte little endian integers
+        # EDF samples are 2-byte little endian integers
         bytes_per_record = sum(self.header.samples_per_record) * 2
-        #get offset in bytes & num samples spanning a to b
+        # get offset in bytes & num samples spanning a to b
         offset = self.header.header_bytes + a * bytes_per_record
         nsamples = cnt * sum(self.header.samples_per_record)
-        #read records and reshape to num_records x sum(samples_per_record)
-        recs = np.fromfile(self._fobj, '<i2', nsamples, offset=offset)
+        # read records and reshape to num_records x sum(samples_per_record)
+        recs = np.fromfile(self._fobj, "<i2", nsamples, offset=offset)
         arr = recs.reshape(cnt, sum(self.header.samples_per_record))
         return arr
 
-    def _padstack(self,
-                  arrs: Sequence[npt.NDArray],
-                  value: float,
-                  axis: int = 0
-    ):
+    def _padstack(self, arrs: Sequence[npt.NDArray], value: float, axis: int = 0):
         """Returns a 2-D array from a ragged sequence of 1-D arrays.
 
         Args:
@@ -503,15 +503,18 @@ class Reader(bases.Reader):
         if all(pad_sizes == 0):
             return np.stack(arrs, axis=0)
 
-        x = [np.pad(arr.astype(float), (0, pad), constant_values=value)
-                for arr, pad in zip(arrs, pad_sizes)]
+        x = [
+            np.pad(arr.astype(float), (0, pad), constant_values=value)
+            for arr, pad in zip(arrs, pad_sizes)
+        ]
         return np.stack(x, axis=axis)
 
-    def _read_array(self,
-                    start: int,
-                    stop: int,
-                    channels: Sequence[int],
-                    padvalue: float,
+    def _read_array(
+        self,
+        start: int,
+        stop: int,
+        channels: Sequence[int],
+        padvalue: float,
     ):
         """Reads samples between start & stop indices for each channel index
         in channels.
@@ -537,14 +540,14 @@ class Reader(bases.Reader):
         uniq_tuples = set(rec_tuples)
         reads = {tup: self._records(*tup) for tup in uniq_tuples}
 
-        result=[]
+        result = []
         for ch, rec_tup in zip(channels, rec_tuples):
 
-            #get preread array and extract samples for this ch
+            # get preread array and extract samples for this ch
             arr = reads[rec_tup]
             arr = arr[:, self.header.record_map[ch]].flatten()
 
-            #adjust start & stop relative to records start pt
+            # adjust start & stop relative to records start pt
             a = start - rec_tup[0] * self.header.samples_per_record[ch]
             b = a + (stop - start)
             result.append(arr[a:b])
@@ -552,10 +555,8 @@ class Reader(bases.Reader):
         res = self._padstack(result, padvalue)
         return self._decipher(res, channels)
 
-    def read(self,
-             start: int,
-             stop: Optional[int] = None,
-             padvalue: float = np.nan
+    def read(
+        self, start: int, stop: Optional[int] = None, padvalue: float = np.nan
     ) -> npt.NDArray[np.float64]:
         """Reads samples from this EDF from this Reader's channels.
 
@@ -578,7 +579,7 @@ class Reader(bases.Reader):
 
         if not stop:
             stop = max(self.header.samples)
-        
+
         start, stop = int(start), int(stop)
         arr = self._read_array(start, stop, self.channels, padvalue)
         # use cast to indicate ndarray type for docs
@@ -613,7 +614,7 @@ class Writer(bases.Writer):
     def __init__(self, path: Union[str, Path]) -> None:
         """Initialize this Writer. See base class for further details."""
 
-        super().__init__(path, mode='wb')
+        super().__init__(path, mode="wb")
 
     def _write_header(self, header: Header) -> None:
         """Writes a dict of EDF header metadata to this Writer's opened
@@ -636,12 +637,11 @@ class Writer(bases.Writer):
             items = [items] if not isinstance(items, list) else items
 
             for item, nbyte in zip(items, nbytes):
-                bytestr = bytes(str(item), encoding='ascii').ljust(nbyte)
+                bytestr = bytes(str(item), encoding="ascii").ljust(nbyte)
                 self._fobj.write(bytestr)
 
-    def _records(self,
-                 data: Union[npt.NDArray, Reader],
-                 channels: Sequence[int]
+    def _records(
+        self, data: Union[npt.NDArray, Reader], channels: Sequence[int]
     ) -> Generator[List[npt.NDArray], None, None]:
         """Yields 1-D arrays, one per channel, to write to a data record.
 
@@ -662,13 +662,13 @@ class Writer(bases.Writer):
             # The number of samples per record is channel dependent if
             # sample rates are not equal across channels.
             starts = n * np.array(self.header.samples_per_record)
-            stops = (n+1) * np.array(self.header.samples_per_record)
+            stops = (n + 1) * np.array(self.header.samples_per_record)
 
             for channel, start, stop in zip(channels, starts, stops):
                 if isinstance(data, np.ndarray):
                     x = np.atleast_2d(data[channel][start:stop])
                     result.append(x)
-                    #result.append(data[channel][start:stop])
+                    # result.append(data[channel][start:stop])
                 else:
                     data.channels = [channel]
                     result.append(data.read(start, stop))
@@ -692,11 +692,14 @@ class Writer(bases.Writer):
         results = []
         for ch, x in enumerate(arrs):
             arr = np.rint((x - offsets[ch]) / slopes[ch])
-            arr = arr.astype('<i2')
+            arr = arr.astype("<i2")
             results.append(arr)
         return results
 
-    def _validate(self, header: Header, data: Union[npt.NDArray, Reader],
+    def _validate(
+        self,
+        header: Header,
+        data: Union[npt.NDArray, Reader],
     ) -> None:
         """Ensures the number of samples is divisible by the number of
         records.
@@ -716,26 +719,29 @@ class Writer(bases.Writer):
         """
 
         if data.shape[1] % header.num_records != 0:
-            msg=('Number of data samples must be divisible by '
-                 'the number of records; {} % {} != 0')
+            msg = (
+                "Number of data samples must be divisible by "
+                "the number of records; {} % {} != 0"
+            )
             msg.format(data.shape[1], header.num_records)
             raise ValueError(msg)
 
     def _progress(self, record_idx: int) -> None:
         """Relays write progress during file writing."""
 
-        msg = 'Writing data: {:.1f}% complete'
+        msg = "Writing data: {:.1f}% complete"
         perc = record_idx / self.header.num_records * 100
-        print(msg.format(perc), end='\r', flush=True)
+        print(msg.format(perc), end="\r", flush=True)
 
     # override of general abstract method requires setting specific args
     # pylint: disable-next=arguments-differ
-    def write(self,
-              header: Header,
-              data: Union[npt.NDArray, Reader],
-              channels: Sequence[int],
-              verbose: bool = True,
-              ) -> None:
+    def write(
+        self,
+        header: Header,
+        data: Union[npt.NDArray, Reader],
+        channels: Sequence[int],
+        verbose: bool = True,
+    ) -> None:
         """Write header metadata and data for channel in channels to this
         Writer's file instance.
 
@@ -759,21 +765,22 @@ class Writer(bases.Writer):
         header = header.filter(channels)
         self._validate(header, data)
 
-        self._write_header(header) #and store header to instance
+        self._write_header(header)  # and store header to instance
         self._fobj.seek(header.header_bytes)
         for idx, record in enumerate(self._records(data, channels)):
-            samples = self._encipher(record) # floats to '<i2'
+            samples = self._encipher(record)  # floats to '<i2'
             samples = np.concatenate(samples, axis=1)
-            #concatenate data bytes to str and write
+            # concatenate data bytes to str and write
             byte_str = samples.tobytes()
             self._fobj.write(byte_str)
             if verbose:
                 self._progress(idx)
 
 
-def splitter(path: Path,
-             mapping: Dict,
-             outdir: Optional[Union[str, Path]] = None,
+def splitter(
+    path: Path,
+    mapping: Dict,
+    outdir: Optional[Union[str, Path]] = None,
 ) -> None:
     """Creates separate EDFs from a multichannel EDF.
 
@@ -795,7 +802,7 @@ def splitter(path: Path,
     reader = Reader(path)
     outdir = Path(outdir) if outdir else reader.path.parent
     for fname, indices in mapping.items():
-        target = outdir.joinpath(Path(fname).with_suffix('.edf'))
+        target = outdir.joinpath(Path(fname).with_suffix(".edf"))
         with Writer(target) as outfile:
             outfile.write(reader.header, reader, indices)
     reader.close()
