@@ -188,7 +188,7 @@ $ pip install -e .[dev]
 
 # Dependencies
 
-Openseize requires <b>Python <span>&#8805;</span> 3.8</b> and has the
+Openseize requires <b>Python <span>&#8805;</span> 3.12</b> and has the
 following dependencies:
 
 <table>
