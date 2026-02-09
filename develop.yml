@@ -11,7 +11,6 @@ dependencies:
     - psutil
     # testing
     - pytest
-    - pytest-cov
     # Linting & format
     - isort
     - mypy

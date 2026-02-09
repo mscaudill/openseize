@@ -42,7 +42,6 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "pytest-cov",
     "isort",
     "codespell",
     "black",
@@ -59,7 +58,7 @@ dev = [
 ]
 linting = ["codespell", "isort", "pylint", "black"]
 typing = ["mypy"]
-test = ["pytest", "pytest-cov"]
+test = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/mscaudill/openseize"
