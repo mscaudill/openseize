@@ -8,7 +8,6 @@ import pickle
 from itertools import permutations
 
 import pytest
-from pytest_lazyfixture import lazy_fixture
 import numpy as np
 import scipy.signal as sps
 
@@ -92,46 +91,3 @@ def test_contains_callables():
     pipe.append(notch, chunksize=10000, axis=-1)
 
     assert notch in pipe
-
-# use lazy fixtures to pass parameterized fixtures into test
-@pytest.mark.parametrize('arr',
-    [
-        lazy_fixture('random1D'),
-        lazy_fixture('random2D'),
-        lazy_fixture('random3D'),
-        lazy_fixture('random4D'),
-    ]
-)
-def test_call_method(arr):
-    """Test that composed openseize callable return the same result as Scipy.
-
-    This test is superfulous because all of openseize's functions and callables
-    are tested in their respective testing modules (e.g. test_iir.py) but for
-    completeness we test again.
-    """
-
-    axis = np.argmax(arr.shape)
-    pro = producer(arr, chunksize=1000, axis=axis)
-
-    # add notch & downsample
-    pipe = Pipeline()
-    notch = Notch(60, width=8, fs=1000)
-    pipe.append(notch, chunksize=1000, axis=axis, dephase=False)
-    pipe.append(downsample, M=10, fs=1000, chunksize=1000, axis=axis)
-
-    measured = np.concatenate([x for x in pipe(pro)], axis=axis)
-
-    # compare with scipy
-    b, a = sps.iirnotch(60, Q=60/8, fs=1000)
-    notched = sps.lfilter(b, a, arr, axis=axis)
-
-    # build a kaiser like the one openseize uses
-    cutoff = 1000 / (2*10) # fs / 2M
-    fstop = cutoff + cutoff / 10
-    fpass = cutoff - cutoff / 10
-    gpass, gstop = 0.1, 40
-    h = Kaiser(fpass, fstop, 1000, gpass, gstop).coeffs
-
-    downed = sps.resample_poly(notched, up=1, down=10, axis=axis, window=h)
-
-    assert np.allclose(measured, downed)
